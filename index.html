@@ -254,6 +254,12 @@
       <p id="planning-pull-summary" class="text-[11px] text-slate-500 mt-0.5">Load a report and select a pull to see player abilities.</p>
     </div>
     <div class="flex flex-wrap items-center gap-2">
+      <label for="planning-encounter-id" class="text-[11px] text-slate-400">Encounter ID</label>
+      <div class="flex items-center gap-1.5">
+        <input id="planning-encounter-id" type="number" min="1" step="1" list="planning-encounter-options" placeholder="e.g. 1234" aria-label="Encounter ID" onkeydown="if (event.key === 'Enter') loadPlanningEncounter()" class="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-200 w-28">
+        <datalist id="planning-encounter-options"></datalist>
+        <button onclick="loadPlanningEncounter()" class="text-xs bg-ffpurple-600 hover:bg-ffpurple-500 text-white px-2.5 py-1.5 rounded"><i class="fa-solid fa-arrow-right-to-bracket"></i> Load</button>
+      </div>
       <label for="planning-fight-select" class="text-[11px] text-slate-400">Pull</label>
       <select id="planning-fight-select" class="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-200 min-w-40" onchange="if (this.value) selectPull(Number(this.value))">
         <option value="">No report loaded</option>
@@ -312,7 +318,7 @@
 
       <div class="border-t border-slate-800 pt-3 mt-1">
         <h3 class="font-bold text-sm flex items-center gap-2 mb-1.5"><i class="fa-solid fa-share-nodes text-ffcyan-400"></i> Shared setup for everyone</h3>
-        <p class="text-slate-400 leading-relaxed">Settings live in each browser, so a private window starts blank. Once your setup looks right, download the file below and upload it to your GitHub repo next to <span class="mono-font text-slate-300">index.html</span>. Anyone opening the site gets your Client ID, tracked abilities, mechanic categories, POVs and notes automatically. Re-download and re-upload whenever you change things.</p>
+        <p class="text-slate-400 leading-relaxed">Settings live in each browser, so a private window starts blank. Once your setup looks right, download the file below and upload it to your GitHub repo next to <span class="mono-font text-slate-300">index.html</span>. Anyone opening the site gets your Client ID, tracked abilities, observed encounter mechanics, POVs and notes automatically. Encounter mechanics merge with existing local data instead of replacing it. Re-download and re-upload whenever you change things.</p>
         <label class="flex items-center gap-1.5 mt-2 text-slate-400 cursor-pointer select-none"><input type="checkbox" id="share-include-youtube" checked> Include YouTube API key <span class="text-slate-600">(public in a public repo — restrict it to your site's URL in Google Cloud)</span></label>
         <label class="flex items-center gap-1.5 mt-1 text-slate-400 cursor-pointer select-none"><input type="checkbox" id="share-include-reports" checked> Include POVs &amp; notes for every log</label>
         <div class="flex justify-end mt-2"><button onclick="exportSharedSetup()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-file-arrow-down"></i> Download vod-review-config.json</button></div>
@@ -446,6 +452,7 @@ let mechanicRecastIgnoreSeconds = {};
 
 let activeFightId = null;
 let activePovId = null;
+let activePlanningEncounterId = '';
 let currentFilter = 'all';
 let wipeThreshold = 20;
 let selectedPhaseFilter = '';
@@ -526,6 +533,7 @@ function initPanelResizer() {
    SHARED SETUP (config file next to index.html)
    ========================================================================= */
 const SHARED_CONFIG_URL = 'vod-review-config.json';
+const ENCOUNTER_MECHANICS_KEY = 'fflogs_vod_encounter_mechanics';
 const CONFIG_EXCLUDE = new Set(['fflogs_vod_auth', 'fflogs_vod_config_applied', 'fflogs_vod_bottom_panel_h']);
 
 async function applySharedConfig() {
@@ -540,6 +548,11 @@ async function applySharedConfig() {
     Object.entries(cfg.storage).forEach(([key, value]) => {
       if (!key.startsWith('fflogs_vod_') || CONFIG_EXCLUDE.has(key)) return;
       if (!stamp && localStorage.getItem(key) !== null) return; // no version stamp: only fill gaps
+      if (key === ENCOUNTER_MECHANICS_KEY) {
+        let local = {};
+        try { local = JSON.parse(localStorage.getItem(key)) || {}; } catch (e) {}
+        value = mergeEncounterMechanicDatasets(local, value);
+      }
       if (key === 'fflogs_vod_settings') {
         let local = {};
         try { local = JSON.parse(localStorage.getItem(key)) || {}; } catch (e) {}
@@ -549,6 +562,79 @@ async function applySharedConfig() {
     });
     if (stamp) localStorage.setItem('fflogs_vod_config_applied', stamp);
   } catch (e) { /* no shared config published - that's fine */ }
+}
+
+function mergeEncounterMechanicDatasets(existing, incoming) {
+  const merged = existing && typeof existing === 'object' && !Array.isArray(existing) ? JSON.parse(JSON.stringify(existing)) : {};
+  if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) return merged;
+  Object.entries(incoming).forEach(([id, incomingEncounter]) => {
+    if (!/^\d+$/.test(id) || !incomingEncounter || typeof incomingEncounter !== 'object') return;
+    const encounter = merged[id] && typeof merged[id] === 'object' ? merged[id] : {
+      encounterID: Number(id),
+      name: '',
+      durationSeconds: 0,
+      mechanics: []
+    };
+    if (!encounter.encounterID) encounter.encounterID = Number(id);
+    if (!encounter.name && incomingEncounter.name) encounter.name = incomingEncounter.name;
+    encounter.durationSeconds = Math.max(Number(encounter.durationSeconds) || 0, Number(incomingEncounter.durationSeconds) || 0);
+    if (!Array.isArray(encounter.mechanics)) encounter.mechanics = [];
+    (Array.isArray(incomingEncounter.mechanics) ? incomingEncounter.mechanics : []).forEach(incomingMechanic => {
+      if (!incomingMechanic || typeof incomingMechanic !== 'object') return;
+      const abilityId = Number(incomingMechanic.abilityId) || 0;
+      const normalizedName = String(incomingMechanic.name || '').trim();
+      if (!abilityId && !normalizedName) return;
+      const mechanic = encounter.mechanics.find(item => abilityId && Number(item.abilityId) === abilityId ||
+        !abilityId && String(item.name || '').toLocaleLowerCase() === normalizedName.toLocaleLowerCase());
+      const target = mechanic || { abilityId, name: normalizedName, names: [], castOffsets: [] };
+      if (mechanic && !target.name && normalizedName) target.name = normalizedName;
+      if (!Array.isArray(target.names)) target.names = target.name ? [target.name] : [];
+      if (normalizedName && !target.names.some(name => String(name).toLocaleLowerCase() === normalizedName.toLocaleLowerCase())) target.names.push(normalizedName);
+      if (!Array.isArray(target.castOffsets)) target.castOffsets = [];
+      (Array.isArray(incomingMechanic.castOffsets) ? incomingMechanic.castOffsets : []).forEach(offset => {
+        const seconds = Math.max(0, Math.round(Number(offset)));
+        if (Number.isFinite(seconds) && !target.castOffsets.includes(seconds)) target.castOffsets.push(seconds);
+      });
+      target.castOffsets.sort((a, b) => a - b);
+      if (!mechanic) encounter.mechanics.push(target);
+    });
+    encounter.mechanics.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    merged[id] = encounter;
+  });
+  return merged;
+}
+
+function loadEncounterMechanicsDataset() {
+  try { return JSON.parse(localStorage.getItem(ENCOUNTER_MECHANICS_KEY)) || {}; } catch (e) { return {}; }
+}
+
+function saveObservedEncounterMechanics(fight, enemyCasts) {
+  if (!fight || !fight.encounterID) return false;
+  const incoming = {
+    [String(fight.encounterID)]: {
+      encounterID: Number(fight.encounterID),
+      name: fight.name || '',
+      durationSeconds: Math.max(0, Math.ceil((fight.endTime - fight.startTime) / 1000)),
+      mechanics: []
+    }
+  };
+  const byAbility = new Map();
+  (enemyCasts || []).filter(event => String(event.type).toLowerCase() === 'cast').forEach(event => {
+    const abilityId = eventAbilityId(event);
+    const name = eventAbilityName(event);
+    const key = abilityId ? `id:${abilityId}` : `name:${name.toLocaleLowerCase()}`;
+    if (!byAbility.has(key)) byAbility.set(key, { abilityId, name, castOffsets: [] });
+    const offset = Math.max(0, Math.round((event.timestamp - fight.startTime) / 1000));
+    const offsets = byAbility.get(key).castOffsets;
+    if (!offsets.includes(offset)) offsets.push(offset);
+  });
+  incoming[String(fight.encounterID)].mechanics = [...byAbility.values()];
+  const current = loadEncounterMechanicsDataset();
+  const merged = mergeEncounterMechanicDatasets(current, incoming);
+  if (JSON.stringify(current) === JSON.stringify(merged)) return false;
+  localStorage.setItem(ENCOUNTER_MECHANICS_KEY, JSON.stringify(merged));
+  renderPlanningControls();
+  return true;
 }
 
 function exportSharedSetup() {
@@ -1362,6 +1448,9 @@ function selectPull(fightId) {
   renderPullList();
   const fight = getActiveFight();
   if (!fight) return;
+  activePlanningEncounterId = String(fight.encounterID || '');
+  const encounterInput = document.getElementById('planning-encounter-id');
+  if (encounterInput) encounterInput.value = activePlanningEncounterId;
   const planningSummary = document.getElementById('planning-pull-summary');
   if (planningSummary) planningSummary.textContent = `${fight.name} · ${fight.kill ? 'Kill' : 'Wipe'} · ${formatSecondsToMMSS(Math.round((fight.endTime - fight.startTime) / 1000))}`;
   document.getElementById('timeline-pull-title').textContent =
@@ -1533,7 +1622,12 @@ async function loadTimelineEventsForFight(fightId) {
       casts: castEvents,
       enemyCasts: enemyCastEvents
     };
+    const fight = report.fights.find(item => item.id === fightId);
+    const datasetChanged = saveObservedEncounterMechanics(fight, enemyCastEvents);
     renderAbilityNameSuggestions([...buffEvents, ...castEvents]);
+    if (datasetChanged && String(fightId) === String(activeFightId) && !document.getElementById('planning-workspace').classList.contains('hidden')) {
+      renderTimeline();
+    }
   } catch (e) {
     console.error(e);
     timelineEventsCache[fightId] = { buffs: [], casts: [] };
@@ -1909,11 +2003,136 @@ function renderTimeline() {
   const planningMode = !document.getElementById('planning-workspace').classList.contains('hidden');
   const target = planningMode ? planningVisualization : visualization;
   target.innerHTML = '';
-  if (!fight) {
-    target.innerHTML = `<div class="text-xs text-slate-500 italic p-5">${planningMode ? 'Load a report and select a pull to build an ability plan.' : 'Load a report and select a pull to review its timeline.'}</div>`;
+  if (planningMode) {
+    const encounter = loadEncounterMechanicsDataset()[String(activePlanningEncounterId)];
+    if (!encounter) {
+      const enteredId = activePlanningEncounterId || (fight && String(fight.encounterID)) || '';
+      document.getElementById('planning-pull-summary').textContent = enteredId ? `Encounter ID ${enteredId} · no curated data saved yet` : 'Enter a saved encounter ID, or load its report pull first.';
+      target.innerHTML = `<div class="text-xs text-slate-500 italic p-5">${enteredId ? `No saved mechanics for encounter ${escapeHTML(enteredId)} yet. Load a report pull for this encounter to add observations.` : 'Enter an encounter ID that has been observed in a loaded report.'}</div>`;
+      return;
+    }
+    renderCuratedPlanningTimeline(encounter, target);
     return;
   }
-  renderCombatTimeline(fight, target, planningMode);
+  if (!fight) {
+    target.innerHTML = '<div class="text-xs text-slate-500 italic p-5">Load a report and select a pull to review its timeline.</div>';
+    return;
+  }
+  renderCombatTimeline(fight, target);
+}
+
+function loadPlanningEncounter() {
+  const input = document.getElementById('planning-encounter-id');
+  const encounterId = input.value.trim();
+  if (!/^\d+$/.test(encounterId) || Number(encounterId) <= 0) {
+    showToast('Enter a numeric encounter ID.', 'error');
+    return;
+  }
+  activePlanningEncounterId = String(Number(encounterId));
+  input.value = activePlanningEncounterId;
+  document.getElementById('planning-player-filter').value = '';
+  renderTimeline();
+}
+
+function renderCuratedPlanningTimeline(encounter, container) {
+  const mechanics = Array.isArray(encounter.mechanics) ? encounter.mechanics : [];
+  const observedEnd = mechanics.reduce((latest, mechanic) => Math.max(latest, ...(mechanic.castOffsets || [0])), 0);
+  const durationSeconds = Math.max(Number(encounter.durationSeconds) || 0, observedEnd + 15, 60);
+  const filteredMechanics = mechanics.filter(mechanic => {
+    const search = document.getElementById('planning-ability-filter').value.trim().toLocaleLowerCase();
+    return !search || String(mechanic.name || '').toLocaleLowerCase().includes(search);
+  }).sort((a, b) => {
+    const aFirst = a.castOffsets && a.castOffsets.length ? a.castOffsets[0] : Infinity;
+    const bFirst = b.castOffsets && b.castOffsets.length ? b.castOffsets[0] : Infinity;
+    return aFirst - bFirst || String(a.name).localeCompare(String(b.name));
+  });
+  const classRows = new Map();
+  trackedAbilityNames.forEach(name => {
+    const jobs = getAbilityClasses(name);
+    (jobs.length ? jobs : ['Unassigned']).forEach(job => {
+      const key = job === 'Unassigned' ? job : job.toUpperCase();
+      if (!classRows.has(key)) classRows.set(key, []);
+      if (!document.getElementById('planning-ability-filter').value || name.toLocaleLowerCase().includes(document.getElementById('planning-ability-filter').value.trim().toLocaleLowerCase())) {
+        classRows.get(key).push(name);
+      }
+    });
+  });
+  const mechanicCount = filteredMechanics.length;
+  const classCount = [...classRows.values()].filter(rows => rows.length).length;
+  const abilityLaneCount = [...classRows.values()].reduce((count, rows) => count + rows.length, 0);
+  const observationCount = mechanics.reduce((count, mechanic) => count + (mechanic.castOffsets || []).length, 0);
+  document.getElementById('planning-pull-summary').textContent = `${encounter.name || 'Encounter'} · ID ${encounter.encounterID} · ${observationCount} recorded cast timings from loaded logs`;
+  document.getElementById('planning-ability-summary').textContent = `${mechanicCount} observed mechanics · ${abilityLaneCount} tracked ability lanes · ${classCount} class sections`;
+  const width = timelineWidth(container);
+  const left = 205, right = width - 15, timelineWidthPx = right - left;
+  const xAt = seconds => left + Math.max(0, Math.min(1, seconds / durationSeconds)) * timelineWidthPx;
+  const rowHeight = 30;
+  const rowCount = 1 + mechanicCount + [...classRows.values()].reduce((count, rows) => count + (rows.length ? 1 + rows.length : 0), 0);
+  const height = Math.max(40, rowCount * rowHeight + 8);
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const makeSvg = svgHeight => {
+    const svg = document.createElementNS(svgNS, 'svg');
+    svg.setAttribute('viewBox', `0 0 ${width} ${svgHeight}`);
+    svg.setAttribute('width', width);
+    svg.setAttribute('height', svgHeight);
+    svg.setAttribute('class', 'block');
+    return svg;
+  };
+  const axisWrap = document.createElement('div');
+  axisWrap.style.cssText = 'position:sticky;top:0;z-index:2;background:#020617;';
+  const axis = makeSvg(20);
+  for (let tick = 0; tick <= 6; tick++) {
+    const x = left + timelineWidthPx * tick / 6;
+    const label = document.createElementNS(svgNS, 'text');
+    label.setAttribute('x', x);
+    label.setAttribute('y', '14');
+    label.setAttribute('fill', '#64748b');
+    label.setAttribute('font-size', '10');
+    label.setAttribute('text-anchor', tick === 0 ? 'start' : tick === 6 ? 'end' : 'middle');
+    label.textContent = formatSecondsToMMSS(durationSeconds * tick / 6);
+    axis.appendChild(label);
+  }
+  axisWrap.appendChild(axis);
+  const svg = makeSvg(height);
+  const add = (tag, attrs, text) => {
+    const element = document.createElementNS(svgNS, tag);
+    Object.entries(attrs).forEach(([key, value]) => element.setAttribute(key, value));
+    if (text != null) element.textContent = text;
+    svg.appendChild(element);
+    return element;
+  };
+  let rowIndex = 0;
+  const drawSection = (label, color) => {
+    const y = 4 + rowIndex++ * rowHeight;
+    add('rect', { x: 0, y, width, height: rowHeight - 1, fill: color, opacity: 0.1 });
+    add('text', { x: 4, y: y + rowHeight / 2 + 3, fill: color, 'font-size': 11, 'font-weight': 700 }, label);
+    add('line', { x1: left, y1: y + rowHeight - 1, x2: right, y2: y + rowHeight - 1, stroke: color, 'stroke-opacity': 0.35 });
+  };
+  drawSection('Encounter mechanics', '#fbbf24');
+  filteredMechanics.forEach(mechanic => {
+    const y = 4 + rowIndex++ * rowHeight;
+    const centerY = y + rowHeight / 2;
+    const name = String(mechanic.name || `Ability ${mechanic.abilityId || ''}`);
+    add('text', { x: 12, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, name.length > 24 ? name.slice(0, 23) + '…' : name).appendChild(document.createElementNS(svgNS, 'title')).textContent = name;
+    add('line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b' });
+    (mechanic.castOffsets || []).forEach(seconds => {
+      const x = xAt(seconds);
+      const marker = add('path', { d: `M ${x} ${centerY - 6} l 4 6 l -4 6 l -4 -6 Z`, fill: '#fbbf24', stroke: '#0f172a', 'stroke-width': 1 });
+      marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${name} observed at ${formatSecondsToMMSS(seconds)}`;
+    });
+  });
+  [...classRows.entries()].sort(([a], [b]) => a.localeCompare(b)).forEach(([job, abilities]) => {
+    if (!abilities.length) return;
+    const color = JOB_COLORS[job] || '#38bdf8';
+    drawSection(job, color);
+    abilities.sort((a, b) => a.localeCompare(b)).forEach(name => {
+      const y = 4 + rowIndex++ * rowHeight;
+      const centerY = y + rowHeight / 2;
+      add('text', { x: 12, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, name.length > 24 ? name.slice(0, 23) + '…' : name).appendChild(document.createElementNS(svgNS, 'title')).textContent = name;
+      add('line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b' });
+    });
+  });
+  container.replaceChildren(axisWrap, svg);
 }
 
 function renderPlanningControls() {
@@ -1922,9 +2141,20 @@ function renderPlanningControls() {
   if (!fightSelect || !playerSelect) return;
   const selectedPlayer = playerSelect.value;
   fightSelect.innerHTML = '';
+  playerSelect.innerHTML = '<option value="">All players</option>';
+  const encounterOptions = document.getElementById('planning-encounter-options');
+  if (encounterOptions) {
+    encounterOptions.innerHTML = '';
+    Object.values(loadEncounterMechanicsDataset()).sort((a, b) => String(a.name).localeCompare(String(b.name))).forEach(encounter => {
+      const option = document.createElement('option');
+      option.value = String(encounter.encounterID);
+      option.label = encounter.name || `Encounter ${encounter.encounterID}`;
+      encounterOptions.appendChild(option);
+    });
+  }
   if (!report || !report.fights.length) {
     fightSelect.innerHTML = '<option value="">No report loaded</option>';
-    playerSelect.innerHTML = '<option value="">All players</option>';
+    playerSelect.disabled = true;
     return;
   }
   report.fights.forEach((fight, index) => {
@@ -1935,7 +2165,6 @@ function renderPlanningControls() {
     fightSelect.appendChild(option);
   });
   fightSelect.value = String(activeFightId || report.fights[0].id);
-  playerSelect.innerHTML = '<option value="">All players</option>';
   report.actors.forEach(actor => {
     const option = document.createElement('option');
     option.value = String(actor.id);
@@ -1943,6 +2172,7 @@ function renderPlanningControls() {
     playerSelect.appendChild(option);
   });
   if ([...playerSelect.options].some(option => option.value === selectedPlayer)) playerSelect.value = selectedPlayer;
+  playerSelect.disabled = !report;
 }
 
 function getPlanningAbilityRows(events, fight) {
