@@ -273,6 +273,7 @@
         <i class="fa-solid fa-magnifying-glass text-slate-500 text-[10px]"></i>
         <input id="planning-ability-filter" type="search" placeholder="Filter abilities" class="bg-transparent text-xs text-slate-200 w-32" oninput="renderTimeline()">
       </div>
+      <button onclick="openMechanicsModal()" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-2.5 py-1.5 text-slate-300"><i class="fa-solid fa-burst mr-1"></i> Mechanics</button>
       <button onclick="openAbilityModal()" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-2.5 py-1.5 text-slate-300"><i class="fa-solid fa-list mr-1"></i> Tracked abilities</button>
     </div>
   </div>
@@ -470,6 +471,8 @@ let pollTimer = null;
 window.addEventListener('DOMContentLoaded', async () => {
   await applySharedConfig();
   try { mechanicCategories = JSON.parse(localStorage.getItem('fflogs_vod_mechanic_categories')) || {}; } catch (e) { mechanicCategories = {}; }
+  try { hiddenMechanicNames = JSON.parse(localStorage.getItem('fflogs_vod_hidden_mechanics_default')) || []; } catch (e) { hiddenMechanicNames = []; }
+  try { mechanicRecastIgnoreSeconds = JSON.parse(localStorage.getItem('fflogs_vod_mechanic_recast_ignore_default')) || {}; } catch (e) { mechanicRecastIgnoreSeconds = {}; }
   try { customMitigationNames = JSON.parse(localStorage.getItem('fflogs_vod_custom_mitigations')) || []; } catch (e) { customMitigationNames = []; }
   initPanelResizer();
   loadSettings();
@@ -871,17 +874,42 @@ function openMechanicsModal() {
 function closeMechanicsModal() { document.getElementById('mechanics-modal').classList.add('hidden'); }
 function getMechanicRows(fight) {
   const events = fight && timelineEventsCache[fight.id];
-  if (!events || !report) return [];
+  const encounterId = String(fight ? fight.encounterID || '' : activePlanningEncounterId || '');
+  const encounter = encounterId ? loadEncounterMechanicsDataset()[encounterId] : null;
+  if (!events && !encounter) return [];
   const mechanicsByName = new Map();
-  (events.enemyCasts || []).filter(event => String(event.type).toLowerCase() === 'cast').forEach(event => {
+  ((events && events.enemyCasts) || []).filter(event => String(event.type).toLowerCase() === 'cast').forEach(event => {
     const name = eventAbilityName(event);
-    if (!mechanicsByName.has(name)) mechanicsByName.set(name, []);
-    mechanicsByName.get(name).push(event);
+    const abilityId = eventAbilityId(event);
+    const key = abilityId ? `id:${abilityId}` : `name:${name.toLocaleLowerCase()}`;
+    if (!mechanicsByName.has(key)) mechanicsByName.set(key, { name, abilityId, casts: [] });
+    mechanicsByName.get(key).casts.push(event);
   });
-  return [...mechanicsByName.entries()]
-    .map(([name, casts]) => {
+  (encounter && encounter.mechanics || []).forEach(mechanic => {
+    const abilityId = Number(mechanic.abilityId) || 0;
+    const name = String(mechanic.name || `Ability ${abilityId}`);
+    const key = abilityId ? `id:${abilityId}` : `name:${name.toLocaleLowerCase()}`;
+    if (!mechanicsByName.has(key)) mechanicsByName.set(key, { name, abilityId, casts: [] });
+    const row = mechanicsByName.get(key);
+    if (!row.name || /^Ability \d+$/.test(row.name)) row.name = name;
+    const baseTime = fight ? fight.startTime : 0;
+    (mechanic.castOffsets || []).forEach(offset => {
+      const timestamp = baseTime + Math.max(0, Number(offset) || 0) * 1000;
+      const alreadyPresent = row.casts.some(event => Math.round((event.timestamp - baseTime) / 1000) === Math.round(Number(offset)));
+      if (!alreadyPresent) row.casts.push({
+        type: 'cast',
+        timestamp,
+        abilityGameID: abilityId,
+        abilityName: name,
+        sourceID: `curated-${encounterId}`,
+        sourceName: 'Curated encounter data'
+      });
+    });
+  });
+  return [...mechanicsByName.values()]
+    .map(({ name, casts }) => {
       const visibleCasts = filterMechanicRecasts(name, casts);
-      return { name, casts: visibleCasts, firstSeen: visibleCasts[0].timestamp };
+      return { name, casts: visibleCasts, firstSeen: visibleCasts.length ? visibleCasts[0].timestamp : 0 };
     })
     .sort((a, b) => a.firstSeen - b.firstSeen);
 }
@@ -901,20 +929,19 @@ function renderMechanicsList() {
   const container = document.getElementById('mechanics-list-container');
   const fight = getActiveFight();
   const rows = getMechanicRows(fight);
+  const encounterId = String(fight ? fight.encounterID || '' : activePlanningEncounterId || '');
+  const encounter = encounterId ? loadEncounterMechanicsDataset()[encounterId] : null;
   const count = document.getElementById('mechanic-count');
   if (count) count.textContent = rows.length;
   const pullLabel = document.getElementById('mechanics-pull-label');
-  if (pullLabel) pullLabel.textContent = fight ? `${fight.name} · ${rows.length} boss ${rows.length === 1 ? 'cast' : 'casts'}` : 'Select a pull to load its boss casts.';
+  if (pullLabel) pullLabel.textContent = encounter
+    ? `${encounter.name || 'Encounter'} · ID ${encounterId} · ${rows.length} saved mechanics across observed pulls`
+    : fight ? `${fight.name} · ${rows.length} boss ${rows.length === 1 ? 'cast' : 'casts'}` : 'Load a report pull or enter an observed encounter ID.';
   container.innerHTML = '';
-  if (!fight || !timelineEventsCache[fight.id]) {
-    container.innerHTML = '<div class="text-slate-500 italic text-center py-5">Boss casts load automatically when a pull is selected.</div>';
-    return;
-  }
   if (!rows.length) {
-    const events = timelineEventsCache[fight.id];
-    const enemyCasts = events.enemyCasts || [];
-    container.innerHTML = `<div class="text-slate-300 text-center py-4">No enemy casts found for this pull.</div>
-      <div class="text-slate-500 text-[10px] text-center">FFLogs returned ${enemyCasts.length} enemy cast events for this pull.</div>`;
+    container.innerHTML = encounter || (fight && timelineEventsCache[fight.id])
+      ? '<div class="text-slate-500 italic text-center py-5">No boss casts have been saved for this encounter yet.</div>'
+      : '<div class="text-slate-500 italic text-center py-5">Boss casts load automatically when a pull is selected.</div>';
     return;
   }
   const categoryOptions = document.getElementById('mechanic-category-options');
@@ -969,8 +996,8 @@ function renderMechanicsList() {
     recastControl.appendChild(recastInput);
     const firstSeen = document.createElement('span');
     firstSeen.className = 'text-[10px] text-amber-400 font-mono';
-    firstSeen.textContent = formatSecondsToMMSS((row.firstSeen - fight.startTime) / 1000);
-    firstSeen.title = 'First appearance in this pull';
+    firstSeen.textContent = formatSecondsToMMSS((row.firstSeen - (fight ? fight.startTime : 0)) / 1000);
+    firstSeen.title = 'First recorded appearance';
     const categoryInput = document.createElement('input');
     categoryInput.type = 'text';
     categoryInput.placeholder = 'Category';
@@ -2038,13 +2065,21 @@ function renderCuratedPlanningTimeline(encounter, container) {
   const mechanics = Array.isArray(encounter.mechanics) ? encounter.mechanics : [];
   const observedEnd = mechanics.reduce((latest, mechanic) => Math.max(latest, ...(mechanic.castOffsets || [0])), 0);
   const durationSeconds = Math.max(Number(encounter.durationSeconds) || 0, observedEnd + 15, 60);
+  const search = document.getElementById('planning-ability-filter').value.trim().toLocaleLowerCase();
   const filteredMechanics = mechanics.filter(mechanic => {
     const search = document.getElementById('planning-ability-filter').value.trim().toLocaleLowerCase();
-    return !search || String(mechanic.name || '').toLocaleLowerCase().includes(search);
-  }).sort((a, b) => {
-    const aFirst = a.castOffsets && a.castOffsets.length ? a.castOffsets[0] : Infinity;
-    const bFirst = b.castOffsets && b.castOffsets.length ? b.castOffsets[0] : Infinity;
-    return aFirst - bFirst || String(a.name).localeCompare(String(b.name));
+    return !hiddenMechanicNames.includes(mechanic.name) && (!search || String(mechanic.name || '').toLocaleLowerCase().includes(search));
+  });
+  const mechanicSections = new Map();
+  filteredMechanics.forEach(mechanic => {
+    const ignoreSeconds = Number(mechanicRecastIgnoreSeconds[String(mechanic.name).toLocaleLowerCase()]) || 0;
+    const castOffsets = (mechanic.castOffsets || []).slice().sort((a, b) => a - b).filter((offset, index, offsets) => {
+      return ignoreSeconds <= 0 || index === 0 || offset - offsets[index - 1] > ignoreSeconds;
+    });
+    const row = { ...mechanic, castOffsets };
+    const category = getMechanicCategory(mechanic.name) || 'Encounter mechanics';
+    if (!mechanicSections.has(category)) mechanicSections.set(category, []);
+    mechanicSections.get(category).push(row);
   });
   const classRows = new Map();
   trackedAbilityNames.forEach(name => {
@@ -2057,7 +2092,7 @@ function renderCuratedPlanningTimeline(encounter, container) {
       }
     });
   });
-  const mechanicCount = filteredMechanics.length;
+  const mechanicCount = [...mechanicSections.values()].reduce((count, rows) => count + rows.length, 0);
   const classCount = [...classRows.values()].filter(rows => rows.length).length;
   const abilityLaneCount = [...classRows.values()].reduce((count, rows) => count + rows.length, 0);
   const observationCount = mechanics.reduce((count, mechanic) => count + (mechanic.castOffsets || []).length, 0);
@@ -2067,7 +2102,7 @@ function renderCuratedPlanningTimeline(encounter, container) {
   const left = 205, right = width - 15, timelineWidthPx = right - left;
   const xAt = seconds => left + Math.max(0, Math.min(1, seconds / durationSeconds)) * timelineWidthPx;
   const rowHeight = 30;
-  const rowCount = 1 + mechanicCount + [...classRows.values()].reduce((count, rows) => count + (rows.length ? 1 + rows.length : 0), 0);
+  const rowCount = [...mechanicSections.values()].reduce((count, rows) => count + rows.length + 1, 0) + [...classRows.values()].reduce((count, rows) => count + (rows.length ? 1 + rows.length : 0), 0);
   const height = Math.max(40, rowCount * rowHeight + 8);
   const svgNS = 'http://www.w3.org/2000/svg';
   const makeSvg = svgHeight => {
@@ -2108,17 +2143,28 @@ function renderCuratedPlanningTimeline(encounter, container) {
     add('text', { x: 4, y: y + rowHeight / 2 + 3, fill: color, 'font-size': 11, 'font-weight': 700 }, label);
     add('line', { x1: left, y1: y + rowHeight - 1, x2: right, y2: y + rowHeight - 1, stroke: color, 'stroke-opacity': 0.35 });
   };
-  drawSection('Encounter mechanics', '#fbbf24');
-  filteredMechanics.forEach(mechanic => {
-    const y = 4 + rowIndex++ * rowHeight;
-    const centerY = y + rowHeight / 2;
-    const name = String(mechanic.name || `Ability ${mechanic.abilityId || ''}`);
-    add('text', { x: 12, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, name.length > 24 ? name.slice(0, 23) + '…' : name).appendChild(document.createElementNS(svgNS, 'title')).textContent = name;
-    add('line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b' });
-    (mechanic.castOffsets || []).forEach(seconds => {
-      const x = xAt(seconds);
-      const marker = add('path', { d: `M ${x} ${centerY - 6} l 4 6 l -4 6 l -4 -6 Z`, fill: '#fbbf24', stroke: '#0f172a', 'stroke-width': 1 });
-      marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${name} observed at ${formatSecondsToMMSS(seconds)}`;
+  [...mechanicSections.entries()].sort(([a], [b]) => {
+    if (a === 'Encounter mechanics') return -1;
+    if (b === 'Encounter mechanics') return 1;
+    return a.localeCompare(b);
+  }).forEach(([category, rows]) => {
+    const color = category === 'Encounter mechanics' ? '#fbbf24' : categoryColor(category);
+    drawSection(category, color);
+    rows.sort((a, b) => {
+      const aFirst = a.castOffsets.length ? a.castOffsets[0] : Infinity;
+      const bFirst = b.castOffsets.length ? b.castOffsets[0] : Infinity;
+      return aFirst - bFirst || String(a.name).localeCompare(String(b.name));
+    }).forEach(mechanic => {
+      const y = 4 + rowIndex++ * rowHeight;
+      const centerY = y + rowHeight / 2;
+      const name = String(mechanic.name || `Ability ${mechanic.abilityId || ''}`);
+      add('text', { x: 12, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, name.length > 24 ? name.slice(0, 23) + '…' : name).appendChild(document.createElementNS(svgNS, 'title')).textContent = name;
+      add('line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b' });
+      mechanic.castOffsets.forEach(seconds => {
+        const x = xAt(seconds);
+        const marker = add('path', { d: `M ${x} ${centerY - 6} l 4 6 l -4 6 l -4 -6 Z`, fill: color, stroke: '#0f172a', 'stroke-width': 1 });
+        marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${name} observed at ${formatSecondsToMMSS(seconds)}`;
+      });
     });
   });
   [...classRows.entries()].sort(([a], [b]) => a.localeCompare(b)).forEach(([job, abilities]) => {
