@@ -2067,19 +2067,17 @@ function renderCuratedPlanningTimeline(encounter, container) {
   const durationSeconds = Math.max(Number(encounter.durationSeconds) || 0, observedEnd + 15, 60);
   const search = document.getElementById('planning-ability-filter').value.trim().toLocaleLowerCase();
   const filteredMechanics = mechanics.filter(mechanic => {
-    const search = document.getElementById('planning-ability-filter').value.trim().toLocaleLowerCase();
     return !hiddenMechanicNames.includes(mechanic.name) && (!search || String(mechanic.name || '').toLocaleLowerCase().includes(search));
-  });
-  const mechanicSections = new Map();
-  filteredMechanics.forEach(mechanic => {
+  }).map(mechanic => {
     const ignoreSeconds = Number(mechanicRecastIgnoreSeconds[String(mechanic.name).toLocaleLowerCase()]) || 0;
     const castOffsets = (mechanic.castOffsets || []).slice().sort((a, b) => a - b).filter((offset, index, offsets) => {
       return ignoreSeconds <= 0 || index === 0 || offset - offsets[index - 1] > ignoreSeconds;
     });
-    const row = { ...mechanic, castOffsets };
-    const category = getMechanicCategory(mechanic.name) || 'Encounter mechanics';
-    if (!mechanicSections.has(category)) mechanicSections.set(category, []);
-    mechanicSections.get(category).push(row);
+    return { ...mechanic, castOffsets };
+  }).sort((a, b) => {
+    const aFirst = a.castOffsets.length ? a.castOffsets[0] : Infinity;
+    const bFirst = b.castOffsets.length ? b.castOffsets[0] : Infinity;
+    return aFirst - bFirst || String(a.name).localeCompare(String(b.name));
   });
   const classRows = new Map();
   trackedAbilityNames.forEach(name => {
@@ -2092,7 +2090,7 @@ function renderCuratedPlanningTimeline(encounter, container) {
       }
     });
   });
-  const mechanicCount = [...mechanicSections.values()].reduce((count, rows) => count + rows.length, 0);
+  const mechanicCount = filteredMechanics.length;
   const classCount = [...classRows.values()].filter(rows => rows.length).length;
   const abilityLaneCount = [...classRows.values()].reduce((count, rows) => count + rows.length, 0);
   const observationCount = mechanics.reduce((count, mechanic) => count + (mechanic.castOffsets || []).length, 0);
@@ -2101,9 +2099,11 @@ function renderCuratedPlanningTimeline(encounter, container) {
   const width = timelineWidth(container);
   const left = 205, right = width - 15, timelineWidthPx = right - left;
   const xAt = seconds => left + Math.max(0, Math.min(1, seconds / durationSeconds)) * timelineWidthPx;
-  const rowHeight = 30;
-  const rowCount = [...mechanicSections.values()].reduce((count, rows) => count + rows.length + 1, 0) + [...classRows.values()].reduce((count, rows) => count + (rows.length ? 1 + rows.length : 0), 0);
-  const height = Math.max(40, rowCount * rowHeight + 8);
+  const mechanicRowHeight = 36;
+  const abilityRowHeight = 30;
+  const mechanicHeight = Math.max(36, 4 + (mechanicCount + 1) * mechanicRowHeight);
+  const abilityRowCount = [...classRows.values()].reduce((count, rows) => count + (rows.length ? rows.length + 1 : 0), 0);
+  const abilityHeight = Math.max(1, abilityRowCount * abilityRowHeight + 8);
   const svgNS = 'http://www.w3.org/2000/svg';
   const makeSvg = svgHeight => {
     const svg = document.createElementNS(svgNS, 'svg');
@@ -2113,8 +2113,6 @@ function renderCuratedPlanningTimeline(encounter, container) {
     svg.setAttribute('class', 'block');
     return svg;
   };
-  const axisWrap = document.createElement('div');
-  axisWrap.style.cssText = 'position:sticky;top:0;z-index:2;background:#020617;';
   const axis = makeSvg(20);
   for (let tick = 0; tick <= 6; tick++) {
     const x = left + timelineWidthPx * tick / 6;
@@ -2127,58 +2125,74 @@ function renderCuratedPlanningTimeline(encounter, container) {
     label.textContent = formatSecondsToMMSS(durationSeconds * tick / 6);
     axis.appendChild(label);
   }
-  axisWrap.appendChild(axis);
-  const svg = makeSvg(height);
-  const add = (tag, attrs, text) => {
+  const mechanicsSvg = makeSvg(mechanicHeight);
+  const addTo = (svg, tag, attrs, text) => {
     const element = document.createElementNS(svgNS, tag);
     Object.entries(attrs).forEach(([key, value]) => element.setAttribute(key, value));
     if (text != null) element.textContent = text;
     svg.appendChild(element);
     return element;
   };
-  let rowIndex = 0;
-  const drawSection = (label, color) => {
-    const y = 4 + rowIndex++ * rowHeight;
-    add('rect', { x: 0, y, width, height: rowHeight - 1, fill: color, opacity: 0.1 });
-    add('text', { x: 4, y: y + rowHeight / 2 + 3, fill: color, 'font-size': 11, 'font-weight': 700 }, label);
-    add('line', { x1: left, y1: y + rowHeight - 1, x2: right, y2: y + rowHeight - 1, stroke: color, 'stroke-opacity': 0.35 });
+  const drawGrid = svg => {
+    for (let tick = 0; tick <= 6; tick++) {
+      const x = left + timelineWidthPx * tick / 6;
+      addTo(svg, 'line', { x1: x, y1: 0, x2: x, y2: Number(svg.getAttribute('height')), stroke: '#1e293b', 'stroke-width': 1 });
+    }
   };
-  [...mechanicSections.entries()].sort(([a], [b]) => {
-    if (a === 'Encounter mechanics') return -1;
-    if (b === 'Encounter mechanics') return 1;
-    return a.localeCompare(b);
-  }).forEach(([category, rows]) => {
-    const color = category === 'Encounter mechanics' ? '#fbbf24' : categoryColor(category);
-    drawSection(category, color);
-    rows.sort((a, b) => {
-      const aFirst = a.castOffsets.length ? a.castOffsets[0] : Infinity;
-      const bFirst = b.castOffsets.length ? b.castOffsets[0] : Infinity;
-      return aFirst - bFirst || String(a.name).localeCompare(String(b.name));
-    }).forEach(mechanic => {
-      const y = 4 + rowIndex++ * rowHeight;
-      const centerY = y + rowHeight / 2;
-      const name = String(mechanic.name || `Ability ${mechanic.abilityId || ''}`);
-      add('text', { x: 12, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, name.length > 24 ? name.slice(0, 23) + '…' : name).appendChild(document.createElementNS(svgNS, 'title')).textContent = name;
-      add('line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b' });
-      mechanic.castOffsets.forEach(seconds => {
-        const x = xAt(seconds);
-        const marker = add('path', { d: `M ${x} ${centerY - 6} l 4 6 l -4 6 l -4 -6 Z`, fill: color, stroke: '#0f172a', 'stroke-width': 1 });
-        marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${name} observed at ${formatSecondsToMMSS(seconds)}`;
-      });
+  drawGrid(mechanicsSvg);
+  let mechanicRowIndex = 0;
+  addTo(mechanicsSvg, 'rect', { x: 0, y: 4, width, height: mechanicRowHeight - 1, fill: '#fbbf24', opacity: 0.1 });
+  addTo(mechanicsSvg, 'text', { x: 4, y: 4 + mechanicRowHeight / 2 + 3, fill: '#fbbf24', 'font-size': 11, 'font-weight': 700 }, 'Mechanics');
+  addTo(mechanicsSvg, 'line', { x1: left, y1: 4 + mechanicRowHeight - 1, x2: right, y2: 4 + mechanicRowHeight - 1, stroke: '#fbbf24', 'stroke-opacity': 0.35 });
+  mechanicRowIndex++;
+  filteredMechanics.forEach(mechanic => {
+    const y = 4 + mechanicRowIndex++ * mechanicRowHeight;
+    const centerY = y + mechanicRowHeight / 2;
+    const name = String(mechanic.name || `Ability ${mechanic.abilityId || ''}`);
+    const color = getMechanicCategory(name) ? categoryColor(getMechanicCategory(name)) : '#fbbf24';
+    addTo(mechanicsSvg, 'text', { x: 12, y: centerY + 3, fill: color, 'font-size': 10 }, name.length > 24 ? name.slice(0, 23) + '…' : name).appendChild(document.createElementNS(svgNS, 'title')).textContent = name;
+    addTo(mechanicsSvg, 'line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b' });
+    mechanic.castOffsets.forEach(seconds => {
+      const x = xAt(seconds);
+      const marker = addTo(mechanicsSvg, 'path', { d: `M ${x} ${centerY - 6} l 4 6 l -4 6 l -4 -6 Z`, fill: color, stroke: '#0f172a', 'stroke-width': 1 });
+      marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${name} observed at ${formatSecondsToMMSS(seconds)}`;
     });
   });
+
+  const abilitiesSvg = makeSvg(abilityHeight);
+  drawGrid(abilitiesSvg);
+  let abilityRowIndex = 0;
+  const drawAbilitySection = (label, color) => {
+    const y = 4 + abilityRowIndex++ * abilityRowHeight;
+    addTo(abilitiesSvg, 'rect', { x: 0, y, width, height: abilityRowHeight - 1, fill: color, opacity: 0.1 });
+    addTo(abilitiesSvg, 'text', { x: 4, y: y + abilityRowHeight / 2 + 3, fill: color, 'font-size': 11, 'font-weight': 700 }, label);
+    addTo(abilitiesSvg, 'line', { x1: left, y1: y + abilityRowHeight - 1, x2: right, y2: y + abilityRowHeight - 1, stroke: color, 'stroke-opacity': 0.35 });
+  };
   [...classRows.entries()].sort(([a], [b]) => a.localeCompare(b)).forEach(([job, abilities]) => {
     if (!abilities.length) return;
     const color = JOB_COLORS[job] || '#38bdf8';
-    drawSection(job, color);
+    drawAbilitySection(job, color);
     abilities.sort((a, b) => a.localeCompare(b)).forEach(name => {
-      const y = 4 + rowIndex++ * rowHeight;
-      const centerY = y + rowHeight / 2;
-      add('text', { x: 12, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, name.length > 24 ? name.slice(0, 23) + '…' : name).appendChild(document.createElementNS(svgNS, 'title')).textContent = name;
-      add('line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b' });
+      const y = 4 + abilityRowIndex++ * abilityRowHeight;
+      const centerY = y + abilityRowHeight / 2;
+      addTo(abilitiesSvg, 'text', { x: 12, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, name.length > 24 ? name.slice(0, 23) + '…' : name).appendChild(document.createElementNS(svgNS, 'title')).textContent = name;
+      addTo(abilitiesSvg, 'line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b' });
     });
   });
-  container.replaceChildren(axisWrap, svg);
+  const fixedMechanics = document.createElement('div');
+  fixedMechanics.className = 'shrink-0 border-b border-slate-800 bg-slate-950';
+  fixedMechanics.appendChild(axis);
+  fixedMechanics.appendChild(mechanicsSvg);
+  const abilitiesScroll = document.createElement('div');
+  abilitiesScroll.className = 'flex-1 min-h-0 overflow-y-auto overflow-x-hidden';
+  if (abilityRowCount) {
+    abilitiesScroll.appendChild(abilitiesSvg);
+  } else {
+    abilitiesScroll.innerHTML = '<div class="text-xs text-slate-500 italic p-4">Add tracked abilities and assign them to classes to build player lanes.</div>';
+  }
+  container.classList.remove('overflow-auto');
+  container.classList.add('flex', 'flex-col', 'overflow-hidden');
+  container.replaceChildren(fixedMechanics, abilitiesScroll);
 }
 
 function renderPlanningControls() {
@@ -2294,9 +2308,8 @@ let timelineResizeTimer = null;
 window.addEventListener('resize', () => {
   clearTimeout(timelineResizeTimer);
   timelineResizeTimer = setTimeout(() => {
-    if (!report) return;
-    renderTimeline();
-    if (activeFightId != null) renderDeathsTimeline(activeFightId);
+    if (report || (activePlanningEncounterId && !document.getElementById('planning-workspace').classList.contains('hidden'))) renderTimeline();
+    if (report && activeFightId != null) renderDeathsTimeline(activeFightId);
   }, 150);
 });
 
