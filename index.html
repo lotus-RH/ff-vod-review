@@ -208,7 +208,6 @@
       </div>
 
       <div id="tab-content-deaths" class="bottom-tab-content hidden flex-1 p-3 overflow-y-auto">
-        <div id="deaths-timeline" class="w-full overflow-x-auto bg-slate-950 rounded-lg border border-slate-800 px-2 py-1 mb-2"></div>
         <div id="deaths-list-container" class="flex flex-wrap gap-1.5"></div>
       </div>
 
@@ -1803,7 +1802,6 @@ async function loadDeathsForFight(fightId) {
 function renderDeathRecap(fightId) {
   const container = document.getElementById('deaths-list-container');
   const deaths = deathsCache[fightId] || [];
-  renderDeathsTimeline(fightId);
   document.getElementById('pull-death-count').textContent = deaths.length;
   container.innerHTML = '';
   if (!deaths.length) {
@@ -1824,47 +1822,6 @@ function renderDeathRecap(fightId) {
   });
 }
 
-function renderDeathsTimeline(fightId) {
-  const container = document.getElementById('deaths-timeline');
-  container.innerHTML = '';
-  const fight = report && report.fights.find(item => item.id === fightId);
-  if (!fight) return;
-  const deaths = deathsCache[fight.id] || [];
-  const svgNS = 'http://www.w3.org/2000/svg';
-  const height = 76;
-  const svg = document.createElementNS(svgNS, 'svg');
-  svg.setAttribute('viewBox', `0 0 ${timelineWidth(container)} ${height}`);
-  svg.setAttribute('width', '100%');
-  svg.setAttribute('class', 'block w-full min-w-full');
-  svg.setAttribute('height', height);
-  const start = fight.startTime;
-  const duration = Math.max(1, fight.endTime - fight.startTime);
-  const left = 110, right = timelineWidth(container) - 15, width = right - left;
-  const xAt = timestamp => left + Math.max(0, Math.min(1, (timestamp - start) / duration)) * width;
-  const add = (tag, attrs, text) => {
-    const el = document.createElementNS(svgNS, tag);
-    Object.entries(attrs || {}).forEach(([name, value]) => el.setAttribute(name, value));
-    if (text != null) el.textContent = text;
-    svg.appendChild(el);
-    return el;
-  };
-  for (let tick = 0; tick <= 4; tick++) {
-    const x = left + width * tick / 4;
-    add('line', { x1: x, y1: 18, x2: x, y2: height - 4, stroke: '#1e293b', 'stroke-width': 1 });
-    add('text', { x, y: 12, fill: '#64748b', 'font-size': 10, 'text-anchor': tick === 0 ? 'start' : tick === 4 ? 'end' : 'middle' }, formatSecondsToMMSS(duration / 1000 * tick / 4));
-  }
-  const centerY = 47;
-  add('text', { x: 4, y: centerY + 3, fill: '#fb7185', 'font-size': 10 }, 'Deaths');
-  add('line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b', 'stroke-width': 1 });
-  deaths.forEach(death => {
-    const x = xAt(start + death.timeMs);
-    const marker = add('path', { d: `M ${x - 4} ${centerY - 4} L ${x + 4} ${centerY + 4} M ${x + 4} ${centerY - 4} L ${x - 4} ${centerY + 4}`, fill: 'none', stroke: '#fb7185', 'stroke-width': 2.5, class: 'cursor-pointer' });
-    marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${death.player} died to ${death.ability} at ${formatSecondsToMMSS(death.timeMs / 1000)}`;
-    marker.addEventListener('click', () => jumpToSpecificOffsetMs(death.timeMs));
-  });
-  container.appendChild(svg);
-}
-
 /* =========================================================================
    DEATH DETAIL ("Last Moments") — recent damage taken + active mitigations
    ========================================================================= */
@@ -1875,7 +1832,8 @@ query ($code: String!, $fightID: Int!, $targetID: Int!, $fightStart: Float!, $wi
       damage: events(fightIDs: [$fightID], dataType: DamageTaken, targetID: $targetID, startTime: $winStart, endTime: $winEnd, limit: 10000) { data }
       heals: events(fightIDs: [$fightID], dataType: Healing, targetID: $targetID, startTime: $winStart, endTime: $winEnd, limit: 10000) { data }
       buffs: events(fightIDs: [$fightID], dataType: Buffs, targetID: $targetID, startTime: $fightStart, endTime: $winEnd, limit: 10000) { data }
-      debuffs: events(fightIDs: [$fightID], dataType: Debuffs, hostilityType: Enemies, startTime: $debuffStart, endTime: $winEnd, limit: 10000) { data }
+      debuffs: events(fightIDs: [$fightID], dataType: Debuffs, startTime: $debuffStart, endTime: $winEnd, limit: 10000) { data }
+      resources: events(fightIDs: [$fightID], dataType: Resources, targetID: $targetID, startTime: $fightStart, endTime: $winEnd, limit: 10000) { data }
     }
   }
 }`;
@@ -1937,7 +1895,8 @@ async function openDeathDetailModal(fightId, death) {
       damage: (r.damage && r.damage.data) || [],
       heals: (r.heals && r.heals.data) || [],
       buffs: (r.buffs && r.buffs.data) || [],
-      debuffs: (r.debuffs && r.debuffs.data) || []
+      debuffs: (r.debuffs && r.debuffs.data) || [],
+      resources: (r.resources && r.resources.data) || []
     };
     deathDetailCache[cacheKey] = result;
     renderDeathDetail(result, death, fight);
@@ -1960,9 +1919,9 @@ function eventMitigationPct(ev) {
   return null;
 }
 function eventTargetHp(ev) {
-  const r = ev.targetResources || {};
-  const hp = r.hitPoints != null ? r.hitPoints : ev.hitPoints;
-  const max = r.maxHitPoints != null ? r.maxHitPoints : ev.maxHitPoints;
+  const r = ev.targetResources || ev.resources || {};
+  const hp = r.hitPoints ?? r.hitpoints ?? ev.hitPoints;
+  const max = r.maxHitPoints ?? r.maxhitpoints ?? ev.maxHitPoints;
   return (hp != null && Number(max) > 0) ? { hp: Number(hp), max: Number(max) } : null;
 }
 function fmtHp(n) { return n >= 10000 ? (n / 1000).toFixed(1) + 'k' : Math.round(n).toLocaleString(); }
@@ -2022,21 +1981,37 @@ function renderDeathDetail(result, death, fight) {
     ...damage.map(ev => ({ kind: 'dmg', ev })),
     ...heals.map(ev => ({ kind: 'heal', ev }))
   ].sort((a, b) => a.ev.timestamp - b.ev.timestamp);
+  const resourceSnapshots = (result.resources || []).map(event => ({
+    timestamp: event.timestamp,
+    snapshot: eventTargetHp(event)
+  })).filter(item => item.snapshot).sort((a, b) => a.timestamp - b.timestamp);
 
   // Effects at each hit + HP after each event (real snapshot when FFLogs gives one, otherwise estimated).
   const effectsAt = makeEffectTracker(result);
   let curHp = null, maxHp = null, anyRealHp = false;
+  let resourceIndex = 0, latestResource = null, appliedResourceTimestamp = null;
   rows.forEach(row => {
     const ev = row.ev;
     if (row.kind === 'dmg') row.effects = effectsAt(ev.timestamp, ev.sourceID, ev.buffs);
+    while (resourceIndex < resourceSnapshots.length && resourceSnapshots[resourceIndex].timestamp <= ev.timestamp) {
+      latestResource = resourceSnapshots[resourceIndex++];
+    }
+    if (latestResource && latestResource.timestamp !== appliedResourceTimestamp) {
+      curHp = latestResource.snapshot.hp;
+      maxHp = latestResource.snapshot.max;
+      appliedResourceTimestamp = latestResource.timestamp;
+      anyRealHp = true;
+    }
     const snap = eventTargetHp(ev);
     if (snap) {
       anyRealHp = true; maxHp = snap.max;
       curHp = (row.kind === 'dmg' && hpIsBeforeHit) ? Math.max(0, snap.hp - Number(ev.amount || 0)) : snap.hp;
       row.hpAfter = { hp: curHp, max: maxHp, estimated: false };
     } else if (curHp != null && maxHp) {
-      const amt = Number(ev.amount || 0);
-      curHp = row.kind === 'dmg' ? Math.max(0, curHp - amt) : Math.min(maxHp, curHp + amt);
+      const delta = Number(ev.amount || 0);
+      curHp = row.kind === 'dmg'
+        ? Math.max(0, curHp - delta)
+        : Math.min(maxHp, curHp + delta);
       row.hpAfter = { hp: curHp, max: maxHp, estimated: true };
     }
   });
@@ -2660,7 +2635,6 @@ window.addEventListener('resize', () => {
   clearTimeout(timelineResizeTimer);
   timelineResizeTimer = setTimeout(() => {
     if (report || (activePlanningEncounterId && !document.getElementById('planning-workspace').classList.contains('hidden'))) renderTimeline();
-    if (report && activeFightId != null) renderDeathsTimeline(activeFightId);
   }, 150);
 });
 
