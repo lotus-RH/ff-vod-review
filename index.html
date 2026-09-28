@@ -2245,6 +2245,7 @@ async function importReviewCastsToPlanning() {
   const reportCode = report.code;
   const fightId = activeFightId;
   const fight = getActiveFight();
+  if (!window.confirm(`Replace all planned ability markers for ${fight.name} with casts from this Review pull?`)) return;
   if (!timelineEventsCache[fightId]) await loadTimelineEventsForFight(fightId);
   if (!report || report.code !== reportCode || activeFightId !== fightId) {
     showToast('The selected log or pull changed before the cast import finished.', 'error');
@@ -2257,18 +2258,19 @@ async function importReviewCastsToPlanning() {
   const casts = (timelineEventsCache[fightId] && timelineEventsCache[fightId].casts || [])
     .filter(event => String(event.type).toLowerCase() === 'cast');
   let importedCount = 0;
+  const importedUsages = {};
   casts.forEach(event => {
     const abilityName = reviewAbilities.get(eventAbilityName(event).toLocaleLowerCase());
     const actor = actorsById.get(String(event.sourceID));
     if (!abilityName || !actor) return;
     const job = jobCodeForSubType(actor.subType) || povJobsByName.get(String(actor.name || '').toLocaleLowerCase());
     if (!job) return;
-    const usages = plannedUsagesForKey(encounterId, abilityName, job);
+    const key = `planned:${job}:${abilityCooldownKey(abilityName)}`;
+    if (!Array.isArray(importedUsages[key])) importedUsages[key] = [];
     const sourceID = String(event.sourceID);
     const sourceTimeMs = Number(event.timestamp);
-    if (usages.some(usage => String(usage.importedFightId) === String(fightId) &&
-      String(usage.sourceID) === sourceID && Number(usage.sourceTimeMs) === sourceTimeMs)) return;
-    usages.push({
+    if (importedUsages[key].some(usage => String(usage.sourceID) === sourceID && Number(usage.sourceTimeMs) === sourceTimeMs)) return;
+    importedUsages[key].push({
       id: uid('imported-cast'),
       time: Math.max(0, (sourceTimeMs - fight.startTime) / 1000),
       importedFightId: fightId,
@@ -2278,9 +2280,10 @@ async function importReviewCastsToPlanning() {
     importedCount++;
   });
   if (!importedCount) {
-    showToast('No new tracked player casts were found in this pull.', 'info');
+    showToast('No tracked player casts were found; the existing plan was left unchanged.', 'info');
     return;
   }
+  plannedUsages[encounterId] = importedUsages;
   persistPlannedUsages();
   renderTimeline();
   showToast(`Imported ${importedCount} cast${importedCount === 1 ? '' : 's'} from Pull ${report.fights.indexOf(fight) + 1}.`, 'success');
@@ -2496,9 +2499,11 @@ function renderCuratedPlanningTimeline(encounter, container) {
     const roleRow = document.createElement('div');
     roleRow.className = 'flex border-b border-slate-800';
     const roleLabel = document.createElement('div');
-    roleLabel.className = 'shrink-0 flex items-center px-2.5 text-slate-200 font-bold text-[10px] uppercase border-r border-slate-800 sticky left-0 z-10';
+    roleLabel.className = 'shrink-0 flex items-center justify-between gap-1 px-2.5 text-slate-200 font-bold text-[10px] uppercase border-r border-slate-800 sticky left-0 z-10';
     roleLabel.style.cssText = `width:${LABEL_W}px; height:22px; background:#1e293b;`;
-    roleLabel.textContent = group.name;
+    const roleName = document.createElement('span');
+    roleName.textContent = group.name;
+    roleLabel.append(roleName, createTrackResetButton(encounterId, group.name, group.jobs));
     const roleTrack = document.createElement('div');
     roleTrack.style.cssText = `width:${trackWidth}px; height:22px; background:rgba(51,65,85,0.15);`;
     roleRow.append(roleLabel, roleTrack);
@@ -2510,9 +2515,11 @@ function renderCuratedPlanningTimeline(encounter, container) {
       const jobRow = document.createElement('div');
       jobRow.className = 'flex border-b border-slate-800';
       const jobLabel = document.createElement('div');
-      jobLabel.className = 'shrink-0 flex items-center px-2.5 font-bold text-[10px] border-r border-l-4 border-slate-800 sticky left-0 z-10';
+      jobLabel.className = 'shrink-0 flex items-center justify-between gap-1 px-2.5 font-bold text-[10px] border-r border-l-4 border-slate-800 sticky left-0 z-10';
       jobLabel.style.cssText = `width:${LABEL_W}px; height:20px; color:${color}; background:#0b1220; border-left-color:${color};`;
-      jobLabel.textContent = job;
+      const jobName = document.createElement('span');
+      jobName.textContent = job;
+      jobLabel.append(jobName, createTrackResetButton(encounterId, job, [job]));
       const jobTrack = document.createElement('div');
       jobTrack.style.cssText = `width:${trackWidth}px; height:20px; background:${color}10;`;
       jobRow.append(jobLabel, jobTrack);
@@ -2596,6 +2603,56 @@ function plannedUsagesForKey(encounterId, name, job) {
       : [];
   }
   return plannedUsages[encId][key];
+}
+function createTrackResetButton(encounterId, label, jobs) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'shrink-0 w-4 h-4 flex items-center justify-center text-slate-500 hover:text-rose-300';
+  button.title = `Reset planned placements for ${label}`;
+  button.setAttribute('aria-label', `Reset planned placements for ${label}`);
+  button.innerHTML = '<i class="fa-solid fa-trash-can text-[9px]" aria-hidden="true"></i>';
+  button.addEventListener('click', event => {
+    event.stopPropagation();
+    resetPlannedUsagesForJobs(encounterId, label, jobs);
+  });
+  return button;
+}
+function resetPlannedUsagesForJobs(encounterId, label, jobs) {
+  const jobKeys = new Set(jobs.map(job => String(job).toUpperCase()));
+  if (!jobKeys.size || !window.confirm(`Reset all planned ability placements for ${label}?`)) return;
+  const encounterPlan = plannedUsages[String(encounterId)];
+  if (!encounterPlan) {
+    showToast(`No planned placements for ${label}.`, 'info');
+    return;
+  }
+  let removedAny = false;
+  Object.keys(encounterPlan).forEach(key => {
+    const match = key.match(/^planned:([^:]+):/);
+    if (match && jobKeys.has(match[1])) {
+      delete encounterPlan[key];
+      removedAny = true;
+    }
+  });
+  trackedAbilityNames.forEach(name => {
+    const abilityKey = abilityCooldownKey(name);
+    const legacyUsages = encounterPlan[abilityKey];
+    if (!Array.isArray(legacyUsages)) return;
+    const assignedJobs = getAbilityClasses(name);
+    const legacyJobs = assignedJobs.length ? assignedJobs.map(job => job.toUpperCase()) : ['UNASSIGNED'];
+    legacyJobs.filter(job => !jobKeys.has(job)).forEach(job => {
+      const key = `planned:${job}:${abilityKey}`;
+      if (!Array.isArray(encounterPlan[key])) encounterPlan[key] = legacyUsages.map(usage => ({ ...usage }));
+    });
+    delete encounterPlan[abilityKey];
+    removedAny = true;
+  });
+  if (!removedAny) {
+    showToast(`No planned placements for ${label}.`, 'info');
+    return;
+  }
+  persistPlannedUsages();
+  renderTimeline();
+  showToast(`Reset planned placements for ${label}.`, 'success');
 }
 function getPlannedUsages(encounterId, name, job) {
   return plannedUsagesForKey(encounterId, name, job).slice().sort((a, b) => a.time - b.time);
