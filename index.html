@@ -203,7 +203,7 @@
           <input id="timeline-seek-input" type="range" min="0" max="1" step="0.1" value="0" aria-label="Seek within the current fight" class="flex-1 h-1 accent-ffcyan-400 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40">
           <span id="timeline-seek-duration" class="font-mono text-[10px] text-slate-500 w-10">00:00</span>
         </div>
-        <div id="timeline-visualization" class="w-full flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-slate-950 rounded-lg border border-slate-800 px-2" style="scrollbar-gutter: stable;"></div>
+        <div id="timeline-visualization" class="w-full flex-1 min-h-0 overflow-hidden bg-slate-950 rounded-lg border border-slate-800 px-2 flex flex-col"></div>
         <div class="text-[11px] text-slate-500 mt-1.5 shrink-0" id="timeline-help">Enter one or more ability names to show their casts and buff durations in this pull.</div>
       </div>
 
@@ -442,6 +442,7 @@ const PLANNING_CLASS_GROUPS = [
   { name: 'Caster', jobs: ['RDM', 'PCT', 'BLM', 'SMN'] }
 ];
 const DEFAULT_AUTO_SYNC_NUDGE_SECONDS = -8;
+const DEFAULT_MECHANIC_RECAST_IGNORE_SECONDS = 5;
 
 /* =========================================================================
    STATE
@@ -1003,7 +1004,7 @@ function getMechanicRows(fight, includeEncounterHistory = false) {
     .sort((a, b) => a.firstSeen - b.firstSeen);
 }
 function filterMechanicRecasts(name, casts) {
-  const ignoreSeconds = Number(mechanicRecastIgnoreSeconds[name.toLocaleLowerCase()]) || 0;
+  const ignoreSeconds = getMechanicRecastIgnoreSeconds(name);
   if (ignoreSeconds <= 0) return casts.slice().sort((a, b) => a.timestamp - b.timestamp);
   const lastAcceptedBySource = new Map();
   return casts.slice().sort((a, b) => a.timestamp - b.timestamp).filter(event => {
@@ -1013,6 +1014,12 @@ function filterMechanicRecasts(name, casts) {
     lastAcceptedBySource.set(sourceId, event.timestamp);
     return true;
   });
+}
+function getMechanicRecastIgnoreSeconds(name) {
+  const configured = mechanicRecastIgnoreSeconds[String(name).toLocaleLowerCase()];
+  if (configured == null || configured === '') return DEFAULT_MECHANIC_RECAST_IGNORE_SECONDS;
+  const seconds = Number(configured);
+  return Number.isFinite(seconds) && seconds >= 0 ? seconds : DEFAULT_MECHANIC_RECAST_IGNORE_SECONDS;
 }
 function renderMechanicsList() {
   const container = document.getElementById('mechanics-list-container');
@@ -1067,14 +1074,14 @@ function renderMechanicsList() {
     recastInput.min = '0';
     recastInput.step = '0.1';
     recastInput.inputMode = 'decimal';
-    recastInput.value = mechanicRecastIgnoreSeconds[row.name.toLocaleLowerCase()] ?? '';
-    recastInput.placeholder = '0';
+    recastInput.value = getMechanicRecastIgnoreSeconds(row.name);
+    recastInput.placeholder = String(DEFAULT_MECHANIC_RECAST_IGNORE_SECONDS);
     recastInput.title = `Ignore same-caster ${row.name} recasts within this many seconds`;
     recastInput.className = 'w-14 bg-slate-900 border border-slate-800 rounded px-1.5 py-1 font-mono text-slate-200';
     recastInput.addEventListener('change', () => {
       const key = row.name.toLocaleLowerCase();
       const seconds = Number(recastInput.value);
-      if (recastInput.value === '' || !Number.isFinite(seconds) || seconds <= 0) {
+      if (recastInput.value === '' || !Number.isFinite(seconds) || seconds < 0) {
         delete mechanicRecastIgnoreSeconds[key];
       } else {
         mechanicRecastIgnoreSeconds[key] = seconds;
@@ -1667,7 +1674,8 @@ function updateTimelinePlayhead(offsetMs) {
   const position = document.querySelectorAll('#timeline-visualization [data-timeline-playhead]');
   position.forEach(line => {
     const left = Number(line.ownerSVGElement.getAttribute('data-left')) || 110;
-    const x = left + (Math.max(1, timelineWidth(line.ownerSVGElement.parentElement)) - left - 15) * (clampedMs / durationMs);
+    const right = Number(line.ownerSVGElement.getAttribute('data-right')) || Math.max(1, timelineWidth(line.ownerSVGElement.parentElement)) - 15;
+    const x = left + (right - left) * (clampedMs / durationMs);
     line.setAttribute('x1', x);
     line.setAttribute('x2', x);
   });
@@ -2222,7 +2230,7 @@ function renderCuratedPlanningTimeline(encounter, container) {
   const filteredMechanics = mechanics.filter(mechanic => {
     return !hiddenMechanicNames.includes(mechanic.name) && (!search || String(mechanic.name || '').toLocaleLowerCase().includes(search));
   }).map(mechanic => {
-    const ignoreSeconds = Number(mechanicRecastIgnoreSeconds[String(mechanic.name).toLocaleLowerCase()]) || 0;
+    const ignoreSeconds = getMechanicRecastIgnoreSeconds(mechanic.name);
     const castOffsets = (mechanic.castOffsets || []).slice().sort((a, b) => a - b).filter((offset, index, offsets) => {
       return ignoreSeconds <= 0 || index === 0 || offset - offsets[index - 1] > ignoreSeconds;
     });
@@ -2721,15 +2729,11 @@ function renderCombatTimeline(fight, container, planningMode = false) {
     return { abilityName, casts, spans: timelineSpans };
   });
   const fightNotes = planningMode ? [] : notes.filter(note => note.fightId === fight.id);
-  const mechanicLanes = [];
-  const uncategorized = mechanicRows.filter(row => !getMechanicCategory(row.name));
-  if (uncategorized.length) mechanicLanes.push({ label: 'Mechanics', color: '#fbbf24', rows: uncategorized });
-  [...new Set(mechanicRows.map(row => getMechanicCategory(row.name)).filter(Boolean))].sort((a, b) => a.localeCompare(b)).forEach(category => {
-    mechanicLanes.push({ label: category, color: categoryColor(category), rows: mechanicRows.filter(row => getMechanicCategory(row.name) === category) });
-  });
-  const rowCount = mechanicLanes.length + (fightNotes.length ? 1 : 0) + abilityRows.length;
+  const deaths = planningMode ? [] : (deathsCache[fight.id] || []);
   const rowHeight = planningMode ? 30 : 32;
-  const height = Math.max(40, 8 + rowCount * rowHeight);
+  const pinnedTrackHeight = 30;
+  const scrollRowCount = (fightNotes.length ? 1 : 0) + abilityRows.length;
+  const height = Math.max(40, 8 + scrollRowCount * rowHeight);
   const svgNS = 'http://www.w3.org/2000/svg';
   const W = timelineWidth(container);
   const start = fight.startTime, duration = Math.max(1, fight.endTime - start);
@@ -2749,21 +2753,26 @@ function renderCombatTimeline(fight, container, planningMode = false) {
     el.setAttribute('height', h);
     el.setAttribute('class', 'block');
     el.setAttribute('data-left', left);
+    el.setAttribute('data-right', right);
     return el;
   };
-  // Sticky time axis stays visible while the lanes scroll underneath.
-  const axisWrap = document.createElement('div');
-  axisWrap.style.cssText = 'position:sticky;top:0;z-index:2;background:#020617;';
+  const pinnedTracks = document.createElement('div');
+  pinnedTracks.className = 'shrink-0';
+  pinnedTracks.style.background = '#020617';
   const axisSvg = makeSvg(18);
-  axisWrap.appendChild(axisSvg);
+  const mechanicSvg = makeSvg(pinnedTrackHeight);
+  const deathsSvg = makeSvg(pinnedTrackHeight);
   const svg = makeSvg(height);
-  const add = (tag, attrs, text) => {
+  const createSvgElement = (target, tag, attrs, text) => {
     const el = document.createElementNS(svgNS, tag);
     Object.entries(attrs || {}).forEach(([name, value]) => el.setAttribute(name, value));
     if (text != null) el.textContent = text;
-    svg.appendChild(el);
+    target.appendChild(el);
     return el;
   };
+  const add = (tag, attrs, text) => createSvgElement(svg, tag, attrs, text);
+  const addMechanic = (tag, attrs, text) => createSvgElement(mechanicSvg, tag, attrs, text);
+  const addDeath = (tag, attrs, text) => createSvgElement(deathsSvg, tag, attrs, text);
   for (let tick = 0; tick <= 4; tick++) {
     const x = left + width * tick / 4;
     const label = document.createElementNS(svgNS, 'text');
@@ -2771,6 +2780,10 @@ function renderCombatTimeline(fight, container, planningMode = false) {
     label.textContent = formatSecondsToMMSS(duration / 1000 * tick / 4);
     axisSvg.appendChild(label);
     add('line', { x1: x, y1: 0, x2: x, y2: height, stroke: '#1e293b', 'stroke-width': 1 });
+    if (!planningMode) {
+      addMechanic('line', { x1: x, y1: 0, x2: x, y2: pinnedTrackHeight, stroke: '#1e293b', 'stroke-width': 1 });
+      addDeath('line', { x1: x, y1: 0, x2: x, y2: pinnedTrackHeight, stroke: '#1e293b', 'stroke-width': 1 });
+    }
   }
   if (!planningMode) {
     const axisPlayhead = document.createElementNS(svgNS, 'line');
@@ -2781,23 +2794,42 @@ function renderCombatTimeline(fight, container, planningMode = false) {
     axisPlayhead.setAttribute('stroke-width', '2');
     axisPlayhead.setAttribute('pointer-events', 'none');
     axisSvg.appendChild(axisPlayhead);
+    [mechanicSvg, deathsSvg].forEach(track => {
+      const playhead = document.createElementNS(svgNS, 'line');
+      playhead.setAttribute('data-timeline-playhead', 'true');
+      playhead.setAttribute('y1', '0');
+      playhead.setAttribute('y2', String(pinnedTrackHeight));
+      playhead.setAttribute('stroke', '#22d3ee');
+      playhead.setAttribute('stroke-width', '2');
+      playhead.setAttribute('stroke-opacity', '0.85');
+      playhead.setAttribute('pointer-events', 'none');
+      track.appendChild(playhead);
+    });
+  }
+  if (!planningMode) {
+    addMechanic('text', { x: 4, y: 19, fill: '#fbbf24', 'font-size': 10, 'font-weight': 700 }, 'Mechanics');
+    addMechanic('line', { x1: left, y1: pinnedTrackHeight - 1, x2: right, y2: pinnedTrackHeight - 1, stroke: '#334155', 'stroke-width': 1 });
+    const mechanicEvents = mechanicRows.flatMap(row => row.casts.map(event => ({ ...event, mechanicName: row.name })));
+    mechanicEvents.forEach(event => {
+      const x = xAt(event.timestamp);
+      const category = getMechanicCategory(event.mechanicName);
+      const color = category ? categoryColor(category) : '#fbbf24';
+      const marker = addMechanic('rect', { x: x - 6, y: 9, width: 12, height: 12, fill: color, stroke: '#0f172a', 'stroke-width': 1, class: 'cursor-pointer' });
+      const sourceName = event.sourceName || actorNames.get(String(event.sourceID)) || 'Enemy';
+      marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${event.mechanicName}${category ? ` · ${category}` : ''} cast by ${sourceName} at ${formatSecondsToMMSS((event.timestamp - start) / 1000)}`;
+      marker.addEventListener('click', () => jumpToSpecificOffsetMs(event.timestamp - start));
+    });
+
+    addDeath('text', { x: 4, y: 19, fill: '#fb7185', 'font-size': 10, 'font-weight': 700 }, 'Deaths');
+    addDeath('line', { x1: left, y1: pinnedTrackHeight - 1, x2: right, y2: pinnedTrackHeight - 1, stroke: '#334155', 'stroke-width': 1 });
+    deaths.forEach(death => {
+      const x = xAt(start + death.timeMs);
+      const marker = addDeath('rect', { x: x - 5, y: 10, width: 10, height: 10, fill: '#fb7185', stroke: '#0f172a', 'stroke-width': 1, class: 'cursor-pointer' });
+      marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${death.player} died to ${death.ability} at ${formatSecondsToMMSS(death.timeMs / 1000)}`;
+      marker.addEventListener('click', () => jumpToSpecificOffsetMs(death.timeMs));
+    });
   }
   let rowIndex = 0;
-  mechanicLanes.forEach(lane => {
-    const y = 4 + rowIndex++ * rowHeight;
-    const centerY = y + rowHeight / 2;
-    add('text', { x: 4, y: centerY + 3, fill: lane.color, 'font-size': 10 }, lane.label.length > 17 ? lane.label.slice(0, 16) + '…' : lane.label).appendChild(document.createElementNS(svgNS, 'title')).textContent = lane.label;
-    add('line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b', 'stroke-width': 1 });
-    lane.rows.flatMap(row => row.casts.map(event => ({ ...event, mechanicName: row.name })))
-      .sort((a, b) => a.timestamp - b.timestamp)
-      .forEach(event => {
-        const x = xAt(event.timestamp);
-        const marker = add('path', { d: `M ${x} ${centerY - 6} l 4 6 l -4 6 l -4 -6 Z`, fill: lane.color, stroke: '#0f172a', 'stroke-width': 1, class: 'cursor-pointer' });
-        const sourceName = event.sourceName || actorNames.get(String(event.sourceID)) || 'Enemy';
-        marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${event.mechanicName} cast by ${sourceName} at ${formatSecondsToMMSS((event.timestamp - start) / 1000)}`;
-        if (!planningMode) marker.addEventListener('click', () => jumpToSpecificOffsetMs(event.timestamp - start));
-      });
-  });
   if (fightNotes.length) {
     const notesY = 4 + rowIndex++ * rowHeight;
     const centerY = notesY + rowHeight / 2;
@@ -2805,7 +2837,7 @@ function renderCombatTimeline(fight, container, planningMode = false) {
     add('line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b', 'stroke-width': 1 });
     fightNotes.forEach(note => {
       const noteMs = note.logSeconds * 1000;
-      const marker = add('circle', { cx: xAt(start + noteMs), cy: centerY, r: 4, fill: '#22d3ee', stroke: '#0f172a', 'stroke-width': 1, class: 'cursor-pointer' });
+      const marker = add('rect', { x: xAt(start + noteMs) - 4, y: centerY - 4, width: 8, height: 8, fill: '#22d3ee', stroke: '#0f172a', 'stroke-width': 1, class: 'cursor-pointer' });
       marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `Note at ${formatSecondsToMMSS(note.logSeconds)}: ${note.text}`;
       marker.addEventListener('click', () => jumpToSpecificOffsetMs(noteMs));
     });
@@ -2837,14 +2869,19 @@ function renderCombatTimeline(fight, container, planningMode = false) {
     });
     casts.forEach(event => {
       const x = xAt(event.timestamp);
-      const marker = add('path', { d: `M ${x} ${centerY - 7} l 5 6 l -5 6 l -5 -6 Z`, fill: planningMode ? row.color : '#38bdf8', stroke: '#0f172a', 'stroke-width': 1, class: 'cursor-pointer' });
+      const marker = add('rect', { x: x - 5, y: centerY - 5, width: 10, height: 10, fill: planningMode ? row.color : '#38bdf8', stroke: '#0f172a', 'stroke-width': 1, class: 'cursor-pointer' });
       marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${eventAbilityName(event)} pressed by ${actorNames.get(String(event.sourceID)) || 'player'} at ${formatSecondsToMMSS((event.timestamp - start) / 1000)}`;
       if (!planningMode) marker.addEventListener('click', () => jumpToSpecificOffsetMs(event.timestamp - start));
     });
   });
   if (!planningMode) add('line', { 'data-timeline-playhead': 'true', x1: left, y1: 0, x2: left, y2: height, stroke: '#22d3ee', 'stroke-width': 2, 'stroke-opacity': 0.85, 'pointer-events': 'none' });
-  container.appendChild(axisWrap);
-  container.appendChild(svg);
+  pinnedTracks.appendChild(axisSvg);
+  if (!planningMode) pinnedTracks.append(mechanicSvg, deathsSvg);
+  const scrollArea = document.createElement('div');
+  scrollArea.className = 'flex-1 min-h-0 overflow-y-auto overflow-x-hidden';
+  scrollArea.style.scrollbarGutter = 'stable';
+  scrollArea.appendChild(svg);
+  container.replaceChildren(pinnedTracks, scrollArea);
   if (!planningMode) {
     updateTimelinePlayhead(getTimelinePlaybackOffsetMs(fight));
     renderMechanicsList();
@@ -2853,13 +2890,13 @@ function renderCombatTimeline(fight, container, planningMode = false) {
     const status = document.createElement('div');
     status.className = 'text-[10px] text-slate-600 py-1';
     status.textContent = planningMode ? 'Loading ability events...' : 'Loading ability events...';
-    container.appendChild(status);
+    scrollArea.appendChild(status);
   }
   if (!abilityRows.length) {
     const hint = document.createElement('div');
     hint.className = 'text-[10px] text-slate-600 py-1';
     hint.textContent = planningMode ? (isLoading ? 'Loading tracked ability events...' : 'No tracked abilities have class assignments or matching casts for this pull.') : 'Assign an ability a class that is represented by a POV to show it here.';
-    container.appendChild(hint);
+    scrollArea.appendChild(hint);
   }
   if (planningMode) {
     const summary = document.getElementById('planning-ability-summary');
