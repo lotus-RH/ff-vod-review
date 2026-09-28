@@ -261,10 +261,11 @@
         <datalist id="planning-encounter-options"></datalist>
         <button onclick="loadPlanningEncounter()" class="text-xs bg-ffpurple-600 hover:bg-ffpurple-500 text-white px-2.5 py-1.5 rounded"><i class="fa-solid fa-arrow-right-to-bracket"></i> Load</button>
       </div>
-      <label for="planning-ability-filter" class="sr-only">Filter abilities</label>
+      <label for="planning-mechanic-category-filter" class="sr-only">Filter mechanics by category</label>
       <div class="flex items-center gap-1.5 bg-slate-950 border border-slate-700 rounded px-2 py-1.5">
         <i class="fa-solid fa-magnifying-glass text-slate-500 text-[10px]"></i>
-        <input id="planning-ability-filter" type="search" placeholder="Filter abilities" class="bg-transparent text-xs text-slate-200 w-32" oninput="renderTimeline()">
+        <input id="planning-mechanic-category-filter" type="search" list="planning-mechanic-category-options" placeholder="Filter categories" class="bg-transparent text-xs text-slate-200 w-36" oninput="renderTimeline()">
+        <datalist id="planning-mechanic-category-options"></datalist>
       </div>
       <button onclick="importReviewCastsToPlanning()" title="Import tracked ability casts from the selected Review pull" class="text-xs bg-emerald-800 hover:bg-emerald-700 border border-emerald-700 rounded px-2.5 py-1.5 text-emerald-100"><i class="fa-solid fa-file-import mr-1"></i> Import Review casts</button>
     </div>
@@ -2370,9 +2371,21 @@ function renderCuratedPlanningTimeline(encounter, container) {
   }));
   const observedEnd = mechanics.reduce((latest, mechanic) => Math.max(latest, ...(mechanic.castOffsets || [0])), 0);
   const durationSeconds = Math.max(Number(encounter.durationSeconds) || 0, observedEnd + 15, 60);
-  const search = document.getElementById('planning-ability-filter').value.trim().toLocaleLowerCase();
+  const search = document.getElementById('planning-mechanic-category-filter').value.trim().toLocaleLowerCase();
+  const categoryLabels = [...new Set(mechanics.map(mechanic => getMechanicCategory(String(mechanic.name || '')) || 'Uncategorized'))]
+    .sort((a, b) => a.localeCompare(b));
+  const categoryOptions = document.getElementById('planning-mechanic-category-options');
+  if (categoryOptions) {
+    categoryOptions.innerHTML = '';
+    categoryLabels.forEach(category => {
+      const option = document.createElement('option');
+      option.value = category;
+      categoryOptions.appendChild(option);
+    });
+  }
   const filteredMechanics = mechanics.filter(mechanic => {
-    return !hiddenMechanicNames.includes(mechanic.name) && (!search || String(mechanic.name || '').toLocaleLowerCase().includes(search));
+    const category = getMechanicCategory(String(mechanic.name || '')) || 'Uncategorized';
+    return !hiddenMechanicNames.includes(mechanic.name) && (!search || category.toLocaleLowerCase().includes(search));
   }).map(mechanic => {
     const ignoreSeconds = getMechanicRecastIgnoreSeconds(mechanic.name);
     const castOffsets = (mechanic.castOffsets || []).slice().sort((a, b) => a - b).filter((offset, index, offsets) => {
@@ -2397,7 +2410,7 @@ function renderCuratedPlanningTimeline(encounter, container) {
     (jobs.length ? jobs : ['Unassigned']).forEach(job => {
       const key = job === 'Unassigned' ? job : job.toUpperCase();
       if (!classRows.has(key)) classRows.set(key, []);
-      if (!hiddenPlanningClasses.has(key) && (!document.getElementById('planning-ability-filter').value || name.toLocaleLowerCase().includes(document.getElementById('planning-ability-filter').value.trim().toLocaleLowerCase()))) {
+      if (!hiddenPlanningClasses.has(key)) {
         classRows.get(key).push(name);
       }
     });
@@ -2428,15 +2441,18 @@ function renderCuratedPlanningTimeline(encounter, container) {
   const gridBg = `repeating-linear-gradient(to right, rgba(30,41,59,0.9) 0, rgba(30,41,59,0.9) 1px, transparent 1px, transparent ${pxPerSecond * 30}px)`;
   const encounterId = String(encounter.encounterID || activePlanningEncounterId || '');
 
-  const MECHANIC_CHIP = 20;
+  const MECHANIC_CHIP = 20, MECHANIC_LANE_HEIGHT = 26, MECHANIC_HEADER_HEIGHT = 18;
   const mechanicLaneByColor = new Map();
+  const mechanicCategoriesByColor = new Map();
   filteredMechanics.forEach(mechanic => {
-    const category = getMechanicCategory(String(mechanic.name || ''));
-    const color = category ? categoryColor(category) : '#fbbf24';
+    const category = getMechanicCategory(String(mechanic.name || '')) || 'Uncategorized';
+    const color = category === 'Uncategorized' ? '#fbbf24' : categoryColor(category);
     if (!mechanicLaneByColor.has(color)) mechanicLaneByColor.set(color, mechanicLaneByColor.size);
+    if (!mechanicCategoriesByColor.has(color)) mechanicCategoriesByColor.set(color, new Set());
+    mechanicCategoriesByColor.get(color).add(category);
   });
   const MECHANIC_LANES = Math.max(1, mechanicLaneByColor.size);
-  const MECHANIC_ROW_H = MECHANIC_LANES * (MECHANIC_CHIP + 6) + 2;
+  const MECHANIC_ROW_H = MECHANIC_HEADER_HEIGHT + MECHANIC_LANES * MECHANIC_LANE_HEIGHT + 2;
   const ABILITY_ROW_H = 40, ABILITY_CHIP = 26;
 
   const root = document.createElement('div');
@@ -2467,24 +2483,35 @@ function renderCuratedPlanningTimeline(encounter, container) {
   mechRow.className = 'flex border-b border-slate-800';
   mechRow.style.height = MECHANIC_ROW_H + 'px';
   const mechLabel = document.createElement('div');
-  mechLabel.className = 'shrink-0 flex items-center px-2.5 text-amber-400 font-bold text-[11px] uppercase border-r border-l-4 border-amber-500 border-slate-800 sticky left-0 z-10';
+  mechLabel.className = 'relative shrink-0 px-2.5 border-r border-l-4 border-amber-500 border-slate-800 sticky left-0 z-10';
   mechLabel.style.cssText = `width:${LABEL_W}px;background:#1c1206;`;
-  mechLabel.textContent = 'Mechanics';
+  const mechTitle = document.createElement('span');
+  mechTitle.className = 'absolute top-0.5 left-2.5 text-amber-400 font-bold text-[10px] uppercase';
+  mechTitle.textContent = 'Mechanics';
+  mechLabel.appendChild(mechTitle);
+  mechanicCategoriesByColor.forEach((categories, color) => {
+    const lane = mechanicLaneByColor.get(color);
+    const categoryLabel = document.createElement('span');
+    categoryLabel.className = 'absolute left-2.5 right-2 truncate text-[10px] font-semibold';
+    categoryLabel.style.cssText = `top:${MECHANIC_HEADER_HEIGHT + lane * MECHANIC_LANE_HEIGHT + MECHANIC_LANE_HEIGHT / 2}px; transform:translateY(-50%); color:${color};`;
+    categoryLabel.textContent = [...categories].join(' / ');
+    categoryLabel.title = [...categories].join(', ');
+    mechLabel.appendChild(categoryLabel);
+  });
   const mechTrack = document.createElement('div');
   mechTrack.className = 'relative';
   mechTrack.style.cssText = `width:${trackWidth}px;height:${MECHANIC_ROW_H}px;overflow:hidden;background:rgba(251,191,36,0.06);background-image:${gridBg};`;
-  const mechCenterY = MECHANIC_ROW_H / 2;
   filteredMechanics.forEach(mechanic => {
     const name = String(mechanic.name || `Ability ${mechanic.abilityId || ''}`);
-    const category = getMechanicCategory(name);
-    const color = category ? categoryColor(category) : '#fbbf24';
+    const category = getMechanicCategory(name) || 'Uncategorized';
+    const color = category === 'Uncategorized' ? '#fbbf24' : categoryColor(category);
     const lane = mechanicLaneByColor.get(color);
     mechanic.castOffsets.forEach(seconds => {
       const x = xAt(seconds);
-      const yOffset = (lane - (MECHANIC_LANES - 1) / 2) * (MECHANIC_CHIP + 6);
+      const markerCenterY = MECHANIC_HEADER_HEIGHT + lane * MECHANIC_LANE_HEIGHT + MECHANIC_LANE_HEIGHT / 2;
       const chip = document.createElement('div');
       chip.className = 'absolute rounded-[4px] border border-slate-950/70 shadow';
-      chip.style.cssText = `left:${x - MECHANIC_CHIP / 2}px; top:${mechCenterY + yOffset - MECHANIC_CHIP / 2}px; width:${MECHANIC_CHIP}px; height:${MECHANIC_CHIP}px; background:${color};`;
+      chip.style.cssText = `left:${x - MECHANIC_CHIP / 2}px; top:${markerCenterY - MECHANIC_CHIP / 2}px; width:${MECHANIC_CHIP}px; height:${MECHANIC_CHIP}px; background:${color};`;
       chip.title = `${name} observed at ${formatSecondsToMMSS(seconds)}`;
       mechTrack.appendChild(chip);
     });
@@ -2767,7 +2794,6 @@ function getPlanningAbilityRows(events, fight) {
   const actors = new Map(report.actors.map(actor => [String(actor.id), actor]));
   const povJobs = new Map(povs.map(pov => [pov.player.toLocaleLowerCase(), pov.job]));
   const casts = (events.casts || []).filter(event => String(event.type).toLowerCase() === 'cast');
-  const search = document.getElementById('planning-ability-filter').value.trim().toLocaleLowerCase();
   const jobs = new Map();
   trackedAbilityNames.forEach(abilityName => {
     const assignedJobs = getAbilityClasses(abilityName);
@@ -2786,7 +2812,6 @@ function getPlanningAbilityRows(events, fight) {
       const matchingActors = new Set(abilityCasts.map(event => String(event.sourceID)));
       const rowActors = [...matchingActors].map(id => actors.get(id)).filter(Boolean);
       const actorNames = rowActors.map(actor => actor.name);
-      if (search && !abilityName.toLocaleLowerCase().includes(search) && !actorNames.some(name => name.toLocaleLowerCase().includes(search))) return;
       const abilityId = eventAbilityId(abilityCasts[0] || casts.find(event => eventAbilityName(event).toLocaleLowerCase() === abilityName.toLocaleLowerCase()) || {});
       const sourceIds = new Set(abilityCasts.map(event => String(event.sourceID)));
       const spans = [];
