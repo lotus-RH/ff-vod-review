@@ -1548,6 +1548,12 @@ function getActivePOV() {
 }
 function pullAbsStartMs(fight) { return report.startTime + fight.startTime; }
 
+// A segment's rate is video-seconds-elapsed per log-second-elapsed. 1 = perfectly in sync;
+// e.g. 1.00056 means the video runs slightly faster than the log's real-world clock.
+function segRate(seg) { return Number(seg.rate) > 0 ? Number(seg.rate) : 1; }
+function videoSecondsForSeg(seg, absMs) { return Math.max(0, ((absMs - seg.startAbsMs) / 1000) * segRate(seg)); }
+function absMsForSegVideoSeconds(seg, videoSeconds) { return seg.startAbsMs + (videoSeconds / segRate(seg)) * 1000; }
+
 function resolveSegmentForAbsTime(pov, absMs) {
   if (!pov || !pov.segments || !pov.segments.length) return null;
   const withCal = pov.segments.filter(s => s.videoId && s.startAbsMs != null);
@@ -1566,8 +1572,7 @@ function seekToAbsTime(absMs) {
   if (!pov) { showToast('Select or add a POV first.', 'error'); return; }
   const seg = resolveSegmentForAbsTime(pov, absMs);
   if (!seg) { showToast('This POV has no calibrated video segment yet. Open POVs to set one.', 'error'); return; }
-  const videoSeconds = Math.max(0, (absMs - seg.startAbsMs) / 1000);
-  loadAndSeek(seg.videoId, videoSeconds, seg.id);
+  loadAndSeek(seg.videoId, videoSecondsForSeg(seg, absMs), seg.id);
 }
 
 function jumpToCurrentPullStart() {
@@ -1600,26 +1605,33 @@ function resyncVideoHere() {
   // The log offset stays whatever the timeline slider last showed, even if the video has since drifted from it.
   const slider = document.getElementById('timeline-seek-input');
   const logOffsetMs = slider ? Number(slider.value) * 1000 : 0;
+  const absMs = pullAbsStartMs(fight) + logOffsetMs;
   const videoSeconds = ytPlayer.getCurrentTime();
+  // Compare against what the previous calibration would have predicted, so the drift this fixes is visible.
+  const priorSeg = resolveSegmentForAbsTime(pov, absMs);
+  const driftSeconds = priorSeg ? videoSeconds - videoSecondsForSeg(priorSeg, absMs) : null;
+  const rate = priorSeg ? segRate(priorSeg) : 1; // carry forward any known drift rate so it keeps applying past this point
   const seg = {
     id: uid('seg'),
     videoId: currentLoadedVideoId,
     label: `Resync — ${fight.name} @ ${formatSecondsToMMSS(logOffsetMs / 1000)}`,
-    startAbsMs: pullAbsStartMs(fight) + logOffsetMs - videoSeconds * 1000,
+    startAbsMs: absMs - (videoSeconds / rate) * 1000,
+    rate,
     autoSynced: false
   };
   pov.segments.push(seg);
   persistPOVs();
   currentLoadedSegmentId = seg.id;
   updateTimelinePlayhead(getTimelinePlaybackOffsetMs(fight));
-  showToast(`Resync point added at video ${formatSecondsToMMSS(Math.floor(videoSeconds))} — later pulls will use this corrected offset until the next resync.`, 'success');
+  const driftText = driftSeconds != null ? ` (${driftSeconds >= 0 ? '+' : ''}${driftSeconds.toFixed(1)}s drift corrected since the last sync point)` : '';
+  showToast(`Resync point added at video ${formatSecondsToMMSS(Math.floor(videoSeconds))}${driftText} — later pulls use this until the next resync.`, 'success');
 }
 function getTimelinePlaybackOffsetMs(fight) {
   const pov = getActivePOV();
   if (!pov || !ytReady || !ytPlayer || !currentLoadedVideoId) return null;
   const segment = getLoadedPOVSegment(pov);
   if (!segment) return null;
-  return ytPlayer.getCurrentTime() * 1000 + segment.startAbsMs - pullAbsStartMs(fight);
+  return absMsForSegVideoSeconds(segment, ytPlayer.getCurrentTime()) - pullAbsStartMs(fight);
 }
 function getLoadedPOVSegment(pov) {
   return pov && pov.segments.find(segment => segment.id === currentLoadedSegmentId && segment.videoId === currentLoadedVideoId && segment.startAbsMs != null);
@@ -1679,7 +1691,7 @@ function ensurePolling() {
     if (pov && fight) {
       const segment = getLoadedPOVSegment(pov);
       if (segment) {
-        const absNow = segment.startAbsMs + vSec * 1000;
+        const absNow = absMsForSegVideoSeconds(segment, vSec);
         const logOffsetSec = Math.floor((absNow - pullAbsStartMs(fight)) / 1000);
         document.getElementById('log-time-display').textContent = formatSecondsToMMSS(logOffsetSec);
       }
@@ -2941,7 +2953,7 @@ function renderPOVModalBody() {
 
     let segmentsHtml = pov.segments.map(seg => {
       const statusText = seg.startAbsMs != null
-        ? `${seg.autoSynced ? `Auto-synced (${seg.syncNudgeSeconds ?? DEFAULT_AUTO_SYNC_NUDGE_SECONDS}s nudge)` : 'Synced'} — video 00:00 = ${new Date(seg.startAbsMs).toLocaleString()}`
+        ? `${seg.autoSynced ? `Auto-synced (${seg.syncNudgeSeconds ?? DEFAULT_AUTO_SYNC_NUDGE_SECONDS}s nudge)` : 'Synced'} — video 00:00 = ${new Date(seg.startAbsMs).toLocaleString()}${seg.rate && seg.rate !== 1 ? ` · rate ${(seg.rate * 100).toFixed(3)}%` : ''}`
         : 'Not synced yet — paste a video below and set its start time';
       const statusColor = seg.startAbsMs != null ? 'text-emerald-400' : 'text-slate-500';
       return `
@@ -2971,6 +2983,16 @@ function renderPOVModalBody() {
             <span class="col-span-4 text-[10px] text-slate-500">Nudge sync (seconds):</span>
             <input class="col-span-3 seg-nudge-input bg-slate-950 border border-slate-800 rounded px-2 py-1 font-mono text-[11px]" value="${seg.autoSynced ? '' : DEFAULT_AUTO_SYNC_NUDGE_SECONDS}" placeholder="e.g. 2 or -1.5" type="number" step="0.1">
             <button class="col-span-5 seg-nudge-apply bg-slate-800 hover:bg-slate-700 rounded px-1 py-1 text-[10px]">Apply nudge</button>
+          </div>
+          <p class="text-[10px] text-slate-600 mt-2">If a much later pull is still off by a few seconds even after the sync point above, the video's real-time speed itself may differ slightly from the log (common on long VODs). Fix that here using a second, later pull as a reference:</p>
+          <div class="grid grid-cols-12 gap-1.5 items-center mt-1.5">
+            <select class="col-span-4 seg-rate-pull bg-slate-950 border border-slate-800 rounded px-1 py-1 text-[11px]">
+              <option value="">At a later pull...</option>
+              ${report ? report.fights.map((f, i) => `<option value="${f.id}">Pull ${i + 1} — ${escapeHTML(f.name)}</option>`).join('') : ''}
+            </select>
+            <input class="col-span-3 seg-rate-time bg-slate-950 border border-slate-800 rounded px-2 py-1 font-mono text-[11px]" placeholder="MM:SS in video">
+            <button class="col-span-2 seg-rate-grab bg-slate-800 hover:bg-slate-700 rounded px-1 py-1 text-[10px]" title="Use current player position">grab</button>
+            <button class="col-span-3 seg-rate-apply bg-ffpurple-600 hover:bg-ffpurple-500 rounded px-1 py-1 text-[10px] font-bold">Calculate rate</button>
           </div>
         </details>
       </div>`;
@@ -3037,6 +3059,28 @@ function renderPOVModalBody() {
         seg.startAbsMs += n * 1000;
         persistPOVs();
         showToast(`Nudged by ${n}s.`, 'success');
+        renderPOVModalBody();
+        if (getActivePOV() && getActivePOV().id === pov.id) jumpToCurrentPullStart();
+      });
+      row.querySelector('.seg-rate-grab').addEventListener('click', () => {
+        if (!ytReady || !ytPlayer || currentLoadedVideoId !== seg.videoId) { showToast('Load this segment video in the main player first, then grab.', 'error'); return; }
+        row.querySelector('.seg-rate-time').value = formatSecondsToMMSS(Math.floor(ytPlayer.getCurrentTime()));
+      });
+      row.querySelector('.seg-rate-apply').addEventListener('click', () => {
+        if (seg.startAbsMs == null) { showToast('Set the first sync point above before calibrating a rate.', 'error'); return; }
+        const fightId = row.querySelector('.seg-rate-pull').value;
+        const timeStr = row.querySelector('.seg-rate-time').value;
+        if (!fightId) { showToast('Choose a later pull to calibrate against.', 'error'); return; }
+        const secs = parseMMSSorHHMMSS(timeStr);
+        if (secs == null) { showToast('Enter a valid time like 5:52:02.', 'error'); return; }
+        const fight2 = report.fights.find(f => String(f.id) === String(fightId));
+        const elapsedLogSeconds = (pullAbsStartMs(fight2) - seg.startAbsMs) / 1000;
+        if (elapsedLogSeconds <= 0) { showToast('Pick a pull that happens after this sync point.', 'error'); return; }
+        const rate = secs / elapsedLogSeconds;
+        if (!Number.isFinite(rate) || rate < 0.5 || rate > 2) { showToast('That rate looks way off — double check the pull and timestamp.', 'error'); return; }
+        seg.rate = rate;
+        persistPOVs();
+        showToast(`Rate calibrated: video runs at ${(rate * 100).toFixed(3)}% of log speed.`, 'success');
         renderPOVModalBody();
         if (getActivePOV() && getActivePOV().id === pov.id) jumpToCurrentPullStart();
       });
