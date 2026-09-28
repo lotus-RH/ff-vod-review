@@ -112,7 +112,8 @@
           <option value="">Any phase</option>
         </select>
         <label for="wipe-threshold-input" class="text-slate-400">Wipes at or under</label>
-        <div class="flex items-center gap-1 bg-slate-950 border border-slate-800 rounded px-2 py-1">
+        <div class="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded px-2 py-1">
+          <input id="wipe-threshold-range" type="range" min="0" max="100" step="0.1" value="20" class="w-24 accent-amber-400" aria-label="Wipe boss health threshold percentage">
           <input id="wipe-threshold-input" type="number" min="0" max="100" step="0.1" value="20" class="bg-transparent text-amber-300 font-mono w-12 text-right" aria-label="Wipe boss health threshold percentage">
           <span class="text-slate-500">%</span>
         </div>
@@ -163,7 +164,6 @@
           <button onclick="jumpToDeathTime()" class="text-xs bg-rose-600/80 hover:bg-rose-500 text-white font-semibold px-3 py-1 rounded-full shadow transition flex items-center gap-1"><i class="fa-solid fa-skull text-[10px]"></i> First Death</button>
           <button onclick="seekVideoRelative(3)" class="text-xs text-slate-300 hover:text-white px-2 py-1 rounded hover:bg-slate-800 transition">+3s <i class="fa-solid fa-forward-step"></i></button>
           <button onclick="seekVideoRelative(10)" class="text-xs text-slate-300 hover:text-white px-2 py-1 rounded hover:bg-slate-800 transition">+10s <i class="fa-solid fa-rotate-right"></i></button>
-          <button onclick="resyncVideoHere()" title="Scrub the video until it matches what's currently shown in the log timeline, then click this to fix drift from here onward (useful for VODs with ad breaks removed)." class="text-xs bg-amber-600/80 hover:bg-amber-500 text-white font-semibold px-3 py-1 rounded-full shadow transition flex items-center gap-1"><i class="fa-solid fa-crosshairs text-[10px]"></i> Resync Here</button>
         </div>
       </div>
     </div>
@@ -492,6 +492,7 @@ let pollTimer = null;
    ========================================================================= */
 window.addEventListener('DOMContentLoaded', async () => {
   await applySharedConfig();
+  loadDefaultTrackedAbilities();
   try { mechanicCategories = JSON.parse(localStorage.getItem('fflogs_vod_mechanic_categories')) || {}; } catch (e) { mechanicCategories = {}; }
   try { hiddenMechanicNames = JSON.parse(localStorage.getItem('fflogs_vod_hidden_mechanics_default')) || []; } catch (e) { hiddenMechanicNames = []; }
   try { mechanicRecastIgnoreSeconds = JSON.parse(localStorage.getItem('fflogs_vod_mechanic_recast_ignore_default')) || {}; } catch (e) { mechanicRecastIgnoreSeconds = {}; }
@@ -516,6 +517,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     addTrackedAbilityFromForm();
   });
   document.getElementById('wipe-threshold-input').addEventListener('input', updateWipeThreshold);
+  document.getElementById('wipe-threshold-range').addEventListener('input', updateWipeThreshold);
   document.getElementById('timeline-seek-input').addEventListener('input', event => {
     const offsetMs = Number(event.target.value) * 1000;
     updateTimelinePlayhead(offsetMs);
@@ -727,13 +729,19 @@ function notesKey() { return `fflogs_vod_notes_${report ? report.code : 'none'}`
 function loadReportLocalData() {
   try { povs = JSON.parse(localStorage.getItem(povsKey())) || []; } catch (e) { povs = []; }
   try { notes = JSON.parse(localStorage.getItem(notesKey())) || []; } catch (e) { notes = []; }
-  trackedAbilityNames = readJsonWithDefault(abilityNamesKey(), 'fflogs_vod_ability_names_default', []);
-  trackedAbilityClasses = readJsonWithDefault(abilityClassesKey(), 'fflogs_vod_ability_classes_default', {});
-  trackedAbilityCooldowns = readJsonWithDefault(abilityCooldownsKey(), 'fflogs_vod_ability_cooldowns_default', {});
-  trackedAbilityImages = readJsonWithDefault(abilityImagesKey(), 'fflogs_vod_ability_images_default', {});
+  loadDefaultTrackedAbilities();
   hiddenMechanicNames = readJsonWithDefault(hiddenMechanicNamesKey(), 'fflogs_vod_hidden_mechanics_default', []);
   mechanicRecastIgnoreSeconds = readJsonWithDefault(mechanicRecastIgnoreKey(), 'fflogs_vod_mechanic_recast_ignore_default', {});
   renderAbilityCount();
+}
+function loadDefaultTrackedAbilities() {
+  const readDefault = (key, fallback) => {
+    try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch (e) { return fallback; }
+  };
+  trackedAbilityNames = readDefault('fflogs_vod_ability_names_default', []);
+  trackedAbilityClasses = readDefault('fflogs_vod_ability_classes_default', {});
+  trackedAbilityCooldowns = readDefault('fflogs_vod_ability_cooldowns_default', {});
+  trackedAbilityImages = readDefault('fflogs_vod_ability_images_default', {});
 }
 function persistPOVs() { localStorage.setItem(povsKey(), JSON.stringify(povs)); }
 function persistNotes() { localStorage.setItem(notesKey(), JSON.stringify(notes)); }
@@ -1361,9 +1369,14 @@ function renderLogPlayerChips() {
   c.innerHTML = '';
   if (!report) return;
   const fight = getActiveFight();
+  const players = report.actors.filter(actor => {
+    const name = String(actor.name || '').trim().toLocaleLowerCase();
+    const subtype = String(actor.subType || '').replace(/[\s_-]/g, '').toLocaleLowerCase();
+    return name !== 'multiple players' && name !== 'limit break' && subtype !== 'multipleplayers' && subtype !== 'limitbreak';
+  });
   const roster = fight && Array.isArray(fight.friendlyPlayers)
-    ? report.actors.filter(a => fight.friendlyPlayers.includes(a.id))
-    : report.actors;
+    ? players.filter(a => fight.friendlyPlayers.includes(a.id))
+    : players;
   const label = document.getElementById('log-players-label');
   if (label) label.textContent = fight ? `Players in this pull` : 'Players in log';
   if (fight && !roster.length) {
@@ -1395,14 +1408,18 @@ function filterPulls(type) {
 
 function updateWipeThreshold(event) {
   const input = event.target;
+  const numberInput = document.getElementById('wipe-threshold-input');
+  const rangeInput = document.getElementById('wipe-threshold-range');
   const value = Number(input.value);
   if (input.value === '' || !Number.isFinite(value)) {
     currentFilter = 'all';
     document.querySelectorAll('.filter-btn').forEach(button => button.classList.remove('active'));
     document.getElementById('filter-btn-all').classList.add('active');
+    rangeInput.value = String(wipeThreshold);
   } else {
     wipeThreshold = Math.max(0, Math.min(100, value));
-    input.value = wipeThreshold;
+    numberInput.value = wipeThreshold;
+    rangeInput.value = wipeThreshold;
     currentFilter = 'threshold';
     document.querySelectorAll('.filter-btn').forEach(button => button.classList.remove('active'));
   }
@@ -1598,36 +1615,6 @@ function jumpToSpecificOffsetMs(offsetMs) {
   const fight = getActiveFight();
   if (!fight) return;
   seekToAbsTime(pullAbsStartMs(fight) + offsetMs);
-}
-function resyncVideoHere() {
-  const fight = getActiveFight();
-  if (!fight) { showToast('Select a pull first.', 'error'); return; }
-  const pov = getActivePOV();
-  if (!pov) { showToast('Select or add a POV first.', 'error'); return; }
-  if (!ytReady || !ytPlayer || !currentLoadedVideoId) { showToast('Load a video for this POV first.', 'error'); return; }
-  // The log offset stays whatever the timeline slider last showed, even if the video has since drifted from it.
-  const slider = document.getElementById('timeline-seek-input');
-  const logOffsetMs = slider ? Number(slider.value) * 1000 : 0;
-  const absMs = pullAbsStartMs(fight) + logOffsetMs;
-  const videoSeconds = ytPlayer.getCurrentTime();
-  // Compare against what the previous calibration would have predicted, so the drift this fixes is visible.
-  const priorSeg = resolveSegmentForAbsTime(pov, absMs);
-  const driftSeconds = priorSeg ? videoSeconds - videoSecondsForSeg(priorSeg, absMs) : null;
-  const rate = priorSeg ? segRate(priorSeg) : 1; // carry forward any known drift rate so it keeps applying past this point
-  const seg = {
-    id: uid('seg'),
-    videoId: currentLoadedVideoId,
-    label: `Resync — ${fight.name} @ ${formatSecondsToMMSS(logOffsetMs / 1000)}`,
-    startAbsMs: absMs - (videoSeconds / rate) * 1000,
-    rate,
-    autoSynced: false
-  };
-  pov.segments.push(seg);
-  persistPOVs();
-  currentLoadedSegmentId = seg.id;
-  updateTimelinePlayhead(getTimelinePlaybackOffsetMs(fight));
-  const driftText = driftSeconds != null ? ` (${driftSeconds >= 0 ? '+' : ''}${driftSeconds.toFixed(1)}s drift corrected since the last sync point)` : '';
-  showToast(`Resync point added at video ${formatSecondsToMMSS(Math.floor(videoSeconds))}${driftText} — later pulls use this until the next resync.`, 'success');
 }
 function getTimelinePlaybackOffsetMs(fight) {
   const pov = getActivePOV();
