@@ -252,6 +252,7 @@
     <div class="min-w-0">
       <h2 class="text-sm font-semibold text-slate-100 flex items-center gap-2"><i class="fa-solid fa-calendar-days text-ffcyan-400"></i> Ability plan</h2>
       <p id="planning-pull-summary" class="text-[11px] text-slate-500 mt-0.5">Load a report and select a pull to see player abilities.</p>
+      <div id="planning-class-filters" class="flex flex-wrap items-center gap-1.5 mt-2" aria-label="Show ability tracks by class"></div>
     </div>
     <div class="flex flex-wrap items-center gap-2">
       <label for="planning-encounter-id" class="text-[11px] text-slate-400">Encounter ID</label>
@@ -454,6 +455,7 @@ let mechanicRecastIgnoreSeconds = {};
 let activeFightId = null;
 let activePovId = null;
 let activePlanningEncounterId = '';
+let hiddenPlanningClasses = new Set();
 let currentFilter = 'all';
 let wipeThreshold = 20;
 let selectedPhaseFilter = '';
@@ -2061,6 +2063,39 @@ function loadPlanningEncounter() {
   renderTimeline();
 }
 
+function renderPlanningClassFilters() {
+  const container = document.getElementById('planning-class-filters');
+  if (!container) return;
+  const jobs = new Set();
+  trackedAbilityNames.forEach(name => {
+    const assignedJobs = getAbilityClasses(name);
+    (assignedJobs.length ? assignedJobs : ['Unassigned']).forEach(job => jobs.add(job.toUpperCase()));
+  });
+  container.innerHTML = '';
+  [...jobs].sort((a, b) => a.localeCompare(b)).forEach(job => {
+    const enabled = !hiddenPlanningClasses.has(job);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'text-[10px] font-semibold px-2 py-1 border rounded transition';
+    button.textContent = job;
+    button.setAttribute('aria-pressed', String(enabled));
+    button.title = `${enabled ? 'Hide' : 'Show'} ${job} ability tracks`;
+    const color = JOB_COLORS[job] || '#38bdf8';
+    button.style.color = enabled ? color : '#64748b';
+    button.style.borderColor = enabled ? `${color}99` : '#334155';
+    button.style.backgroundColor = enabled ? `${color}18` : 'transparent';
+    button.addEventListener('click', () => {
+      if (enabled) hiddenPlanningClasses.add(job);
+      else hiddenPlanningClasses.delete(job);
+      renderTimeline();
+    });
+    container.appendChild(button);
+  });
+  if (!jobs.size) {
+    container.innerHTML = '<span class="text-[10px] text-slate-600">Add tracked abilities and assign classes to create class tracks.</span>';
+  }
+}
+
 function renderCuratedPlanningTimeline(encounter, container) {
   const mechanics = Array.isArray(encounter.mechanics) ? encounter.mechanics : [];
   const observedEnd = mechanics.reduce((latest, mechanic) => Math.max(latest, ...(mechanic.castOffsets || [0])), 0);
@@ -2085,7 +2120,7 @@ function renderCuratedPlanningTimeline(encounter, container) {
     (jobs.length ? jobs : ['Unassigned']).forEach(job => {
       const key = job === 'Unassigned' ? job : job.toUpperCase();
       if (!classRows.has(key)) classRows.set(key, []);
-      if (!document.getElementById('planning-ability-filter').value || name.toLocaleLowerCase().includes(document.getElementById('planning-ability-filter').value.trim().toLocaleLowerCase())) {
+      if (!hiddenPlanningClasses.has(key) && (!document.getElementById('planning-ability-filter').value || name.toLocaleLowerCase().includes(document.getElementById('planning-ability-filter').value.trim().toLocaleLowerCase()))) {
         classRows.get(key).push(name);
       }
     });
@@ -2099,7 +2134,7 @@ function renderCuratedPlanningTimeline(encounter, container) {
   const width = timelineWidth(container);
   const left = 205, right = width - 15, timelineWidthPx = right - left;
   const xAt = seconds => left + Math.max(0, Math.min(1, seconds / durationSeconds)) * timelineWidthPx;
-  const mechanicRowHeight = 36;
+  const mechanicRowHeight = 120;
   const abilityRowHeight = 30;
   const mechanicHeight = mechanicRowHeight + 8;
   const abilityRowCount = [...classRows.values()].reduce((count, rows) => count + (rows.length ? rows.length + 1 : 0), 0);
@@ -2150,7 +2185,7 @@ function renderCuratedPlanningTimeline(encounter, container) {
     const color = getMechanicCategory(name) ? categoryColor(getMechanicCategory(name)) : '#fbbf24';
     mechanic.castOffsets.forEach(seconds => {
       const x = xAt(seconds);
-      const markerY = mechanicCenterY + ((mechanicMarkerIndex++ % 3) - 1) * 5;
+      const markerY = mechanicCenterY + ((mechanicMarkerIndex++ % 9) - 4) * 9;
       const marker = addTo(mechanicsSvg, 'path', { d: `M ${x} ${markerY - 5} l 4 5 l -4 5 l -4 -5 Z`, fill: color, stroke: '#0f172a', 'stroke-width': 1 });
       marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${name} observed at ${formatSecondsToMMSS(seconds)}`;
     });
@@ -2198,6 +2233,7 @@ function renderPlanningControls() {
   const fightSelect = document.getElementById('planning-fight-select');
   const playerSelect = document.getElementById('planning-player-filter');
   if (!fightSelect || !playerSelect) return;
+  renderPlanningClassFilters();
   const selectedPlayer = playerSelect.value;
   fightSelect.innerHTML = '';
   playerSelect.innerHTML = '<option value="">All players</option>';
