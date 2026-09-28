@@ -872,10 +872,10 @@ function openMechanicsModal() {
   document.getElementById('mechanics-modal').classList.remove('hidden');
 }
 function closeMechanicsModal() { document.getElementById('mechanics-modal').classList.add('hidden'); }
-function getMechanicRows(fight) {
+function getMechanicRows(fight, includeEncounterHistory = false) {
   const events = fight && timelineEventsCache[fight.id];
   const encounterId = String(fight ? fight.encounterID || '' : activePlanningEncounterId || '');
-  const encounter = encounterId ? loadEncounterMechanicsDataset()[encounterId] : null;
+  const encounter = includeEncounterHistory && encounterId ? loadEncounterMechanicsDataset()[encounterId] : null;
   if (!events && !encounter) return [];
   const mechanicsByName = new Map();
   ((events && events.enemyCasts) || []).filter(event => String(event.type).toLowerCase() === 'cast').forEach(event => {
@@ -928,7 +928,7 @@ function filterMechanicRecasts(name, casts) {
 function renderMechanicsList() {
   const container = document.getElementById('mechanics-list-container');
   const fight = getActiveFight();
-  const rows = getMechanicRows(fight);
+  const rows = getMechanicRows(fight, true);
   const encounterId = String(fight ? fight.encounterID || '' : activePlanningEncounterId || '');
   const encounter = encounterId ? loadEncounterMechanicsDataset()[encounterId] : null;
   const count = document.getElementById('mechanic-count');
