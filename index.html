@@ -192,7 +192,7 @@
 
       <div id="tab-content-deaths" class="bottom-tab-content hidden flex-1 p-3 overflow-y-auto">
         <div id="deaths-timeline" class="w-full overflow-x-auto bg-slate-950 rounded-lg border border-slate-800 px-2 py-1 mb-2"></div>
-        <div id="deaths-list-container" class="space-y-1.5"></div>
+        <div id="deaths-list-container" class="flex flex-wrap gap-1.5"></div>
       </div>
 
       <div id="tab-content-notes" class="bottom-tab-content hidden flex-1 p-3 overflow-y-auto flex flex-col gap-2">
@@ -325,11 +325,13 @@
 
 <!-- MECHANICS MODAL -->
 <div id="mechanics-modal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4">
-  <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-xl max-h-[85vh] flex flex-col shadow-2xl">
+  <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-3xl max-h-[85vh] flex flex-col shadow-2xl">
     <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
       <div>
         <h2 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-burst text-amber-400"></i> Boss Mechanics</h2>
         <p id="mechanics-pull-label" class="text-[10px] text-slate-500 mt-1">Select a pull to load its boss casts.</p>
+        <p class="text-[10px] text-slate-600 mt-0.5">Give a mechanic a category to move it onto its own timeline lane. Leave blank to keep it in the main Mechanics lane.</p>
+        <datalist id="mechanic-category-options"></datalist>
       </div>
       <button onclick="closeMechanicsModal()" class="text-slate-500 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
     </div>
@@ -374,6 +376,14 @@ let timelineEventsCache = {}; // fightId -> { buffs: [], damage: [], healing: []
 let trackedAbilityNames = [];
 let trackedAbilityCooldowns = {};
 let hiddenMechanicNames = [];
+let mechanicCategories = (() => { try { return JSON.parse(localStorage.getItem('fflogs_vod_mechanic_categories')) || {}; } catch (e) { return {}; } })();
+function getMechanicCategory(name) { return String(mechanicCategories[String(name).toLocaleLowerCase()] || '').trim(); }
+const CATEGORY_COLORS = ['#f472b6', '#a78bfa', '#38bdf8', '#34d399', '#fb923c', '#f87171', '#facc15', '#2dd4bf'];
+function categoryColor(category) {
+  let h = 0;
+  for (const ch of category) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return CATEGORY_COLORS[h % CATEGORY_COLORS.length];
+}
 let mechanicRecastIgnoreSeconds = {};
 
 let activeFightId = null;
@@ -602,9 +612,16 @@ function renderMechanicsList() {
       <div class="text-slate-500 text-[10px] text-center">FFLogs returned ${enemyCasts.length} enemy cast events for this pull.</div>`;
     return;
   }
+  const categoryOptions = document.getElementById('mechanic-category-options');
+  if (categoryOptions) {
+    categoryOptions.innerHTML = '';
+    [...new Set(Object.values(mechanicCategories).map(v => String(v).trim()).filter(Boolean))].sort().forEach(v => {
+      const o = document.createElement('option'); o.value = v; categoryOptions.appendChild(o);
+    });
+  }
   rows.forEach(row => {
     const item = document.createElement('div');
-    item.className = 'grid grid-cols-[auto_minmax(0,1fr)_auto_auto_auto] items-center gap-2 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 hover:border-slate-700';
+    item.className = 'grid grid-cols-[auto_minmax(0,1fr)_auto_9rem_auto_auto] items-center gap-2 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 hover:border-slate-700';
     const toggle = document.createElement('input');
     toggle.type = 'checkbox';
     toggle.checked = !hiddenMechanicNames.includes(row.name);
@@ -649,7 +666,21 @@ function renderMechanicsList() {
     firstSeen.className = 'text-[10px] text-amber-400 font-mono';
     firstSeen.textContent = formatSecondsToMMSS((row.firstSeen - fight.startTime) / 1000);
     firstSeen.title = 'First appearance in this pull';
-    item.append(toggle, name, castCount, recastControl, firstSeen);
+    const categoryInput = document.createElement('input');
+    categoryInput.type = 'text';
+    categoryInput.placeholder = 'Category';
+    categoryInput.setAttribute('list', 'mechanic-category-options');
+    categoryInput.value = getMechanicCategory(row.name);
+    categoryInput.title = `Lane for ${row.name} on the timeline`;
+    categoryInput.className = 'w-full bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-[11px] text-slate-200';
+    categoryInput.addEventListener('change', () => {
+      const key = row.name.toLocaleLowerCase();
+      const value = categoryInput.value.trim();
+      if (value) mechanicCategories[key] = value; else delete mechanicCategories[key];
+      localStorage.setItem('fflogs_vod_mechanic_categories', JSON.stringify(mechanicCategories));
+      renderTimeline();
+    });
+    item.append(toggle, name, castCount, categoryInput, recastControl, firstSeen);
     container.appendChild(item);
   });
 }
@@ -1289,24 +1320,20 @@ function renderDeathRecap(fightId) {
   document.getElementById('pull-death-count').textContent = deaths.length;
   container.innerHTML = '';
   if (!deaths.length) {
-    container.innerHTML = '<div class="text-xs text-slate-500 italic p-3 text-center">No deaths recorded for this pull.</div>';
+    container.innerHTML = '<div class="w-full text-xs text-slate-500 italic p-3 text-center">No deaths recorded for this pull.</div>';
     return;
   }
-  deaths.forEach((d, idx) => {
-    const div = document.createElement('div');
-    div.className = 'flex items-center justify-between bg-slate-950 p-2 rounded-lg border border-slate-800 text-xs';
-    div.innerHTML = `
-      <div class="flex items-center gap-2">
-        <span class="w-6 h-6 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center text-xs font-bold"><i class="fa-solid fa-skull"></i></span>
-        <div><span class="font-bold text-slate-200">${escapeHTML(d.player)}</span> <span class="text-slate-400">died —</span> <span class="text-amber-400">${escapeHTML(d.ability)}</span></div>
-      </div>
-      <div class="flex items-center gap-1.5">
-        <button class="death-detail-btn bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded flex items-center gap-1 transition" title="Last moments"><i class="fa-solid fa-magnifying-glass text-[9px]"></i> Last moments</button>
-        <button class="bg-slate-800 hover:bg-slate-700 text-ffcyan-400 px-2.5 py-1 rounded font-mono font-bold flex items-center gap-1 transition"><i class="fa-solid fa-play text-[9px]"></i> ${formatSecondsToMMSS(Math.round(d.timeMs / 1000))}</button>
-      </div>`;
-    div.querySelector('.death-detail-btn').onclick = () => openDeathDetailModal(fightId, d);
-    div.querySelectorAll('button')[1].onclick = () => jumpToSpecificOffsetMs(d.timeMs);
-    container.appendChild(div);
+  deaths.forEach(d => {
+    const card = document.createElement('div');
+    card.className = 'inline-flex items-center gap-2 bg-slate-950 border border-slate-800 hover:border-slate-600 rounded-lg pl-2 pr-1.5 py-1 text-xs transition';
+    card.innerHTML = `
+      <i class="fa-solid fa-skull text-rose-400 text-[10px]"></i>
+      <button class="death-name font-semibold text-slate-200 hover:text-white hover:underline" title="View last moments">${escapeHTML(d.player)}</button>
+      <span class="text-amber-400/90 truncate max-w-[150px]" title="${escapeHTML(d.ability)}">${escapeHTML(d.ability)}</span>
+      <button class="death-time bg-slate-800 hover:bg-slate-700 text-ffcyan-400 px-1.5 py-0.5 rounded font-mono font-bold" title="Jump to this moment in the video"><i class="fa-solid fa-play text-[8px]"></i> ${formatSecondsToMMSS(Math.round(d.timeMs / 1000))}</button>`;
+    card.querySelector('.death-name').onclick = () => openDeathDetailModal(fightId, d);
+    card.querySelector('.death-time').onclick = () => jumpToSpecificOffsetMs(d.timeMs);
+    container.appendChild(card);
   });
 }
 
@@ -1319,13 +1346,13 @@ function renderDeathsTimeline(fightId) {
   const svgNS = 'http://www.w3.org/2000/svg';
   const height = 76;
   const svg = document.createElementNS(svgNS, 'svg');
-  svg.setAttribute('viewBox', `0 0 1000 ${height}`);
+  svg.setAttribute('viewBox', `0 0 ${timelineWidth(container)} ${height}`);
   svg.setAttribute('width', '100%');
   svg.setAttribute('class', 'block w-full min-w-full');
   svg.setAttribute('height', height);
   const start = fight.startTime;
   const duration = Math.max(1, fight.endTime - fight.startTime);
-  const left = 110, right = 985, width = right - left;
+  const left = 110, right = timelineWidth(container) - 15, width = right - left;
   const xAt = timestamp => left + Math.max(0, Math.min(1, (timestamp - start) / duration)) * width;
   const add = (tag, attrs, text) => {
     const el = document.createElementNS(svgNS, tag);
@@ -1355,14 +1382,30 @@ function renderDeathsTimeline(fightId) {
    DEATH DETAIL ("Last Moments") — recent damage taken + active mitigations
    ========================================================================= */
 const DEATH_DETAIL_QUERY = `
-query ($code: String!, $fightID: Int!, $targetID: Int!, $dmgStart: Float!, $dmgEnd: Float!, $buffEnd: Float!) {
+query ($code: String!, $fightID: Int!, $targetID: Int!, $winStart: Float!, $winEnd: Float!) {
   reportData {
     report(code: $code) {
-      damage: events(fightIDs: [$fightID], dataType: DamageTaken, targetID: $targetID, startTime: $dmgStart, endTime: $dmgEnd) { data }
-      buffs: events(fightIDs: [$fightID], dataType: Buffs, targetID: $targetID, startTime: 0, endTime: $buffEnd) { data }
+      damage: events(fightIDs: [$fightID], dataType: DamageTaken, targetID: $targetID, startTime: $winStart, endTime: $winEnd) { data }
+      heals: events(fightIDs: [$fightID], dataType: Healing, targetID: $targetID, startTime: $winStart, endTime: $winEnd) { data }
     }
   }
 }`;
+
+// Known defensive / shield abilities (matched by name). Damage-up buffs are deliberately NOT in here.
+const MITIGATION_NAMES = new Set([
+  // Tanks
+  'rampart','vengeance','damnation','sentinel','guardian','bulwark','sheltron','holy sheltron','intervention','divine veil','passage of arms','hallowed ground','shake it off','raw intuition','bloodwhetting','nascent flash','nascent glint','stem the flow','stem the tide','holmgang','shadow wall','shadowed vigil','dark mind','oblation','the blackest night','dark missionary','living dead','walking dead','undead rebirth','camouflage','nebula','great nebula','heart of stone','heart of corundum','heart of light','superbolide','reprisal',
+  // Healers
+  'sacred soil','fey illumination','seraphic veil','consolation','temperance','divine benison','aquaveil','plenary indulgence','asylum','divine caress','sun sign','collective unconscious','exaltation','macrocosmos','celestial intersection','celestial opposition','neutral sect','kerachole','holos','panhaima','haima','taurochole','eukrasian diagnosis','eukrasian prognosis','eukrasian prognosis ii','galvanize','catalyze','adloquium','succor',
+  // Physical ranged / casters
+  'troubadour','tactician','shield samba','dismantle','feint','addle','magick barrier','tengentsu','third eye','radiant aegis'
+]);
+function isMitigationName(name) {
+  const key = String(name || '').toLocaleLowerCase();
+  if (!key || /^ability #?\d+$/.test(key)) return false;
+  if (MITIGATION_NAMES.has(key)) return true;
+  return trackedAbilityNames.some(n => String(n).toLocaleLowerCase() === key);
+}
 
 let deathDetailCache = {};
 
@@ -1376,23 +1419,21 @@ async function openDeathDetailModal(fightId, death) {
 
   const cacheKey = `${fightId}_${death.targetID}_${death.timeMs}`;
   if (deathDetailCache[cacheKey]) { renderDeathDetail(deathDetailCache[cacheKey], death, fight); return; }
-
-  if (death.targetID == null) { body.innerHTML = '<div class="text-rose-400 text-center py-6">Could not identify this player\'s actor ID for lookup.</div>'; return; }
+  if (death.targetID == null) { body.innerHTML = '<div class="text-rose-400 text-center py-6">Could not identify this player for lookup.</div>'; return; }
 
   try {
     const deathAbsTime = fight.startTime + death.timeMs;
-    const variables = {
+    const data = await fflogsQuery(DEATH_DETAIL_QUERY, {
       code: report.code,
       fightID: fightId,
       targetID: death.targetID,
-      dmgStart: Math.max(0, deathAbsTime - 15000),
-      dmgEnd: deathAbsTime + 200,
-      buffEnd: deathAbsTime
-    };
-    const data = await fflogsQuery(DEATH_DETAIL_QUERY, variables);
+      winStart: Math.max(fight.startTime, deathAbsTime - 20000),
+      winEnd: deathAbsTime + 500
+    });
+    const r = data.reportData.report;
     const result = {
-      damage: (data.reportData.report.damage && data.reportData.report.damage.data) || [],
-      buffs: (data.reportData.report.buffs && data.reportData.report.buffs.data) || []
+      damage: (r.damage && r.damage.data) || [],
+      heals: (r.heals && r.heals.data) || []
     };
     deathDetailCache[cacheKey] = result;
     renderDeathDetail(result, death, fight);
@@ -1409,59 +1450,107 @@ function resolveAbilityName(abilityGameID) {
   return name || ('Ability #' + abilityGameID);
 }
 
+function buffNamesOnEvent(ev) {
+  const ids = String(ev.buffs || '').split('.').filter(Boolean);
+  const names = [...new Set(ids.map(id => resolveAbilityName(Number(id))))];
+  return { all: names.sort(), mitigation: names.filter(isMitigationName).sort() };
+}
+function eventMitigationPct(ev) {
+  const unmitigated = Number(ev.unmitigatedAmount), amount = Number(ev.amount);
+  if (unmitigated > 0 && Number.isFinite(amount)) return (1 - amount / unmitigated) * 100;
+  if (ev.multiplier != null && Number.isFinite(Number(ev.multiplier))) return (1 - Number(ev.multiplier)) * 100;
+  return null;
+}
+function eventHpPct(ev) {
+  return (ev.hitPoints != null && Number(ev.maxHitPoints) > 0) ? Math.max(0, Math.min(100, ev.hitPoints / ev.maxHitPoints * 100)) : null;
+}
+function mitigationChips(names) {
+  return names.map(n => `<span class="bg-emerald-950/50 text-emerald-300 border border-emerald-700/40 rounded px-1.5 py-0.5 text-[10px]">${escapeHTML(n)}</span>`).join('');
+}
+
 function renderDeathDetail(result, death, fight) {
   const body = document.getElementById('death-detail-body');
-  const deathAbsTime = fight.startTime + death.timeMs;
+  const deathAbs = fight.startTime + death.timeMs;
+  const actorNames = new Map(report.actors.map(a => [String(a.id), a.name]));
+  const typeOf = ev => String(ev.type || '').toLowerCase();
 
-  // Active buffs/mitigations at time of death: walk apply/remove events, keep what's still up.
-  const active = new Map();
-  (result.buffs || []).slice().sort((a, b) => a.timestamp - b.timestamp).forEach(ev => {
-    const key = `${ev.abilityGameID}_${ev.sourceID || ''}`;
-    if (ev.type === 'applybuff' || ev.type === 'refreshbuff') active.set(key, ev.abilityGameID);
-    else if (ev.type === 'removebuff') active.delete(key);
-  });
-  const activeNames = [...new Set([...active.values()].map(resolveAbilityName))].sort();
+  let damage = result.damage || [];
+  const applied = damage.filter(ev => typeOf(ev) === 'damage');
+  if (applied.length) damage = applied;
+  damage = damage.filter(ev => ev.timestamp <= deathAbs + 500).sort((a, b) => a.timestamp - b.timestamp);
 
-  // Damage taken in the last ~15s, chronological, with running / reported HP%.
-  const dmgEvents = (result.damage || []).slice().sort((a, b) => a.timestamp - b.timestamp);
-  const dmgRows = dmgEvents.map(ev => {
-    const relMs = ev.timestamp - fight.startTime;
-    const hpPct = (ev.hitPoints != null && ev.maxHitPoints) ? Math.max(0, (ev.hitPoints / ev.maxHitPoints) * 100) : null;
-    const isKillingBlow = Math.abs(ev.timestamp - deathAbsTime) < 250;
-    return { relMs, ability: resolveAbilityName(ev.abilityGameID), amount: ev.amount || 0, hpPct, isKillingBlow };
-  });
+  let heals = result.heals || [];
+  const appliedHeals = heals.filter(ev => typeOf(ev) === 'heal');
+  heals = (appliedHeals.length ? appliedHeals : heals.filter(ev => typeOf(ev) !== 'calculatedheal'))
+    .filter(ev => Number(ev.amount) > 0 && ev.timestamp <= deathAbs + 500)
+    .sort((a, b) => a.timestamp - b.timestamp);
 
-  let html = '';
-  html += `<div class="bg-slate-950 border border-slate-800 rounded-lg p-3">
-    <div class="text-[10px] uppercase text-slate-500 font-bold mb-1.5">Killed by</div>
-    <div class="text-rose-400 font-semibold">${escapeHTML(death.ability)}</div>
-    <div class="text-slate-500 text-[11px] mt-0.5">at ${formatSecondsToMMSS(Math.round(death.timeMs / 1000))} into the pull</div>
+  const rows = [
+    ...damage.map(ev => ({ kind: 'dmg', ev })),
+    ...heals.map(ev => ({ kind: 'heal', ev }))
+  ].sort((a, b) => a.ev.timestamp - b.ev.timestamp);
+
+  const killingBlow = damage.length ? damage[damage.length - 1] : null;
+  const killerName = death.ability && death.ability !== 'Unknown cause'
+    ? death.ability
+    : (killingBlow ? resolveAbilityName(killingBlow.abilityGameID) : 'Unknown cause');
+  const killBuffs = killingBlow ? buffNamesOnEvent(killingBlow) : { all: [], mitigation: [] };
+  const killMit = killingBlow ? eventMitigationPct(killingBlow) : null;
+
+  let html = `<div class="bg-slate-950 border border-slate-800 rounded-lg p-3">
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <div class="text-[10px] uppercase text-slate-500 font-bold mb-1">Killed by</div>
+        <div class="text-rose-400 font-semibold text-sm">${escapeHTML(killerName)}</div>
+        <div class="text-slate-500 text-[11px] mt-0.5">at ${formatSecondsToMMSS(Math.round(death.timeMs / 1000))} into the pull</div>
+      </div>
+      <button class="jump-death bg-slate-800 hover:bg-slate-700 text-ffcyan-400 px-2.5 py-1 rounded font-mono font-bold flex items-center gap-1 shrink-0"><i class="fa-solid fa-play text-[9px]"></i> Jump to death</button>
+    </div>
+    ${killingBlow ? `<div class="mt-2 text-[11px] text-slate-400">Final hit: <span class="text-amber-400 font-mono">${Number(killingBlow.amount || 0).toLocaleString()}</span>${killMit != null ? ` · <span class="${killMit > 0 ? 'text-emerald-400' : 'text-rose-300'}">${killMit > 0 ? Math.round(killMit) + '% mitigated' : (killMit < -0.5 ? Math.round(-killMit) + '% extra damage taken' : 'no mitigation')}</span>` : ''}${Number(killingBlow.absorbed) > 0 ? ` · <span class="text-sky-300">${Number(killingBlow.absorbed).toLocaleString()} absorbed</span>` : ''}</div>` : ''}
   </div>`;
 
   html += `<div class="bg-slate-950 border border-slate-800 rounded-lg p-3">
-    <div class="text-[10px] uppercase text-slate-500 font-bold mb-1.5">Active mitigations at death</div>
-    ${activeNames.length
-      ? `<div class="flex flex-wrap gap-1">${activeNames.map(n => `<span class="bg-emerald-950/50 text-emerald-300 border border-emerald-700/40 rounded px-1.5 py-0.5 text-[10px]">${escapeHTML(n)}</span>`).join('')}</div>`
-      : `<div class="text-slate-600 italic text-[11px]">No tracked buffs were active — went in raw, or mitigations had already fallen off.</div>`}
+    <div class="text-[10px] uppercase text-slate-500 font-bold mb-1.5">Mitigation active on the killing blow</div>
+    ${killBuffs.mitigation.length
+      ? `<div class="flex flex-wrap gap-1">${mitigationChips(killBuffs.mitigation)}</div>`
+      : `<div class="text-slate-500 italic text-[11px]">${killingBlow ? 'No recognized mitigation or shields were on them.' : 'No damage events found to read mitigation from.'}</div>`}
+    ${killBuffs.all.length ? `<details class="mt-2"><summary class="text-[10px] text-slate-500 cursor-pointer hover:text-slate-300 select-none">All ${killBuffs.all.length} effects on them (includes damage buffs)</summary><div class="flex flex-wrap gap-1 mt-1.5">${killBuffs.all.map(n => `<span class="bg-slate-900 text-slate-400 border border-slate-800 rounded px-1.5 py-0.5 text-[10px]">${escapeHTML(n)}</span>`).join('')}</div></details>` : ''}
   </div>`;
 
   html += `<div class="bg-slate-950 border border-slate-800 rounded-lg p-3">
-    <div class="text-[10px] uppercase text-slate-500 font-bold mb-1.5">Last ~15 seconds of damage taken</div>
-    ${dmgRows.length ? `<div class="space-y-1 max-h-56 overflow-y-auto pr-1">${dmgRows.map(r => `
-      <button class="w-full flex items-center justify-between text-left px-2 py-1 rounded ${r.isKillingBlow ? 'bg-rose-950/50 border border-rose-700/50' : 'hover:bg-slate-900 border border-transparent'} transition dmg-row" data-ms="${r.relMs}">
-        <span class="flex items-center gap-2">
-          <span class="font-mono text-slate-500 text-[10px]">${formatSecondsToMMSS(Math.round(r.relMs / 1000))}</span>
-          <span class="${r.isKillingBlow ? 'text-rose-300 font-bold' : 'text-slate-300'}">${escapeHTML(r.ability)}${r.isKillingBlow ? ' (killing blow)' : ''}</span>
-        </span>
-        <span class="flex items-center gap-2 font-mono text-[10px]">
-          <span class="text-amber-400">${r.amount.toLocaleString()} dmg</span>
-          ${r.hpPct != null ? `<span class="text-slate-500">${r.hpPct.toFixed(0)}% hp</span>` : ''}
-        </span>
-      </button>`).join('')}</div>` : `<div class="text-slate-600 italic text-[11px]">No damage-taken data available in this window.</div>`}
+    <div class="text-[10px] uppercase text-slate-500 font-bold mb-1.5">Last 20 seconds</div>
+    ${rows.length ? `<div class="space-y-1 max-h-72 overflow-y-auto pr-1">${rows.map(({ kind, ev }) => {
+      const relMs = ev.timestamp - fight.startTime;
+      const time = formatSecondsToMMSS(Math.round(relMs / 1000));
+      const hp = eventHpPct(ev);
+      const hpBar = hp != null ? `<span class="inline-block w-14 h-1.5 bg-slate-800 rounded overflow-hidden align-middle"><span class="block h-full ${hp < 30 ? 'bg-rose-500' : 'bg-emerald-500'}" style="width:${hp.toFixed(0)}%"></span></span><span class="text-slate-500 w-9 text-right">${hp.toFixed(0)}%</span>` : '';
+      if (kind === 'heal') {
+        const src = actorNames.get(String(ev.sourceID)) || 'Healer';
+        return `<div class="flex items-center justify-between gap-2 px-2 py-1 rounded hover:bg-slate-900 cursor-pointer death-row" data-ms="${relMs}">
+          <span class="flex items-center gap-2 min-w-0"><span class="font-mono text-slate-500 text-[10px]">${time}</span><span class="text-emerald-400 truncate"><i class="fa-solid fa-plus text-[9px]"></i> ${escapeHTML(resolveAbilityName(ev.abilityGameID))} <span class="text-slate-500">(${escapeHTML(src)})</span></span></span>
+          <span class="flex items-center gap-2 font-mono text-[10px] shrink-0"><span class="text-emerald-400">+${Number(ev.amount).toLocaleString()}</span>${hpBar}</span></div>`;
+      }
+      const isKill = killingBlow && ev === killingBlow;
+      const mit = eventMitigationPct(ev);
+      const bn = buffNamesOnEvent(ev);
+      return `<div class="px-2 py-1 rounded cursor-pointer death-row ${isKill ? 'bg-rose-950/50 border border-rose-700/50' : 'hover:bg-slate-900 border border-transparent'}" data-ms="${relMs}">
+        <div class="flex items-center justify-between gap-2">
+          <span class="flex items-center gap-2 min-w-0"><span class="font-mono text-slate-500 text-[10px]">${time}</span><span class="${isKill ? 'text-rose-300 font-bold' : 'text-slate-200'} truncate">${escapeHTML(resolveAbilityName(ev.abilityGameID))}${isKill ? ' (killing blow)' : ''}${ev.tick ? ' <span class="text-slate-500 font-normal">(tick)</span>' : ''}</span></span>
+          <span class="flex items-center gap-2 font-mono text-[10px] shrink-0">
+            <span class="text-amber-400">-${Number(ev.amount || 0).toLocaleString()}</span>
+            ${mit != null ? `<span class="${mit > 0.5 ? 'text-emerald-400' : (mit < -0.5 ? 'text-rose-300' : 'text-slate-500')}">${mit > 0.5 ? Math.round(mit) + '% mit' : (mit < -0.5 ? '+' + Math.round(-mit) + '% dmg' : '0% mit')}</span>` : ''}
+            ${hpBar}
+          </span>
+        </div>
+        ${bn.mitigation.length ? `<div class="flex flex-wrap gap-1 mt-1 pl-9">${mitigationChips(bn.mitigation)}</div>` : ''}
+      </div>`;
+    }).join('')}</div>` : `<div class="text-slate-500 italic text-[11px]">No damage or healing data found in this window.</div>`}
+    <div class="text-[10px] text-slate-600 mt-2">Mitigation % comes from FFLogs' own damage numbers; the chips are recognized defensives and shields on the player at each hit. Debuffs on the boss (Reprisal, Addle, Feint) may not be listed.</div>
   </div>`;
 
   body.innerHTML = html;
-  body.querySelectorAll('.dmg-row').forEach(row => {
+  body.querySelector('.jump-death').addEventListener('click', () => jumpToSpecificOffsetMs(death.timeMs));
+  body.querySelectorAll('.death-row').forEach(row => {
     row.addEventListener('click', () => jumpToSpecificOffsetMs(Number(row.getAttribute('data-ms'))));
   });
 }
@@ -1473,6 +1562,20 @@ function renderTimeline() {
   if (!fight) return;
   renderCombatTimeline(fight, visualization);
 }
+
+function timelineWidth(container) {
+  const w = (container && container.clientWidth || 0) - 20;
+  return Math.max(480, w > 0 ? w : 1000);
+}
+let timelineResizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(timelineResizeTimer);
+  timelineResizeTimer = setTimeout(() => {
+    if (!report) return;
+    renderTimeline();
+    if (activeFightId != null) renderDeathsTimeline(activeFightId);
+  }, 150);
+});
 
 function eventAbilityId(event) {
   return Number(event.abilityGameID || (event.ability && (event.ability.gameID || event.ability.guid || event.ability.id)) || 0);
@@ -1531,17 +1634,23 @@ function renderCombatTimeline(fight, container) {
     return { abilityName, cooldownSeconds: Number(trackedAbilityCooldowns[abilityCooldownKey(abilityName)]) || 0, casts, spans };
   });
   const fightNotes = notes.filter(note => note.fightId === fight.id);
-  const rowCount = (mechanicRows.length ? 1 : 0) + (fightNotes.length ? 1 : 0) + abilityRows.length;
+  const mechanicLanes = [];
+  const uncategorized = mechanicRows.filter(row => !getMechanicCategory(row.name));
+  if (uncategorized.length) mechanicLanes.push({ label: 'Mechanics', color: '#fbbf24', rows: uncategorized });
+  [...new Set(mechanicRows.map(row => getMechanicCategory(row.name)).filter(Boolean))].sort((a, b) => a.localeCompare(b)).forEach(category => {
+    mechanicLanes.push({ label: category, color: categoryColor(category), rows: mechanicRows.filter(row => getMechanicCategory(row.name) === category) });
+  });
+  const rowCount = mechanicLanes.length + (fightNotes.length ? 1 : 0) + abilityRows.length;
   const height = Math.max(56, 34 + rowCount * 32);
   const rowHeight = 32;
   const svgNS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(svgNS, 'svg');
-  svg.setAttribute('viewBox', `0 0 1000 ${height}`);
+  svg.setAttribute('viewBox', `0 0 ${timelineWidth(container)} ${height}`);
   svg.setAttribute('width', '100%');
   svg.setAttribute('class', 'block w-full min-w-full');
   svg.setAttribute('height', height);
   const start = fight.startTime, duration = Math.max(1, fight.endTime - start);
-  const left = 110, right = 985, width = right - left;
+  const left = 110, right = timelineWidth(container) - 15, width = right - left;
   const xAt = timestamp => left + Math.max(0, Math.min(1, (timestamp - start) / duration)) * width;
   const add = (tag, attrs, text) => {
     const el = document.createElementNS(svgNS, tag);
@@ -1556,21 +1665,21 @@ function renderCombatTimeline(fight, container) {
     add('text', { x, y: 12, fill: '#64748b', 'font-size': 10, 'text-anchor': tick === 0 ? 'start' : tick === 4 ? 'end' : 'middle' }, formatSecondsToMMSS(duration / 1000 * tick / 4));
   }
   let rowIndex = 0;
-  if (mechanicRows.length) {
+  mechanicLanes.forEach(lane => {
     const y = 27 + rowIndex++ * rowHeight;
     const centerY = y + rowHeight / 2;
-    add('text', { x: 4, y: centerY + 3, fill: '#fbbf24', 'font-size': 10 }, 'Mechanics');
+    add('text', { x: 4, y: centerY + 3, fill: lane.color, 'font-size': 10 }, lane.label.length > 17 ? lane.label.slice(0, 16) + '…' : lane.label).appendChild(document.createElementNS(svgNS, 'title')).textContent = lane.label;
     add('line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b', 'stroke-width': 1 });
-    mechanicRows.flatMap(row => row.casts.map(event => ({ ...event, mechanicName: row.name })))
+    lane.rows.flatMap(row => row.casts.map(event => ({ ...event, mechanicName: row.name })))
       .sort((a, b) => a.timestamp - b.timestamp)
       .forEach(event => {
-      const x = xAt(event.timestamp);
-      const marker = add('path', { d: `M ${x} ${centerY - 6} l 4 6 l -4 6 l -4 -6 Z`, fill: '#fbbf24', stroke: '#451a03', 'stroke-width': 1, class: 'cursor-pointer' });
-      const sourceName = event.sourceName || actorNames.get(String(event.sourceID)) || 'Enemy';
-      marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${event.mechanicName} cast by ${sourceName} at ${formatSecondsToMMSS((event.timestamp - start) / 1000)}`;
-      marker.addEventListener('click', () => jumpToSpecificOffsetMs(event.timestamp - start));
-    });
-  }
+        const x = xAt(event.timestamp);
+        const marker = add('path', { d: `M ${x} ${centerY - 6} l 4 6 l -4 6 l -4 -6 Z`, fill: lane.color, stroke: '#0f172a', 'stroke-width': 1, class: 'cursor-pointer' });
+        const sourceName = event.sourceName || actorNames.get(String(event.sourceID)) || 'Enemy';
+        marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${event.mechanicName} cast by ${sourceName} at ${formatSecondsToMMSS((event.timestamp - start) / 1000)}`;
+        marker.addEventListener('click', () => jumpToSpecificOffsetMs(event.timestamp - start));
+      });
+  });
   if (fightNotes.length) {
     const notesY = 27 + rowIndex++ * rowHeight;
     const centerY = notesY + rowHeight / 2;
@@ -1979,7 +2088,7 @@ function escapeHTML(str) {
 </script>
 <!-- DEATH DETAIL MODAL -->
 <div id="death-detail-modal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4">
-  <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-xl max-h-[85vh] flex flex-col shadow-2xl">
+  <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-3xl max-h-[88vh] flex flex-col shadow-2xl">
     <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
       <h2 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-skull text-rose-400"></i> <span id="death-detail-title">Last Moments</span></h2>
       <button onclick="closeDeathDetailModal()" class="text-slate-500 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
