@@ -163,6 +163,7 @@
           <button onclick="jumpToDeathTime()" class="text-xs bg-rose-600/80 hover:bg-rose-500 text-white font-semibold px-3 py-1 rounded-full shadow transition flex items-center gap-1"><i class="fa-solid fa-skull text-[10px]"></i> First Death</button>
           <button onclick="seekVideoRelative(3)" class="text-xs text-slate-300 hover:text-white px-2 py-1 rounded hover:bg-slate-800 transition">+3s <i class="fa-solid fa-forward-step"></i></button>
           <button onclick="seekVideoRelative(10)" class="text-xs text-slate-300 hover:text-white px-2 py-1 rounded hover:bg-slate-800 transition">+10s <i class="fa-solid fa-rotate-right"></i></button>
+          <button onclick="resyncVideoHere()" title="Scrub the video until it matches what's currently shown in the log timeline, then click this to fix drift from here onward (useful for VODs with ad breaks removed)." class="text-xs bg-amber-600/80 hover:bg-amber-500 text-white font-semibold px-3 py-1 rounded-full shadow transition flex items-center gap-1"><i class="fa-solid fa-crosshairs text-[10px]"></i> Resync Here</button>
         </div>
       </div>
     </div>
@@ -1589,6 +1590,29 @@ function jumpToSpecificOffsetMs(offsetMs) {
   const fight = getActiveFight();
   if (!fight) return;
   seekToAbsTime(pullAbsStartMs(fight) + offsetMs);
+}
+function resyncVideoHere() {
+  const fight = getActiveFight();
+  if (!fight) { showToast('Select a pull first.', 'error'); return; }
+  const pov = getActivePOV();
+  if (!pov) { showToast('Select or add a POV first.', 'error'); return; }
+  if (!ytReady || !ytPlayer || !currentLoadedVideoId) { showToast('Load a video for this POV first.', 'error'); return; }
+  // The log offset stays whatever the timeline slider last showed, even if the video has since drifted from it.
+  const slider = document.getElementById('timeline-seek-input');
+  const logOffsetMs = slider ? Number(slider.value) * 1000 : 0;
+  const videoSeconds = ytPlayer.getCurrentTime();
+  const seg = {
+    id: uid('seg'),
+    videoId: currentLoadedVideoId,
+    label: `Resync — ${fight.name} @ ${formatSecondsToMMSS(logOffsetMs / 1000)}`,
+    startAbsMs: pullAbsStartMs(fight) + logOffsetMs - videoSeconds * 1000,
+    autoSynced: false
+  };
+  pov.segments.push(seg);
+  persistPOVs();
+  currentLoadedSegmentId = seg.id;
+  updateTimelinePlayhead(getTimelinePlaybackOffsetMs(fight));
+  showToast(`Resync point added at video ${formatSecondsToMMSS(Math.floor(videoSeconds))} — later pulls will use this corrected offset until the next resync.`, 'success');
 }
 function getTimelinePlaybackOffsetMs(fight) {
   const pov = getActivePOV();
