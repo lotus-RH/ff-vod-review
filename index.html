@@ -469,7 +469,7 @@ let planningZoom = 1;
 let hiddenMechanicNames = [];
 let mechanicCategories = {};
 let customMitigationNames = [];
-function getMechanicCategory(name) { return String(mechanicCategories[String(name).toLocaleLowerCase()] || '').trim(); }
+function getMechanicCategory(name) { return String(mechanicCategories[String(name).toLocaleLowerCase()] || '').trim() || 'Main'; }
 const CATEGORY_COLORS = ['#f472b6', '#a78bfa', '#38bdf8', '#34d399', '#fb923c', '#f87171', '#facc15', '#2dd4bf'];
 function categoryColor(category) {
   let h = 0;
