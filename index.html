@@ -1966,59 +1966,66 @@ function renderPlanningControls() {
 function getPlanningAbilityRows(events, fight) {
   const actors = new Map(report.actors.map(actor => [String(actor.id), actor]));
   const povJobs = new Map(povs.map(pov => [pov.player.toLocaleLowerCase(), pov.job]));
-  const groups = new Map();
-  (events.casts || []).filter(event => String(event.type).toLowerCase() === 'cast').forEach(event => {
-    const sourceID = String(event.sourceID);
-    const actor = actors.get(sourceID);
-    if (!actor) return;
-    const abilityName = eventAbilityName(event);
-    const abilityId = eventAbilityId(event);
-    const key = `${sourceID}:${abilityId || abilityName.toLocaleLowerCase()}`;
-    if (!groups.has(key)) {
-      const job = povJobs.get(actor.name.toLocaleLowerCase()) || actor.subType || '';
-      groups.set(key, {
-        sourceID,
-        actorName: actor.name,
-        job,
-        abilityName,
-        abilityId,
-        color: JOB_COLORS[job] || '#38bdf8',
-        casts: [],
-        spans: []
-      });
-    }
-    groups.get(key).casts.push(event);
-  });
+  const casts = (events.casts || []).filter(event => String(event.type).toLowerCase() === 'cast');
   const playerFilter = document.getElementById('planning-player-filter').value;
   const search = document.getElementById('planning-ability-filter').value.trim().toLocaleLowerCase();
-  const rows = [...groups.values()].filter(row => {
-    return (!playerFilter || row.sourceID === playerFilter) &&
-      (!search || row.abilityName.toLocaleLowerCase().includes(search) || row.actorName.toLocaleLowerCase().includes(search));
-  });
-  rows.forEach(row => {
-    const activeByTarget = new Map();
-    (events.buffs || []).filter(event => String(event.sourceID) === row.sourceID &&
-      (eventAbilityId(event) === row.abilityId || eventAbilityName(event).toLocaleLowerCase() === row.abilityName.toLocaleLowerCase()))
-      .sort((a, b) => a.timestamp - b.timestamp).forEach(event => {
-        const buffId = eventAbilityId(event) || eventAbilityName(event);
-        const key = `${event.targetID}:${buffId}`;
-        if (/^(applybuff|applybuffstack|refreshbuff)$/.test(event.type)) {
-          const previous = activeByTarget.get(key);
-          if (previous) previous.end = event.timestamp;
-          const span = { start: event.timestamp, end: fight.endTime, targetID: event.targetID, name: eventAbilityName(event) };
-          row.spans.push(span);
-          activeByTarget.set(key, span);
-        } else if (/^(removebuff|removebuffstack)$/.test(event.type)) {
-          const active = activeByTarget.get(key);
-          if (active) {
-            active.end = event.timestamp;
-            activeByTarget.delete(key);
+  const jobs = new Map();
+  trackedAbilityNames.forEach(abilityName => {
+    const assignedJobs = getAbilityClasses(abilityName);
+    const sectionJobs = assignedJobs.length ? assignedJobs : ['Unassigned'];
+    sectionJobs.forEach(job => {
+      const jobKey = job === 'Unassigned' ? job : job.toUpperCase();
+      if (!jobs.has(jobKey)) jobs.set(jobKey, []);
+      const abilityCasts = casts.filter(event => {
+        const sourceID = String(event.sourceID);
+        const actor = actors.get(sourceID);
+        if (!actor) return false;
+        const actorJob = (povJobs.get(actor.name.toLocaleLowerCase()) || actor.subType || '').toUpperCase();
+        const matchesJob = jobKey === 'Unassigned' || actorJob === jobKey;
+        return matchesJob && eventAbilityName(event).toLocaleLowerCase() === abilityName.toLocaleLowerCase();
+      }).filter(event => !playerFilter || String(event.sourceID) === playerFilter);
+      const matchingActors = new Set(abilityCasts.map(event => String(event.sourceID)));
+      const rowActors = [...matchingActors].map(id => actors.get(id)).filter(Boolean);
+      const actorNames = rowActors.map(actor => actor.name);
+      if (search && !abilityName.toLocaleLowerCase().includes(search) && !actorNames.some(name => name.toLocaleLowerCase().includes(search))) return;
+      const abilityId = eventAbilityId(abilityCasts[0] || casts.find(event => eventAbilityName(event).toLocaleLowerCase() === abilityName.toLocaleLowerCase()) || {});
+      const sourceIds = new Set(abilityCasts.map(event => String(event.sourceID)));
+      const spans = [];
+      const activeByTarget = new Map();
+      (events.buffs || []).filter(event => sourceIds.has(String(event.sourceID)) &&
+        eventAbilityName(event).toLocaleLowerCase() === abilityName.toLocaleLowerCase())
+        .sort((a, b) => a.timestamp - b.timestamp).forEach(event => {
+          const key = `${event.targetID}:${eventAbilityId(event) || eventAbilityName(event)}`;
+          if (/^(applybuff|applybuffstack|refreshbuff)$/.test(event.type)) {
+            const previous = activeByTarget.get(key);
+            if (previous) previous.end = event.timestamp;
+            const span = { start: event.timestamp, end: fight.endTime, targetID: event.targetID, name: eventAbilityName(event) };
+            spans.push(span);
+            activeByTarget.set(key, span);
+          } else if (/^(removebuff|removebuffstack)$/.test(event.type)) {
+            const active = activeByTarget.get(key);
+            if (active) {
+              active.end = event.timestamp;
+              activeByTarget.delete(key);
+            }
           }
-        }
+        });
+      jobs.get(jobKey).push({
+        type: 'ability',
+        job: jobKey,
+        abilityName,
+        abilityId,
+        actorNames,
+        color: JOB_COLORS[jobKey] || '#38bdf8',
+        casts: abilityCasts,
+        spans
       });
+    });
   });
-  rows.sort((a, b) => a.actorName.localeCompare(b.actorName) || a.abilityName.localeCompare(b.abilityName));
-  return rows;
+  return [...jobs.entries()].sort(([a], [b]) => a.localeCompare(b)).flatMap(([job, rows]) => [
+    { type: 'section', job, color: JOB_COLORS[job] || '#38bdf8' },
+    ...rows.sort((a, b) => a.abilityName.localeCompare(b.abilityName))
+  ]);
 }
 
 function timelineWidth(container) {
@@ -2099,7 +2106,7 @@ function renderCombatTimeline(fight, container, planningMode = false) {
     mechanicLanes.push({ label: category, color: categoryColor(category), rows: mechanicRows.filter(row => getMechanicCategory(row.name) === category) });
   });
   const rowCount = mechanicLanes.length + (fightNotes.length ? 1 : 0) + abilityRows.length;
-  const rowHeight = planningMode ? 34 : 32;
+  const rowHeight = planningMode ? 30 : 32;
   const height = Math.max(40, 8 + rowCount * rowHeight);
   const svgNS = 'http://www.w3.org/2000/svg';
   const W = timelineWidth(container);
@@ -2182,12 +2189,16 @@ function renderCombatTimeline(fight, container, planningMode = false) {
   abilityRows.forEach(row => {
     const y = 4 + rowIndex++ * rowHeight;
     const centerY = y + rowHeight / 2;
+    if (row.type === 'section') {
+      add('rect', { x: 0, y, width: W, height: rowHeight - 1, fill: row.color, opacity: 0.1 });
+      add('text', { x: 4, y: centerY + 3, fill: row.color, 'font-size': 11, 'font-weight': 700 }, row.job);
+      add('line', { x1: left, y1: y + rowHeight - 1, x2: right, y2: y + rowHeight - 1, stroke: row.color, 'stroke-opacity': 0.35, 'stroke-width': 1 });
+      return;
+    }
     const { abilityName, casts, spans } = row;
     if (planningMode) {
-      const playerLabel = row.actorName.length > 12 ? row.actorName.slice(0, 11) + '…' : row.actorName;
       const abilityLabel = abilityName.length > 17 ? abilityName.slice(0, 16) + '…' : abilityName;
-      add('text', { x: 4, y: centerY + 3, fill: row.color, 'font-size': 10 }, playerLabel).appendChild(document.createElementNS(svgNS, 'title')).textContent = `${row.actorName}${row.job ? ` · ${row.job}` : ''}`;
-      add('text', { x: 92, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, abilityLabel).appendChild(document.createElementNS(svgNS, 'title')).textContent = abilityName;
+      add('text', { x: 12, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, abilityLabel).appendChild(document.createElementNS(svgNS, 'title')).textContent = `${abilityName}${row.actorNames.length ? ` · ${row.actorNames.join(', ')}` : ''}`;
     } else {
       add('text', { x: 4, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, abilityName.length > 17 ? abilityName.slice(0, 16) + '…' : abilityName);
     }
@@ -2226,7 +2237,9 @@ function renderCombatTimeline(fight, container, planningMode = false) {
   }
   if (planningMode) {
     const summary = document.getElementById('planning-ability-summary');
-    if (summary) summary.textContent = `${abilityRows.length} player ability lanes · click any event to seek the POV video`;
+    const laneCount = abilityRows.filter(row => row.type === 'ability').length;
+    const sectionCount = abilityRows.filter(row => row.type === 'section').length;
+    if (summary) summary.textContent = `${laneCount} tracked ability lanes · ${sectionCount} class sections · click any event to seek the POV video`;
     const durationElement = document.getElementById('planning-duration-display');
     if (durationElement) durationElement.textContent = formatSecondsToMMSS(duration / 1000);
   }
