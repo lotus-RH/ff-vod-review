@@ -1829,7 +1829,7 @@ const DEATH_DETAIL_QUERY = `
 query ($code: String!, $fightID: Int!, $targetID: Int!, $fightStart: Float!, $winStart: Float!, $debuffStart: Float!, $winEnd: Float!) {
   reportData {
     report(code: $code) {
-      damage: events(fightIDs: [$fightID], dataType: DamageTaken, targetID: $targetID, startTime: $winStart, endTime: $winEnd, limit: 10000) { data }
+      damage: events(fightIDs: [$fightID], dataType: DamageDone, hostilityType: Enemies, targetID: $targetID, startTime: $winStart, endTime: $winEnd, limit: 10000) { data }
       heals: events(fightIDs: [$fightID], dataType: Healing, targetID: $targetID, startTime: $winStart, endTime: $winEnd, limit: 10000) { data }
       buffs: events(fightIDs: [$fightID], dataType: Buffs, targetID: $targetID, startTime: $fightStart, endTime: $winEnd, limit: 10000) { data }
       debuffs: events(fightIDs: [$fightID], dataType: Debuffs, startTime: $debuffStart, endTime: $winEnd, limit: 10000) { data }
