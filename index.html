@@ -280,7 +280,14 @@
   </div>
   <div class="flex items-center justify-between gap-3 px-4 py-2 border-b border-slate-800/80 text-[11px] shrink-0">
     <span id="planning-ability-summary" class="text-slate-500">Abilities are grouped by class.</span>
-    <span class="text-slate-600">Fight-relative timeline · no playback cursor</span>
+    <div class="flex items-center gap-2">
+      <span class="text-slate-600">Double-click a track, or use +, to place a chip · drag to move</span>
+      <div class="flex items-center gap-1 bg-slate-950 border border-slate-700 rounded px-1 py-1" title="Timeline zoom (100% shows 5 minutes)">
+        <button onclick="adjustPlanningZoom(-0.25)" class="text-slate-300 hover:text-white px-1.5 py-0.5 rounded hover:bg-slate-800" title="Zoom out"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+        <span id="planning-zoom-label" class="text-[10px] font-mono text-slate-400 w-9 text-center">100%</span>
+        <button onclick="adjustPlanningZoom(0.25)" class="text-slate-300 hover:text-white px-1.5 py-0.5 rounded hover:bg-slate-800" title="Zoom in"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+      </div>
+    </div>
   </div>
   <div id="planning-timeline-visualization" class="flex-1 min-h-0 overflow-auto bg-slate-950 px-2" style="scrollbar-gutter:stable;"></div>
 </main>
@@ -447,6 +454,9 @@ let timelineEventsCache = {}; // fightId -> { buffs: [], damage: [], healing: []
 let trackedAbilityNames = [];
 let trackedAbilityClasses = {};
 let trackedAbilityCooldowns = {};
+let trackedAbilityImages = {};
+let plannedUsages = {}; // encounterId -> abilityKey -> [{ id, time }]
+let planningZoom = 1;
 let hiddenMechanicNames = [];
 let mechanicCategories = {};
 let customMitigationNames = [];
@@ -483,6 +493,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   try { hiddenMechanicNames = JSON.parse(localStorage.getItem('fflogs_vod_hidden_mechanics_default')) || []; } catch (e) { hiddenMechanicNames = []; }
   try { mechanicRecastIgnoreSeconds = JSON.parse(localStorage.getItem('fflogs_vod_mechanic_recast_ignore_default')) || {}; } catch (e) { mechanicRecastIgnoreSeconds = {}; }
   try { customMitigationNames = JSON.parse(localStorage.getItem('fflogs_vod_custom_mitigations')) || []; } catch (e) { customMitigationNames = []; }
+  try { plannedUsages = JSON.parse(localStorage.getItem('fflogs_vod_planned_usages')) || {}; } catch (e) { plannedUsages = {}; }
+  try { planningZoom = Number(localStorage.getItem('fflogs_vod_planning_zoom')) || 1; } catch (e) { planningZoom = 1; }
   initPanelResizer();
   loadSettings();
   document.getElementById('redirect-uri-display').value = settings.redirectUri;
@@ -715,6 +727,7 @@ function loadReportLocalData() {
   trackedAbilityNames = readJsonWithDefault(abilityNamesKey(), 'fflogs_vod_ability_names_default', []);
   trackedAbilityClasses = readJsonWithDefault(abilityClassesKey(), 'fflogs_vod_ability_classes_default', {});
   trackedAbilityCooldowns = readJsonWithDefault(abilityCooldownsKey(), 'fflogs_vod_ability_cooldowns_default', {});
+  trackedAbilityImages = readJsonWithDefault(abilityImagesKey(), 'fflogs_vod_ability_images_default', {});
   hiddenMechanicNames = readJsonWithDefault(hiddenMechanicNamesKey(), 'fflogs_vod_hidden_mechanics_default', []);
   mechanicRecastIgnoreSeconds = readJsonWithDefault(mechanicRecastIgnoreKey(), 'fflogs_vod_mechanic_recast_ignore_default', {});
   renderAbilityCount();
@@ -724,6 +737,7 @@ function persistNotes() { localStorage.setItem(notesKey(), JSON.stringify(notes)
 function abilityNamesKey() { return `fflogs_vod_ability_names_${report ? report.code : 'none'}`; }
 function abilityClassesKey() { return `fflogs_vod_ability_classes_${report ? report.code : 'none'}`; }
 function abilityCooldownsKey() { return `fflogs_vod_ability_cooldowns_${report ? report.code : 'none'}`; }
+function abilityImagesKey() { return `fflogs_vod_ability_images_${report ? report.code : 'none'}`; }
 function hiddenMechanicNamesKey() { return `fflogs_vod_hidden_mechanics_${report ? report.code : 'none'}`; }
 function mechanicRecastIgnoreKey() { return `fflogs_vod_mechanic_recast_ignore_${report ? report.code : 'none'}`; }
 function abilityCooldownKey(name) { return name.toLocaleLowerCase(); }
@@ -744,7 +758,13 @@ function persistTrackedAbilityNames() {
   writeJsonWithDefault(abilityNamesKey(), 'fflogs_vod_ability_names_default', trackedAbilityNames);
   writeJsonWithDefault(abilityClassesKey(), 'fflogs_vod_ability_classes_default', trackedAbilityClasses);
   writeJsonWithDefault(abilityCooldownsKey(), 'fflogs_vod_ability_cooldowns_default', trackedAbilityCooldowns);
+  writeJsonWithDefault(abilityImagesKey(), 'fflogs_vod_ability_images_default', trackedAbilityImages);
   renderAbilityCount();
+  renderTimeline();
+}
+function adjustPlanningZoom(delta) {
+  planningZoom = Math.max(0.25, Math.min(6, Math.round((planningZoom + delta) * 100) / 100));
+  try { localStorage.setItem('fflogs_vod_planning_zoom', String(planningZoom)); } catch (e) {}
   renderTimeline();
 }
 function renderAbilityCount() {
@@ -779,8 +799,9 @@ function renderAbilityList() {
     return;
   }
   trackedAbilityNames.forEach((name, index) => {
+    const key = abilityCooldownKey(name);
     const row = document.createElement('div');
-    row.className = 'grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2';
+    row.className = 'grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-3 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2';
     const details = document.createElement('div');
     details.className = 'min-w-0 flex flex-col gap-1';
     const label = document.createElement('span');
@@ -844,13 +865,34 @@ function renderAbilityList() {
       }
       persistTrackedAbilityNames();
     });
+    const imageControl = document.createElement('div');
+    imageControl.className = 'flex items-center gap-1.5';
+    const imagePreview = document.createElement('img');
+    imagePreview.className = 'w-6 h-6 rounded object-cover border border-slate-700 bg-slate-900';
+    imagePreview.style.display = trackedAbilityImages[key] ? 'block' : 'none';
+    imagePreview.src = trackedAbilityImages[key] || '';
+    imagePreview.onerror = () => { imagePreview.style.display = 'none'; };
+    const imageInput = document.createElement('input');
+    imageInput.type = 'text';
+    imageInput.placeholder = 'Icon URL';
+    imageInput.value = trackedAbilityImages[key] || '';
+    imageInput.title = `Icon shown with ${name} on the planning timeline`;
+    imageInput.className = 'w-24 bg-slate-900 border border-slate-800 rounded px-2 py-1 font-mono text-[10px] text-slate-200';
+    imageInput.addEventListener('change', () => {
+      const url = imageInput.value.trim();
+      if (url) trackedAbilityImages[key] = url; else delete trackedAbilityImages[key];
+      imagePreview.src = url;
+      imagePreview.style.display = url ? 'block' : 'none';
+      persistTrackedAbilityNames();
+    });
+    imageControl.append(imagePreview, imageInput);
     const remove = document.createElement('button');
     remove.className = 'text-rose-400 hover:text-rose-300 px-2 py-1 rounded hover:bg-slate-800';
     remove.title = `Remove ${name}`;
     remove.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
     remove.addEventListener('click', () => removeTrackedAbility(index));
     details.append(label, classTags, classSelect);
-    row.append(details, cooldownControl, remove);
+    row.append(details, cooldownControl, imageControl, remove);
     container.appendChild(row);
   });
 }
@@ -2073,7 +2115,7 @@ function loadPlanningEncounter() {
 function renderPlanningClassFilters() {
   const container = document.getElementById('planning-class-filters');
   if (!container) return;
-  const jobs = new Set();
+  const jobs = new Set(PLANNING_CLASS_GROUPS.flatMap(group => group.jobs));
   trackedAbilityNames.forEach(name => {
     const assignedJobs = getAbilityClasses(name);
     (assignedJobs.length ? assignedJobs : ['Unassigned']).forEach(job => jobs.add(job.toUpperCase()));
@@ -2117,9 +2159,6 @@ function renderPlanningClassFilters() {
   });
   const otherJobs = [...jobs].filter(job => !groupedJobs.has(job)).sort((a, b) => a.localeCompare(b));
   renderGroup('Other', otherJobs);
-  if (!jobs.size) {
-    container.innerHTML = '<span class="text-[10px] text-slate-600">Add tracked abilities and assign classes to create class tracks.</span>';
-  }
 }
 
 function renderCuratedPlanningTimeline(encounter, container) {
@@ -2164,111 +2203,262 @@ function renderCuratedPlanningTimeline(encounter, container) {
   const observationCount = mechanics.reduce((count, mechanic) => count + (mechanic.castOffsets || []).length, 0);
   document.getElementById('planning-pull-summary').textContent = `${encounter.name || 'Encounter'} · ID ${encounter.encounterID} · ${observationCount} recorded cast timings from loaded logs`;
   document.getElementById('planning-ability-summary').textContent = `${mechanicCount} observed mechanics · ${abilityLaneCount} tracked ability lanes · ${classCount} classes across ${roleGroups.length} roles`;
-  const width = timelineWidth(container);
-  const left = 205, right = width - 15, timelineWidthPx = right - left;
-  const xAt = seconds => left + Math.max(0, Math.min(1, seconds / durationSeconds)) * timelineWidthPx;
-  const mechanicRowHeight = 120;
-  const abilityRowHeight = 30;
-  const mechanicHeight = mechanicRowHeight + 8;
-  const abilityRowCount = roleGroups.reduce((count, group) => count + 1 + group.jobs.reduce((jobCount, job) => jobCount + 1 + classRows.get(job).length, 0), 0);
-  const abilityHeight = Math.max(1, abilityRowCount * abilityRowHeight + 8);
-  const svgNS = 'http://www.w3.org/2000/svg';
-  const makeSvg = svgHeight => {
-    const svg = document.createElementNS(svgNS, 'svg');
-    svg.setAttribute('viewBox', `0 0 ${width} ${svgHeight}`);
-    svg.setAttribute('width', width);
-    svg.setAttribute('height', svgHeight);
-    svg.setAttribute('class', 'block');
-    return svg;
-  };
-  const axis = makeSvg(20);
-  for (let tick = 0; tick <= 6; tick++) {
-    const x = left + timelineWidthPx * tick / 6;
-    const label = document.createElementNS(svgNS, 'text');
-    label.setAttribute('x', x);
-    label.setAttribute('y', '14');
-    label.setAttribute('fill', '#64748b');
-    label.setAttribute('font-size', '10');
-    label.setAttribute('text-anchor', tick === 0 ? 'start' : tick === 6 ? 'end' : 'middle');
-    label.textContent = formatSecondsToMMSS(durationSeconds * tick / 6);
-    axis.appendChild(label);
+  const LABEL_W = 200;
+  const BASE_VISIBLE_SECONDS = 300; // "normal" (100%) zoom shows 5 minutes across the viewport
+  const viewportPx = Math.max(320, (container.clientWidth || 900) - LABEL_W - 24);
+  const pxPerSecond = Math.max(0.5, (viewportPx / BASE_VISIBLE_SECONDS) * planningZoom);
+  const trackWidth = Math.max(viewportPx, durationSeconds * pxPerSecond);
+  const totalWidth = LABEL_W + trackWidth;
+  const xAt = seconds => Math.max(0, Math.min(trackWidth, seconds * pxPerSecond));
+  const secondsAt = px => Math.max(0, Math.min(durationSeconds, px / pxPerSecond));
+  const zoomLabel = document.getElementById('planning-zoom-label');
+  if (zoomLabel) zoomLabel.textContent = `${Math.round(planningZoom * 100)}%`;
+  const gridBg = `repeating-linear-gradient(to right, rgba(30,41,59,0.9) 0, rgba(30,41,59,0.9) 1px, transparent 1px, transparent ${pxPerSecond * 30}px)`;
+  const encounterId = String(encounter.encounterID || activePlanningEncounterId || '');
+
+  const MECHANIC_ROW_H = 132, MECHANIC_CHIP = 20;
+  const ABILITY_ROW_H = 40, ABILITY_CHIP = 26;
+
+  const root = document.createElement('div');
+  root.style.cssText = `position:relative;width:${totalWidth}px;`;
+
+  // Axis row
+  const axisRow = document.createElement('div');
+  axisRow.className = 'flex sticky top-0 z-30';
+  axisRow.style.height = '22px';
+  const axisLabel = document.createElement('div');
+  axisLabel.className = 'shrink-0 border-b border-r border-slate-800 sticky left-0 z-20';
+  axisLabel.style.cssText = `width:${LABEL_W}px;background:#080d1a;`;
+  const axisTrack = document.createElement('div');
+  axisTrack.className = 'relative border-b border-slate-800';
+  axisTrack.style.cssText = `width:${trackWidth}px;background:#080d1a;background-image:${gridBg};`;
+  for (let t = 0; t <= durationSeconds; t += 30) {
+    const tick = document.createElement('span');
+    tick.className = 'absolute top-0.5 text-[10px] font-mono text-slate-500';
+    tick.style.left = xAt(t) + 'px';
+    tick.textContent = formatSecondsToMMSS(t);
+    axisTrack.appendChild(tick);
   }
-  const mechanicsSvg = makeSvg(mechanicHeight);
-  const addTo = (svg, tag, attrs, text) => {
-    const element = document.createElementNS(svgNS, tag);
-    Object.entries(attrs).forEach(([key, value]) => element.setAttribute(key, value));
-    if (text != null) element.textContent = text;
-    svg.appendChild(element);
-    return element;
-  };
-  const drawGrid = svg => {
-    for (let tick = 0; tick <= 6; tick++) {
-      const x = left + timelineWidthPx * tick / 6;
-      addTo(svg, 'line', { x1: x, y1: 0, x2: x, y2: Number(svg.getAttribute('height')), stroke: '#1e293b', 'stroke-width': 1 });
-    }
-  };
-  drawGrid(mechanicsSvg);
-  const mechanicCenterY = 4 + mechanicRowHeight / 2;
-  addTo(mechanicsSvg, 'rect', { x: 0, y: 4, width, height: mechanicRowHeight - 1, fill: '#fbbf24', opacity: 0.1 });
-  addTo(mechanicsSvg, 'text', { x: 4, y: mechanicCenterY + 3, fill: '#fbbf24', 'font-size': 11, 'font-weight': 700 }, 'Mechanics');
-  addTo(mechanicsSvg, 'line', { x1: left, y1: mechanicCenterY + 5, x2: right, y2: mechanicCenterY + 5, stroke: '#1e293b' });
+  axisRow.append(axisLabel, axisTrack);
+  root.appendChild(axisRow);
+
+  // Mechanics row
+  const mechRow = document.createElement('div');
+  mechRow.className = 'flex border-b border-slate-800';
+  mechRow.style.minHeight = MECHANIC_ROW_H + 'px';
+  const mechLabel = document.createElement('div');
+  mechLabel.className = 'shrink-0 flex items-center px-2.5 text-amber-400 font-bold text-[11px] uppercase border-r border-l-4 border-amber-500 border-slate-800 sticky left-0 z-10';
+  mechLabel.style.cssText = `width:${LABEL_W}px;background:#1c1206;`;
+  mechLabel.textContent = 'Mechanics';
+  const mechTrack = document.createElement('div');
+  mechTrack.className = 'relative';
+  mechTrack.style.cssText = `width:${trackWidth}px;background:rgba(251,191,36,0.06);background-image:${gridBg};`;
+  const mechCenterY = MECHANIC_ROW_H / 2;
   let mechanicMarkerIndex = 0;
   filteredMechanics.forEach(mechanic => {
     const name = String(mechanic.name || `Ability ${mechanic.abilityId || ''}`);
     const color = getMechanicCategory(name) ? categoryColor(getMechanicCategory(name)) : '#fbbf24';
     mechanic.castOffsets.forEach(seconds => {
       const x = xAt(seconds);
-      const markerY = mechanicCenterY + ((mechanicMarkerIndex++ % 9) - 4) * 9;
-      const marker = addTo(mechanicsSvg, 'path', { d: `M ${x} ${markerY - 5} l 4 5 l -4 5 l -4 -5 Z`, fill: color, stroke: '#0f172a', 'stroke-width': 1 });
-      marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${name} observed at ${formatSecondsToMMSS(seconds)}`;
+      const yOffset = ((mechanicMarkerIndex++ % 9) - 4) * (MECHANIC_CHIP + 6);
+      const chip = document.createElement('div');
+      chip.className = 'absolute rounded-[4px] border border-slate-950/70 shadow';
+      chip.style.cssText = `left:${x - MECHANIC_CHIP / 2}px; top:${mechCenterY + yOffset - MECHANIC_CHIP / 2}px; width:${MECHANIC_CHIP}px; height:${MECHANIC_CHIP}px; background:${color};`;
+      chip.title = `${name} observed at ${formatSecondsToMMSS(seconds)}`;
+      mechTrack.appendChild(chip);
     });
   });
+  mechRow.append(mechLabel, mechTrack);
+  root.appendChild(mechRow);
 
-  const abilitiesSvg = makeSvg(abilityHeight);
-  drawGrid(abilitiesSvg);
-  let abilityRowIndex = 0;
-  const drawAbilitySection = (label, color) => {
-    const y = 4 + abilityRowIndex++ * abilityRowHeight;
-    addTo(abilitiesSvg, 'rect', { x: 0, y, width, height: abilityRowHeight - 1, fill: color, opacity: 0.1 });
-    addTo(abilitiesSvg, 'text', { x: 4, y: y + abilityRowHeight / 2 + 3, fill: color, 'font-size': 11, 'font-weight': 700 }, label);
-    addTo(abilitiesSvg, 'line', { x1: left, y1: y + abilityRowHeight - 1, x2: right, y2: y + abilityRowHeight - 1, stroke: color, 'stroke-opacity': 0.35 });
-  };
-  const drawRoleSection = label => {
-    const y = 4 + abilityRowIndex++ * abilityRowHeight;
-    addTo(abilitiesSvg, 'rect', { x: 0, y, width, height: abilityRowHeight - 1, fill: '#334155', opacity: 0.35 });
-    addTo(abilitiesSvg, 'text', { x: 4, y: y + abilityRowHeight / 2 + 3, fill: '#cbd5e1', 'font-size': 10, 'font-weight': 700 }, label.toUpperCase());
-    addTo(abilitiesSvg, 'line', { x1: left, y1: y + abilityRowHeight - 1, x2: right, y2: y + abilityRowHeight - 1, stroke: '#475569', 'stroke-opacity': 0.65 });
-  };
+  // Ability rows (grouped by role, then job)
+  let hasAbilityRows = false;
   roleGroups.forEach(group => {
-    drawRoleSection(group.name);
+    hasAbilityRows = true;
+    const roleRow = document.createElement('div');
+    roleRow.className = 'flex border-b border-slate-800';
+    const roleLabel = document.createElement('div');
+    roleLabel.className = 'shrink-0 flex items-center px-2.5 text-slate-200 font-bold text-[10px] uppercase border-r border-slate-800 sticky left-0 z-10';
+    roleLabel.style.cssText = `width:${LABEL_W}px; height:22px; background:#1e293b;`;
+    roleLabel.textContent = group.name;
+    const roleTrack = document.createElement('div');
+    roleTrack.style.cssText = `width:${trackWidth}px; height:22px; background:rgba(51,65,85,0.15);`;
+    roleRow.append(roleLabel, roleTrack);
+    root.appendChild(roleRow);
+
     group.jobs.forEach(job => {
-      const abilities = classRows.get(job);
+      const abilities = classRows.get(job).slice().sort((a, b) => a.localeCompare(b));
       const color = JOB_COLORS[job] || '#38bdf8';
-      drawAbilitySection(job, color);
-      abilities.sort((a, b) => a.localeCompare(b)).forEach(name => {
-        const y = 4 + abilityRowIndex++ * abilityRowHeight;
-        const centerY = y + abilityRowHeight / 2;
-        addTo(abilitiesSvg, 'text', { x: 12, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, name.length > 24 ? name.slice(0, 23) + '…' : name).appendChild(document.createElementNS(svgNS, 'title')).textContent = name;
-        addTo(abilitiesSvg, 'line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b' });
+      const jobRow = document.createElement('div');
+      jobRow.className = 'flex border-b border-slate-800';
+      const jobLabel = document.createElement('div');
+      jobLabel.className = 'shrink-0 flex items-center px-2.5 font-bold text-[10px] border-r border-l-4 border-slate-800 sticky left-0 z-10';
+      jobLabel.style.cssText = `width:${LABEL_W}px; height:20px; color:${color}; background:#0b1220; border-left-color:${color};`;
+      jobLabel.textContent = job;
+      const jobTrack = document.createElement('div');
+      jobTrack.style.cssText = `width:${trackWidth}px; height:20px; background:${color}10;`;
+      jobRow.append(jobLabel, jobTrack);
+      root.appendChild(jobRow);
+
+      abilities.forEach(name => {
+        const key = abilityCooldownKey(name);
+        const cooldownSeconds = Number(trackedAbilityCooldowns[key]) || 0;
+        const imageUrl = trackedAbilityImages[key] || '';
+        const abilityRow = document.createElement('div');
+        abilityRow.className = 'flex border-b border-slate-800/70';
+        abilityRow.style.height = ABILITY_ROW_H + 'px';
+        const abilityLabel = document.createElement('div');
+        abilityLabel.className = 'shrink-0 flex items-center gap-1.5 px-2 border-r border-slate-800 sticky left-0 z-10';
+        abilityLabel.style.cssText = `width:${LABEL_W}px; background:#080d1a;`;
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.className = 'shrink-0 w-5 h-5 flex items-center justify-center rounded bg-slate-800 hover:bg-ffpurple-600 text-slate-300 hover:text-white border border-slate-700 transition';
+        addBtn.title = `Place ${name} on the track`;
+        addBtn.innerHTML = '<i class="fa-solid fa-plus text-[9px]"></i>';
+        addBtn.addEventListener('click', () => {
+          const startSeconds = secondsAt(container.scrollLeft + viewportPx / 2);
+          addPlannedUsage(encounterId, name, startSeconds);
+        });
+        const icon = document.createElement(imageUrl ? 'img' : 'span');
+        icon.className = 'shrink-0 w-5 h-5 rounded border border-slate-700';
+        if (imageUrl) {
+          icon.src = imageUrl;
+          icon.style.objectFit = 'cover';
+          icon.onerror = () => icon.remove();
+        } else {
+          icon.style.background = color;
+        }
+        const nameEl = document.createElement('span');
+        nameEl.className = 'text-slate-300 text-[10.5px] truncate';
+        nameEl.textContent = name;
+        nameEl.title = cooldownSeconds ? `${name} · ${cooldownSeconds}s cooldown` : name;
+        abilityLabel.append(addBtn, icon, nameEl);
+
+        const abilityTrack = document.createElement('div');
+        abilityTrack.className = 'relative';
+        abilityTrack.style.cssText = `width:${trackWidth}px; height:${ABILITY_ROW_H}px; background-image:${gridBg};`;
+        abilityTrack.title = 'Double-click to place a chip here';
+        abilityTrack.addEventListener('dblclick', event => {
+          if (event.target !== abilityTrack) return;
+          const rect = abilityTrack.getBoundingClientRect();
+          addPlannedUsage(encounterId, name, secondsAt(event.clientX - rect.left));
+        });
+
+        getPlannedUsages(encounterId, name).forEach(usage => {
+          abilityTrack.appendChild(buildPlannedChip(encounterId, name, usage, { color, imageUrl, cooldownSeconds, pxPerSecond, durationSeconds, rowHeight: ABILITY_ROW_H, chipSize: ABILITY_CHIP }));
+        });
+
+        abilityRow.append(abilityLabel, abilityTrack);
+        root.appendChild(abilityRow);
       });
     });
   });
-  const fixedMechanics = document.createElement('div');
-  fixedMechanics.className = 'shrink-0 border-b border-slate-800 bg-slate-950';
-  fixedMechanics.appendChild(axis);
-  fixedMechanics.appendChild(mechanicsSvg);
-  const abilitiesScroll = document.createElement('div');
-  abilitiesScroll.className = 'flex-1 min-h-0 overflow-y-auto overflow-x-hidden';
-  abilitiesScroll.style.cssText = 'flex:1 1 0%;min-height:0;height:0;overflow-y:scroll;overflow-x:hidden;scrollbar-gutter:stable;';
-  if (abilityRowCount) {
-    abilitiesScroll.appendChild(abilitiesSvg);
-  } else {
-    abilitiesScroll.innerHTML = '<div class="text-xs text-slate-500 italic p-4">Add tracked abilities and assign them to classes to build player lanes.</div>';
+
+  if (!hasAbilityRows) {
+    const empty = document.createElement('div');
+    empty.className = 'text-xs text-slate-500 italic p-4 sticky left-0';
+    empty.style.width = LABEL_W + 'px';
+    empty.textContent = 'Add tracked abilities and assign them to classes to build player lanes for placing cooldowns.';
+    root.appendChild(empty);
   }
-  container.classList.remove('overflow-auto');
-  container.classList.add('flex', 'flex-col', 'overflow-hidden');
-  container.style.cssText = 'display:flex;flex:1 1 0%;flex-direction:column;min-height:0;height:100%;overflow:hidden;';
-  container.replaceChildren(fixedMechanics, abilitiesScroll);
+
+  container.style.cssText = 'position:relative; overflow:auto; flex:1 1 0%; min-height:0;';
+  container.replaceChildren(root);
+}
+
+function plannedUsagesForKey(encounterId, name) {
+  const encId = String(encounterId || '');
+  if (!plannedUsages[encId]) plannedUsages[encId] = {};
+  const key = abilityCooldownKey(name);
+  if (!plannedUsages[encId][key]) plannedUsages[encId][key] = [];
+  return plannedUsages[encId][key];
+}
+function getPlannedUsages(encounterId, name) {
+  return plannedUsagesForKey(encounterId, name).slice().sort((a, b) => a.time - b.time);
+}
+function addPlannedUsage(encounterId, name, time) {
+  plannedUsagesForKey(encounterId, name).push({ id: `pu_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, time: Math.max(0, time) });
+  persistPlannedUsages();
+  renderTimeline();
+}
+function removePlannedUsage(encounterId, name, id) {
+  const usages = plannedUsagesForKey(encounterId, name);
+  const index = usages.findIndex(usage => usage.id === id);
+  if (index >= 0) usages.splice(index, 1);
+  persistPlannedUsages();
+  renderTimeline();
+}
+function updatePlannedUsageTime(encounterId, name, id, time) {
+  const usage = plannedUsagesForKey(encounterId, name).find(u => u.id === id);
+  if (usage) usage.time = Math.max(0, time);
+  persistPlannedUsages();
+}
+function persistPlannedUsages() {
+  try { localStorage.setItem('fflogs_vod_planned_usages', JSON.stringify(plannedUsages)); } catch (e) {}
+}
+function buildPlannedChip(encounterId, name, usage, opts) {
+  const { color, imageUrl, cooldownSeconds, pxPerSecond, durationSeconds, rowHeight, chipSize } = opts;
+  const wrap = document.createElement('div');
+  wrap.className = 'absolute group';
+  wrap.style.cssText = `top:${(rowHeight - chipSize) / 2}px; height:${chipSize}px; left:${usage.time * pxPerSecond}px;`;
+  const setLeft = time => { wrap.style.left = (time * pxPerSecond) + 'px'; };
+  const tooltipFor = time => `${name} used at ${formatSecondsToMMSS(time)}${cooldownSeconds ? ` · ready again at ${formatSecondsToMMSS(time + cooldownSeconds)}` : ''}`;
+
+  if (cooldownSeconds > 0) {
+    const bar = document.createElement('div');
+    bar.className = 'absolute rounded-r pointer-events-none';
+    bar.style.cssText = `left:${chipSize}px; top:${chipSize / 2 - 3}px; height:6px; width:${cooldownSeconds * pxPerSecond}px; background:linear-gradient(to right, ${color}aa, ${color}22);`;
+    wrap.appendChild(bar);
+  }
+
+  const chip = document.createElement('div');
+  chip.className = 'absolute rounded-[4px] border-2 cursor-grab active:cursor-grabbing shadow flex items-center justify-center overflow-hidden select-none touch-none';
+  chip.style.cssText = `left:0; top:0; width:${chipSize}px; height:${chipSize}px; border-color:${color}; background:${color};`;
+  if (imageUrl) {
+    const img = document.createElement('img');
+    img.src = imageUrl;
+    img.className = 'w-full h-full object-cover pointer-events-none';
+    img.draggable = false;
+    img.onerror = () => img.remove();
+    chip.appendChild(img);
+  }
+  chip.title = tooltipFor(usage.time);
+
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-[8px] items-center justify-center hidden group-hover:flex';
+  removeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+  removeBtn.title = `Remove ${name} at ${formatSecondsToMMSS(usage.time)}`;
+  removeBtn.addEventListener('click', event => {
+    event.stopPropagation();
+    removePlannedUsage(encounterId, name, usage.id);
+  });
+
+  let dragging = false, startX = 0, startTime = usage.time;
+  chip.addEventListener('pointerdown', event => {
+    dragging = true;
+    startX = event.clientX;
+    startTime = usage.time;
+    chip.setPointerCapture(event.pointerId);
+    event.stopPropagation();
+  });
+  chip.addEventListener('pointermove', event => {
+    if (!dragging) return;
+    const newTime = Math.max(0, Math.min(durationSeconds, startTime + (event.clientX - startX) / pxPerSecond));
+    usage.time = newTime;
+    setLeft(newTime);
+    chip.title = tooltipFor(newTime);
+  });
+  const endDrag = () => {
+    if (!dragging) return;
+    dragging = false;
+    updatePlannedUsageTime(encounterId, name, usage.id, usage.time);
+  };
+  chip.addEventListener('pointerup', endDrag);
+  chip.addEventListener('pointercancel', endDrag);
+
+  wrap.append(chip, removeBtn);
+  return wrap;
 }
 
 function renderPlanningControls() {
