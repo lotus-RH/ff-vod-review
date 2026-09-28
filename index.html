@@ -617,8 +617,9 @@ function mergeEncounterMechanicDatasets(existing, incoming) {
       const abilityId = Number(incomingMechanic.abilityId) || 0;
       const normalizedName = String(incomingMechanic.name || '').trim();
       if (!abilityId && !normalizedName) return;
-      const mechanic = encounter.mechanics.find(item => abilityId && Number(item.abilityId) === abilityId ||
-        !abilityId && String(item.name || '').toLocaleLowerCase() === normalizedName.toLocaleLowerCase());
+      const mechanic = encounter.mechanics.find(item =>
+        normalizedName && String(item.name || '').trim().toLocaleLowerCase() === normalizedName.toLocaleLowerCase() ||
+        abilityId && Number(item.abilityId) === abilityId);
       const target = mechanic || { abilityId, name: normalizedName, names: [], castOffsets: [] };
       if (mechanic && !target.name && normalizedName) target.name = normalizedName;
       if (!Array.isArray(target.names)) target.names = target.name ? [target.name] : [];
@@ -655,7 +656,9 @@ function saveObservedEncounterMechanics(fight, enemyCasts) {
   (enemyCasts || []).filter(event => String(event.type).toLowerCase() === 'cast').forEach(event => {
     const abilityId = eventAbilityId(event);
     const name = eventAbilityName(event);
-    const key = abilityId ? `id:${abilityId}` : `name:${name.toLocaleLowerCase()}`;
+    const key = name && !/^Ability \d+$/.test(name)
+      ? `name:${name.trim().toLocaleLowerCase()}`
+      : `id:${abilityId || name.toLocaleLowerCase()}`;
     if (!byAbility.has(key)) byAbility.set(key, { abilityId, name, castOffsets: [] });
     const offset = Math.max(0, Math.round((event.timestamp - fight.startTime) / 1000));
     const offsets = byAbility.get(key).castOffsets;
@@ -973,14 +976,20 @@ function getMechanicRows(fight, includeEncounterHistory = false) {
   ((events && events.enemyCasts) || []).filter(event => String(event.type).toLowerCase() === 'cast').forEach(event => {
     const name = eventAbilityName(event);
     const abilityId = eventAbilityId(event);
-    const key = abilityId ? `id:${abilityId}` : `name:${name.toLocaleLowerCase()}`;
+    const key = name && !/^Ability \d+$/.test(name)
+      ? `name:${name.trim().toLocaleLowerCase()}`
+      : `id:${abilityId || name.toLocaleLowerCase()}`;
     if (!mechanicsByName.has(key)) mechanicsByName.set(key, { name, abilityId, casts: [] });
-    mechanicsByName.get(key).casts.push(event);
+    const row = mechanicsByName.get(key);
+    if (!row.abilityId && abilityId) row.abilityId = abilityId;
+    row.casts.push(event);
   });
   (encounter && encounter.mechanics || []).forEach(mechanic => {
     const abilityId = Number(mechanic.abilityId) || 0;
     const name = String(mechanic.name || `Ability ${abilityId}`);
-    const key = abilityId ? `id:${abilityId}` : `name:${name.toLocaleLowerCase()}`;
+    const key = name && !/^Ability \d+$/.test(name)
+      ? `name:${name.trim().toLocaleLowerCase()}`
+      : `id:${abilityId || name.toLocaleLowerCase()}`;
     if (!mechanicsByName.has(key)) mechanicsByName.set(key, { name, abilityId, casts: [] });
     const row = mechanicsByName.get(key);
     if (!row.name || /^Ability \d+$/.test(row.name)) row.name = name;
@@ -1008,12 +1017,10 @@ function getMechanicRows(fight, includeEncounterHistory = false) {
 function filterMechanicRecasts(name, casts) {
   const ignoreSeconds = getMechanicRecastIgnoreSeconds(name);
   if (ignoreSeconds <= 0) return casts.slice().sort((a, b) => a.timestamp - b.timestamp);
-  const lastAcceptedBySource = new Map();
+  let lastAcceptedTimestamp = null;
   return casts.slice().sort((a, b) => a.timestamp - b.timestamp).filter(event => {
-    const sourceId = event.sourceID == null ? 'unknown' : String(event.sourceID);
-    const lastAccepted = lastAcceptedBySource.get(sourceId);
-    if (lastAccepted != null && event.timestamp - lastAccepted <= ignoreSeconds * 1000) return false;
-    lastAcceptedBySource.set(sourceId, event.timestamp);
+    if (lastAcceptedTimestamp != null && event.timestamp - lastAcceptedTimestamp <= ignoreSeconds * 1000) return false;
+    lastAcceptedTimestamp = event.timestamp;
     return true;
   });
 }
@@ -2268,7 +2275,24 @@ function renderPlanningClassFilters() {
 }
 
 function renderCuratedPlanningTimeline(encounter, container) {
-  const mechanics = Array.isArray(encounter.mechanics) ? encounter.mechanics : [];
+  const mechanicsByName = new Map();
+  (Array.isArray(encounter.mechanics) ? encounter.mechanics : []).forEach(mechanic => {
+    const name = String(mechanic.name || '').trim();
+    const abilityId = Number(mechanic.abilityId) || 0;
+    const key = name && !/^Ability \d+$/.test(name)
+      ? `name:${name.toLocaleLowerCase()}`
+      : `id:${abilityId || name.toLocaleLowerCase()}`;
+    if (!mechanicsByName.has(key)) mechanicsByName.set(key, { ...mechanic, name, castOffsets: [] });
+    const target = mechanicsByName.get(key);
+    (Array.isArray(mechanic.castOffsets) ? mechanic.castOffsets : []).forEach(offset => {
+      const seconds = Math.max(0, Math.round(Number(offset)));
+      if (Number.isFinite(seconds) && !target.castOffsets.includes(seconds)) target.castOffsets.push(seconds);
+    });
+  });
+  const mechanics = [...mechanicsByName.values()].map(mechanic => ({
+    ...mechanic,
+    castOffsets: mechanic.castOffsets.sort((a, b) => a - b)
+  }));
   const observedEnd = mechanics.reduce((latest, mechanic) => Math.max(latest, ...(mechanic.castOffsets || [0])), 0);
   const durationSeconds = Math.max(Number(encounter.durationSeconds) || 0, observedEnd + 15, 60);
   const search = document.getElementById('planning-ability-filter').value.trim().toLocaleLowerCase();
