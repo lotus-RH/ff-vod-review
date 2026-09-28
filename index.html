@@ -271,12 +271,8 @@
     </div>
   </div>
   <div class="flex items-center justify-between gap-3 px-4 py-2 border-b border-slate-800/80 text-[11px] shrink-0">
-    <span id="planning-ability-summary" class="text-slate-500">Abilities are grouped by player.</span>
-    <div class="flex items-center gap-2 font-mono shrink-0">
-      <span id="planning-time-display" class="text-ffcyan-400">00:00</span>
-      <input id="planning-seek-input" type="range" min="0" max="1" step="0.1" value="0" aria-label="Seek within the planned pull" class="w-32 h-1 accent-ffcyan-400 cursor-pointer disabled:opacity-40">
-      <span id="planning-duration-display" class="text-slate-500">00:00</span>
-    </div>
+    <span id="planning-ability-summary" class="text-slate-500">Abilities are grouped by class.</span>
+    <span class="text-slate-600">Fight-relative timeline · no playback cursor</span>
   </div>
   <div id="planning-timeline-visualization" class="flex-1 min-h-0 overflow-auto bg-slate-950 px-2" style="scrollbar-gutter:stable;"></div>
 </main>
@@ -487,11 +483,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   });
   document.getElementById('wipe-threshold-input').addEventListener('input', updateWipeThreshold);
   document.getElementById('timeline-seek-input').addEventListener('input', event => {
-    const offsetMs = Number(event.target.value) * 1000;
-    updateTimelinePlayhead(offsetMs);
-    seekToSpecificOffsetMs(offsetMs);
-  });
-  document.getElementById('planning-seek-input').addEventListener('input', event => {
     const offsetMs = Number(event.target.value) * 1000;
     updateTimelinePlayhead(offsetMs);
     seekToSpecificOffsetMs(offsetMs);
@@ -1450,19 +1441,10 @@ function updateTimelinePlayhead(offsetMs) {
   const clampedMs = Math.max(0, Math.min(durationMs, Number(offsetMs) || 0));
   const currentX = document.getElementById('timeline-seek-current');
   if (currentX) currentX.textContent = formatSecondsToMMSS(clampedMs / 1000);
-  const planningCurrent = document.getElementById('planning-time-display');
-  if (planningCurrent) planningCurrent.textContent = formatSecondsToMMSS(clampedMs / 1000);
   slider.value = String(clampedMs / 1000);
-  const planningSlider = document.getElementById('planning-seek-input');
-  if (planningSlider) {
-    planningSlider.value = String(clampedMs / 1000);
-    planningSlider.max = String(durationMs / 1000);
-    planningSlider.disabled = slider.disabled;
-  }
   const hasVideo = !!(getActivePOV() && getActivePOV().segments.some(segment => segment.videoId && segment.startAbsMs != null));
   slider.disabled = !hasVideo;
-  if (planningSlider) planningSlider.disabled = !hasVideo;
-  const position = document.querySelectorAll('#timeline-visualization [data-timeline-playhead], #planning-timeline-visualization [data-timeline-playhead]');
+  const position = document.querySelectorAll('#timeline-visualization [data-timeline-playhead]');
   position.forEach(line => {
     const left = Number(line.ownerSVGElement.getAttribute('data-left')) || 110;
     const x = left + (Math.max(1, timelineWidth(line.ownerSVGElement.parentElement)) - left - 15) * (clampedMs / durationMs);
@@ -1923,15 +1905,15 @@ function renderTimeline() {
   const fight = getActiveFight();
   const visualization = document.getElementById('timeline-visualization');
   const planningVisualization = document.getElementById('planning-timeline-visualization');
-  visualization.innerHTML = '';
-  planningVisualization.innerHTML = '';
   renderPlanningControls();
+  const planningMode = !document.getElementById('planning-workspace').classList.contains('hidden');
+  const target = planningMode ? planningVisualization : visualization;
+  target.innerHTML = '';
   if (!fight) {
-    planningVisualization.innerHTML = '<div class="text-xs text-slate-500 italic p-5">Load a report and select a pull to build an ability plan.</div>';
+    target.innerHTML = `<div class="text-xs text-slate-500 italic p-5">${planningMode ? 'Load a report and select a pull to build an ability plan.' : 'Load a report and select a pull to review its timeline.'}</div>`;
     return;
   }
-  renderCombatTimeline(fight, visualization);
-  renderCombatTimeline(fight, planningVisualization, true);
+  renderCombatTimeline(fight, target, planningMode);
 }
 
 function renderPlanningControls() {
@@ -2113,8 +2095,8 @@ function renderCombatTimeline(fight, container, planningMode = false) {
   const start = fight.startTime, duration = Math.max(1, fight.endTime - start);
   const left = planningMode ? 205 : 110, right = W - 15, width = right - left;
   const xAt = timestamp => left + Math.max(0, Math.min(1, (timestamp - start) / duration)) * width;
-  const seekInput = document.getElementById('timeline-seek-input');
-  const durationLabel = document.getElementById('timeline-seek-duration');
+  const seekInput = planningMode ? null : document.getElementById('timeline-seek-input');
+  const durationLabel = planningMode ? null : document.getElementById('timeline-seek-duration');
   if (seekInput) {
     seekInput.max = String(duration / 1000);
     seekInput.step = String(Math.max(0.1, duration / 100000));
@@ -2150,14 +2132,16 @@ function renderCombatTimeline(fight, container, planningMode = false) {
     axisSvg.appendChild(label);
     add('line', { x1: x, y1: 0, x2: x, y2: height, stroke: '#1e293b', 'stroke-width': 1 });
   }
-  const axisPlayhead = document.createElementNS(svgNS, 'line');
-  axisPlayhead.setAttribute('data-timeline-playhead', 'true');
-  axisPlayhead.setAttribute('y1', '0');
-  axisPlayhead.setAttribute('y2', '18');
-  axisPlayhead.setAttribute('stroke', '#22d3ee');
-  axisPlayhead.setAttribute('stroke-width', '2');
-  axisPlayhead.setAttribute('pointer-events', 'none');
-  axisSvg.appendChild(axisPlayhead);
+  if (!planningMode) {
+    const axisPlayhead = document.createElementNS(svgNS, 'line');
+    axisPlayhead.setAttribute('data-timeline-playhead', 'true');
+    axisPlayhead.setAttribute('y1', '0');
+    axisPlayhead.setAttribute('y2', '18');
+    axisPlayhead.setAttribute('stroke', '#22d3ee');
+    axisPlayhead.setAttribute('stroke-width', '2');
+    axisPlayhead.setAttribute('pointer-events', 'none');
+    axisSvg.appendChild(axisPlayhead);
+  }
   let rowIndex = 0;
   mechanicLanes.forEach(lane => {
     const y = 4 + rowIndex++ * rowHeight;
@@ -2171,7 +2155,7 @@ function renderCombatTimeline(fight, container, planningMode = false) {
         const marker = add('path', { d: `M ${x} ${centerY - 6} l 4 6 l -4 6 l -4 -6 Z`, fill: lane.color, stroke: '#0f172a', 'stroke-width': 1, class: 'cursor-pointer' });
         const sourceName = event.sourceName || actorNames.get(String(event.sourceID)) || 'Enemy';
         marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${event.mechanicName} cast by ${sourceName} at ${formatSecondsToMMSS((event.timestamp - start) / 1000)}`;
-        marker.addEventListener('click', () => jumpToSpecificOffsetMs(event.timestamp - start));
+        if (!planningMode) marker.addEventListener('click', () => jumpToSpecificOffsetMs(event.timestamp - start));
       });
   });
   if (fightNotes.length) {
@@ -2209,39 +2193,39 @@ function renderCombatTimeline(fight, container, planningMode = false) {
       const rect = add('rect', { x, y: centerY + 1, width: Math.max(2, endX - x), height: 10, rx: 2, fill: planningMode ? row.color : '#34d399', opacity: 0.72, class: 'cursor-pointer' });
       const seconds = Math.max(0, (span.end - span.start) / 1000);
       rect.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${span.name} on ${actorNames.get(span.targetID) || 'target'} for ${seconds.toFixed(1)}s`;
-      rect.addEventListener('click', () => jumpToSpecificOffsetMs(span.start - fight.startTime));
+      if (!planningMode) rect.addEventListener('click', () => jumpToSpecificOffsetMs(span.start - fight.startTime));
     });
     casts.forEach(event => {
       const x = xAt(event.timestamp);
       const marker = add('path', { d: `M ${x} ${centerY - 7} l 5 6 l -5 6 l -5 -6 Z`, fill: planningMode ? row.color : '#38bdf8', stroke: '#0f172a', 'stroke-width': 1, class: 'cursor-pointer' });
       marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${eventAbilityName(event)} pressed by ${actorNames.get(String(event.sourceID)) || 'player'} at ${formatSecondsToMMSS((event.timestamp - start) / 1000)}`;
-      marker.addEventListener('click', () => jumpToSpecificOffsetMs(event.timestamp - start));
+      if (!planningMode) marker.addEventListener('click', () => jumpToSpecificOffsetMs(event.timestamp - start));
     });
   });
-  add('line', { 'data-timeline-playhead': 'true', x1: left, y1: 0, x2: left, y2: height, stroke: '#22d3ee', 'stroke-width': 2, 'stroke-opacity': 0.85, 'pointer-events': 'none' });
+  if (!planningMode) add('line', { 'data-timeline-playhead': 'true', x1: left, y1: 0, x2: left, y2: height, stroke: '#22d3ee', 'stroke-width': 2, 'stroke-opacity': 0.85, 'pointer-events': 'none' });
   container.appendChild(axisWrap);
   container.appendChild(svg);
-  updateTimelinePlayhead(getTimelinePlaybackOffsetMs(fight));
-  renderMechanicsList();
+  if (!planningMode) {
+    updateTimelinePlayhead(getTimelinePlaybackOffsetMs(fight));
+    renderMechanicsList();
+  }
   if (isLoading) {
     const status = document.createElement('div');
     status.className = 'text-[10px] text-slate-600 py-1';
-    status.textContent = 'Loading ability events...';
+    status.textContent = planningMode ? 'Loading ability events...' : 'Loading ability events...';
     container.appendChild(status);
   }
   if (!abilityRows.length) {
     const hint = document.createElement('div');
     hint.className = 'text-[10px] text-slate-600 py-1';
-    hint.textContent = planningMode ? (isLoading ? 'Loading player abilities...' : 'No player abilities found for this pull.') : 'Assign an ability a class that is represented by a POV to show it here.';
+    hint.textContent = planningMode ? (isLoading ? 'Loading tracked ability events...' : 'No tracked abilities have class assignments or matching casts for this pull.') : 'Assign an ability a class that is represented by a POV to show it here.';
     container.appendChild(hint);
   }
   if (planningMode) {
     const summary = document.getElementById('planning-ability-summary');
     const laneCount = abilityRows.filter(row => row.type === 'ability').length;
     const sectionCount = abilityRows.filter(row => row.type === 'section').length;
-    if (summary) summary.textContent = `${laneCount} tracked ability lanes · ${sectionCount} class sections · click any event to seek the POV video`;
-    const durationElement = document.getElementById('planning-duration-display');
-    if (durationElement) durationElement.textContent = formatSecondsToMMSS(duration / 1000);
+    if (summary) summary.textContent = `${laneCount} tracked ability lanes · ${sectionCount} class sections`;
   }
 }
 
@@ -2581,9 +2565,9 @@ function switchPage(page) {
   document.getElementById('page-btn-planning').classList.toggle('active', planning);
   document.getElementById('page-btn-review').setAttribute('aria-pressed', String(!planning));
   document.getElementById('page-btn-planning').setAttribute('aria-pressed', String(planning));
+  renderTimeline();
   if (planning) {
     if (activeFightId && !timelineEventsCache[activeFightId]) loadTimelineEventsForFight(activeFightId);
-    renderTimeline();
   }
 }
 
