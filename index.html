@@ -2209,8 +2209,30 @@ function loadPlanningEncounter() {
     showToast('Enter a numeric encounter ID.', 'error');
     return;
   }
+  report = null;
+  activeFightId = null;
+  activePovId = null;
+  povs = [];
+  notes = [];
+  deathsCache = {};
+  timelineEventsCache = {};
+  deathDetailCache = {};
+  selectedPhaseFilter = '';
+  hiddenPlanningClasses = new Set();
+  const phaseFilter = document.getElementById('phase-filter');
+  if (phaseFilter) phaseFilter.value = '';
+  const logTitle = document.getElementById('active-log-title');
+  if (logTitle) {
+    logTitle.textContent = 'No report loaded';
+    logTitle.classList.add('hidden');
+  }
   activePlanningEncounterId = String(Number(encounterId));
   input.value = activePlanningEncounterId;
+  renderPullList();
+  renderPOVTabs();
+  renderLogPlayerChips();
+  renderNotes();
+  renderAbilityCount();
   renderTimeline();
 }
 
