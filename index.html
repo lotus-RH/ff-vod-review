@@ -376,6 +376,7 @@ const JOB_COLORS = {
   RPR:'#965a90', BRD:'#91ba40', MCH:'#6ee1d6', DNC:'#e2b0af',
   BLM:'#a579d6', SMN:'#2d9b78', RDM:'#e28fb0', PCT:'#e8a5c4'
 };
+const DEFAULT_AUTO_SYNC_NUDGE_SECONDS = -7;
 
 /* =========================================================================
    STATE
@@ -2128,6 +2129,9 @@ async function tryAutoSyncSegment(pov, seg, row) {
   seg.videoId = vid;
   persistPOVs();
   const statusEl = row.querySelector('.seg-status');
+  const nudgeInput = row.querySelector('.seg-nudge-input');
+  const configuredNudge = nudgeInput.value.trim() === '' ? DEFAULT_AUTO_SYNC_NUDGE_SECONDS : Number(nudgeInput.value);
+  const nudgeSeconds = Number.isFinite(configuredNudge) ? configuredNudge : DEFAULT_AUTO_SYNC_NUDGE_SECONDS;
   const btn = row.querySelector('.seg-autosync');
   const originalLabel = btn.innerHTML;
   btn.disabled = true;
@@ -2137,10 +2141,11 @@ async function tryAutoSyncSegment(pov, seg, row) {
   try {
     const startAbsMs = await fetchYouTubeLiveStart(vid);
     if (seg.syncAttemptId !== attemptId) return;
-    seg.startAbsMs = startAbsMs;
+    seg.startAbsMs = startAbsMs + nudgeSeconds * 1000;
     seg.autoSynced = true;
+    seg.syncNudgeSeconds = nudgeSeconds;
     persistPOVs();
-    showToast('Auto-synced from YouTube live start time.', 'success');
+    showToast(`Auto-synced from YouTube with a ${nudgeSeconds}s nudge.`, 'success');
     renderPOVModalBody();
     if (getActivePOV() && getActivePOV().id === pov.id) jumpToCurrentPullStart();
   } catch (e) {
@@ -2187,7 +2192,7 @@ function renderPOVModalBody() {
 
     let segmentsHtml = pov.segments.map(seg => {
       const statusText = seg.startAbsMs != null
-        ? `${seg.autoSynced ? 'Auto-synced' : 'Synced'} — video 00:00 = ${new Date(seg.startAbsMs).toLocaleString()}`
+        ? `${seg.autoSynced ? `Auto-synced (${seg.syncNudgeSeconds ?? DEFAULT_AUTO_SYNC_NUDGE_SECONDS}s nudge)` : 'Synced'} — video 00:00 = ${new Date(seg.startAbsMs).toLocaleString()}`
         : 'Not synced yet — paste a video below and set its start time';
       const statusColor = seg.startAbsMs != null ? 'text-emerald-400' : 'text-slate-500';
       return `
@@ -2215,7 +2220,7 @@ function renderPOVModalBody() {
           </div>
           <div class="grid grid-cols-12 gap-1.5 items-center mt-1.5">
             <span class="col-span-4 text-[10px] text-slate-500">Nudge sync (seconds):</span>
-            <input class="col-span-3 seg-nudge-input bg-slate-950 border border-slate-800 rounded px-2 py-1 font-mono text-[11px]" placeholder="e.g. 2 or -1.5" type="number" step="0.1">
+            <input class="col-span-3 seg-nudge-input bg-slate-950 border border-slate-800 rounded px-2 py-1 font-mono text-[11px]" value="${seg.autoSynced ? '' : DEFAULT_AUTO_SYNC_NUDGE_SECONDS}" placeholder="e.g. 2 or -1.5" type="number" step="0.1">
             <button class="col-span-5 seg-nudge-apply bg-slate-800 hover:bg-slate-700 rounded px-1 py-1 text-[10px]">Apply nudge</button>
           </div>
         </details>
