@@ -248,7 +248,7 @@
   </div>
 </main>
 
-<main id="planning-workspace" class="hidden flex-1 min-h-0 flex-col overflow-hidden bg-slate-950">
+<main id="planning-workspace" class="hidden flex-1 min-h-0 flex flex-col overflow-hidden bg-slate-950">
   <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-slate-800 bg-slate-900/70 shrink-0">
     <div class="min-w-0">
       <h2 class="text-sm font-semibold text-slate-100 flex items-center gap-2"><i class="fa-solid fa-calendar-days text-ffcyan-400"></i> Ability plan</h2>
@@ -379,7 +379,7 @@
 <div id="ability-modal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4">
   <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl">
     <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
-      <h2 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles text-ffcyan-400"></i> Timeline Abilities</h2>
+      <h2 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles text-ffcyan-400"></i> Player Abilities</h2>
       <button onclick="closeAbilityModal()" class="text-slate-500 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="p-4 overflow-y-auto text-xs space-y-3">
@@ -457,6 +457,7 @@ let timelineEventsCache = {}; // fightId -> { buffs: [], damage: [], healing: []
 let trackedAbilityNames = [];
 let trackedAbilityClasses = {};
 let trackedAbilityCooldowns = {};
+let trackedAbilityDurations = {};
 let trackedAbilityImages = {};
 let plannedUsages = {}; // encounterId -> abilityKey -> [{ id, time }]
 let planningZoom = 1;
@@ -741,6 +742,7 @@ function loadDefaultTrackedAbilities() {
   trackedAbilityNames = readDefault('fflogs_vod_ability_names_default', []);
   trackedAbilityClasses = readDefault('fflogs_vod_ability_classes_default', {});
   trackedAbilityCooldowns = readDefault('fflogs_vod_ability_cooldowns_default', {});
+  trackedAbilityDurations = readDefault('fflogs_vod_ability_durations_default', {});
   trackedAbilityImages = readDefault('fflogs_vod_ability_images_default', {});
 }
 function persistPOVs() { localStorage.setItem(povsKey(), JSON.stringify(povs)); }
@@ -748,6 +750,7 @@ function persistNotes() { localStorage.setItem(notesKey(), JSON.stringify(notes)
 function abilityNamesKey() { return `fflogs_vod_ability_names_${report ? report.code : 'none'}`; }
 function abilityClassesKey() { return `fflogs_vod_ability_classes_${report ? report.code : 'none'}`; }
 function abilityCooldownsKey() { return `fflogs_vod_ability_cooldowns_${report ? report.code : 'none'}`; }
+function abilityDurationsKey() { return `fflogs_vod_ability_durations_${report ? report.code : 'none'}`; }
 function abilityImagesKey() { return `fflogs_vod_ability_images_${report ? report.code : 'none'}`; }
 function hiddenMechanicNamesKey() { return `fflogs_vod_hidden_mechanics_${report ? report.code : 'none'}`; }
 function mechanicRecastIgnoreKey() { return `fflogs_vod_mechanic_recast_ignore_${report ? report.code : 'none'}`; }
@@ -769,6 +772,7 @@ function persistTrackedAbilityNames() {
   writeJsonWithDefault(abilityNamesKey(), 'fflogs_vod_ability_names_default', trackedAbilityNames);
   writeJsonWithDefault(abilityClassesKey(), 'fflogs_vod_ability_classes_default', trackedAbilityClasses);
   writeJsonWithDefault(abilityCooldownsKey(), 'fflogs_vod_ability_cooldowns_default', trackedAbilityCooldowns);
+  writeJsonWithDefault(abilityDurationsKey(), 'fflogs_vod_ability_durations_default', trackedAbilityDurations);
   writeJsonWithDefault(abilityImagesKey(), 'fflogs_vod_ability_images_default', trackedAbilityImages);
   renderAbilityCount();
   renderTimeline();
@@ -812,7 +816,7 @@ function renderAbilityList() {
   trackedAbilityNames.forEach((name, index) => {
     const key = abilityCooldownKey(name);
     const row = document.createElement('div');
-    row.className = 'grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-3 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2';
+    row.className = 'grid grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] items-center gap-2 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2';
     const details = document.createElement('div');
     details.className = 'min-w-0 flex flex-col gap-1';
     const label = document.createElement('span');
@@ -876,6 +880,28 @@ function renderAbilityList() {
       }
       persistTrackedAbilityNames();
     });
+    const durationControl = document.createElement('label');
+    durationControl.className = 'flex items-center gap-1.5 text-[10px] text-slate-500';
+    durationControl.textContent = 'Duration';
+    const durationInput = document.createElement('input');
+    durationInput.type = 'number';
+    durationInput.min = '0';
+    durationInput.step = '0.1';
+    durationInput.inputMode = 'decimal';
+    durationInput.value = trackedAbilityDurations[key] ?? '';
+    durationInput.placeholder = 'sec';
+    durationInput.title = `Displayed duration for ${name}, in seconds`;
+    durationInput.className = 'w-16 bg-slate-900 border border-slate-800 rounded px-1.5 py-1 font-mono text-slate-200';
+    durationControl.appendChild(durationInput);
+    durationInput.addEventListener('change', () => {
+      const seconds = Number(durationInput.value);
+      if (durationInput.value === '' || !Number.isFinite(seconds) || seconds <= 0) {
+        delete trackedAbilityDurations[key];
+      } else {
+        trackedAbilityDurations[key] = seconds;
+      }
+      persistTrackedAbilityNames();
+    });
     const imageControl = document.createElement('div');
     imageControl.className = 'flex items-center gap-1.5';
     const imagePreview = document.createElement('img');
@@ -903,7 +929,7 @@ function renderAbilityList() {
     remove.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
     remove.addEventListener('click', () => removeTrackedAbility(index));
     details.append(label, classTags, classSelect);
-    row.append(details, cooldownControl, imageControl, remove);
+    row.append(details, durationControl, cooldownControl, imageControl, remove);
     container.appendChild(row);
   });
 }
@@ -925,6 +951,7 @@ function removeTrackedAbility(index) {
   const [name] = trackedAbilityNames.splice(index, 1);
   delete trackedAbilityClasses[abilityCooldownKey(name)];
   delete trackedAbilityCooldowns[abilityCooldownKey(name)];
+  delete trackedAbilityDurations[abilityCooldownKey(name)];
   persistTrackedAbilityNames();
   renderAbilityList();
   showToast(`${name} removed from the timeline.`, 'success');
@@ -2242,7 +2269,8 @@ function renderCuratedPlanningTimeline(encounter, container) {
   const gridBg = `repeating-linear-gradient(to right, rgba(30,41,59,0.9) 0, rgba(30,41,59,0.9) 1px, transparent 1px, transparent ${pxPerSecond * 30}px)`;
   const encounterId = String(encounter.encounterID || activePlanningEncounterId || '');
 
-  const MECHANIC_ROW_H = 132, MECHANIC_CHIP = 20;
+  const MECHANIC_CHIP = 20, MECHANIC_LANES = 5;
+  const MECHANIC_ROW_H = MECHANIC_LANES * (MECHANIC_CHIP + 6) + 2;
   const ABILITY_ROW_H = 40, ABILITY_CHIP = 26;
 
   const root = document.createElement('div');
@@ -2271,14 +2299,14 @@ function renderCuratedPlanningTimeline(encounter, container) {
   // Mechanics row
   const mechRow = document.createElement('div');
   mechRow.className = 'flex border-b border-slate-800';
-  mechRow.style.minHeight = MECHANIC_ROW_H + 'px';
+  mechRow.style.height = MECHANIC_ROW_H + 'px';
   const mechLabel = document.createElement('div');
   mechLabel.className = 'shrink-0 flex items-center px-2.5 text-amber-400 font-bold text-[11px] uppercase border-r border-l-4 border-amber-500 border-slate-800 sticky left-0 z-10';
   mechLabel.style.cssText = `width:${LABEL_W}px;background:#1c1206;`;
   mechLabel.textContent = 'Mechanics';
   const mechTrack = document.createElement('div');
   mechTrack.className = 'relative';
-  mechTrack.style.cssText = `width:${trackWidth}px;background:rgba(251,191,36,0.06);background-image:${gridBg};`;
+  mechTrack.style.cssText = `width:${trackWidth}px;height:${MECHANIC_ROW_H}px;overflow:hidden;background:rgba(251,191,36,0.06);background-image:${gridBg};`;
   const mechCenterY = MECHANIC_ROW_H / 2;
   let mechanicMarkerIndex = 0;
   filteredMechanics.forEach(mechanic => {
@@ -2286,7 +2314,7 @@ function renderCuratedPlanningTimeline(encounter, container) {
     const color = getMechanicCategory(name) ? categoryColor(getMechanicCategory(name)) : '#fbbf24';
     mechanic.castOffsets.forEach(seconds => {
       const x = xAt(seconds);
-      const yOffset = ((mechanicMarkerIndex++ % 9) - 4) * (MECHANIC_CHIP + 6);
+      const yOffset = ((mechanicMarkerIndex++ % MECHANIC_LANES) - Math.floor(MECHANIC_LANES / 2)) * (MECHANIC_CHIP + 6);
       const chip = document.createElement('div');
       chip.className = 'absolute rounded-[4px] border border-slate-950/70 shadow';
       chip.style.cssText = `left:${x - MECHANIC_CHIP / 2}px; top:${mechCenterY + yOffset - MECHANIC_CHIP / 2}px; width:${MECHANIC_CHIP}px; height:${MECHANIC_CHIP}px; background:${color};`;
@@ -2343,7 +2371,7 @@ function renderCuratedPlanningTimeline(encounter, container) {
         addBtn.innerHTML = '<i class="fa-solid fa-plus text-[9px]"></i>';
         addBtn.addEventListener('click', () => {
           const startSeconds = secondsAt(container.scrollLeft + viewportPx / 2);
-          addPlannedUsage(encounterId, name, startSeconds);
+          addPlannedUsage(encounterId, name, startSeconds, job);
         });
         const icon = document.createElement(imageUrl ? 'img' : 'span');
         icon.className = 'shrink-0 w-5 h-5 rounded border border-slate-700';
@@ -2367,11 +2395,11 @@ function renderCuratedPlanningTimeline(encounter, container) {
         abilityTrack.addEventListener('dblclick', event => {
           if (event.target !== abilityTrack) return;
           const rect = abilityTrack.getBoundingClientRect();
-          addPlannedUsage(encounterId, name, secondsAt(event.clientX - rect.left));
+          addPlannedUsage(encounterId, name, secondsAt(event.clientX - rect.left), job);
         });
 
-        getPlannedUsages(encounterId, name).forEach(usage => {
-          abilityTrack.appendChild(buildPlannedChip(encounterId, name, usage, { color, imageUrl, cooldownSeconds, pxPerSecond, durationSeconds, rowHeight: ABILITY_ROW_H, chipSize: ABILITY_CHIP }));
+        getPlannedUsages(encounterId, name, job).forEach(usage => {
+          abilityTrack.appendChild(buildPlannedChip(encounterId, name, job, usage, { color, imageUrl, cooldownSeconds, abilityDurationSeconds: Number(trackedAbilityDurations[key]) || 0, pxPerSecond, durationSeconds, rowHeight: ABILITY_ROW_H, chipSize: ABILITY_CHIP }));
         });
 
         abilityRow.append(abilityLabel, abilityTrack);
@@ -2392,48 +2420,62 @@ function renderCuratedPlanningTimeline(encounter, container) {
   container.replaceChildren(root);
 }
 
-function plannedUsagesForKey(encounterId, name) {
+function plannedUsagesForKey(encounterId, name, job) {
   const encId = String(encounterId || '');
   if (!plannedUsages[encId]) plannedUsages[encId] = {};
-  const key = abilityCooldownKey(name);
-  if (!plannedUsages[encId][key]) plannedUsages[encId][key] = [];
+  const abilityKey = abilityCooldownKey(name);
+  const key = `planned:${String(job || 'Unassigned').toUpperCase()}:${abilityKey}`;
+  if (!Array.isArray(plannedUsages[encId][key])) {
+    const legacyUsages = plannedUsages[encId][abilityKey];
+    plannedUsages[encId][key] = Array.isArray(legacyUsages)
+      ? legacyUsages.map(usage => ({ ...usage }))
+      : [];
+  }
   return plannedUsages[encId][key];
 }
-function getPlannedUsages(encounterId, name) {
-  return plannedUsagesForKey(encounterId, name).slice().sort((a, b) => a.time - b.time);
+function getPlannedUsages(encounterId, name, job) {
+  return plannedUsagesForKey(encounterId, name, job).slice().sort((a, b) => a.time - b.time);
 }
-function addPlannedUsage(encounterId, name, time) {
-  plannedUsagesForKey(encounterId, name).push({ id: `pu_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, time: Math.max(0, time) });
+function addPlannedUsage(encounterId, name, time, job) {
+  plannedUsagesForKey(encounterId, name, job).push({ id: `pu_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, time: Math.max(0, time) });
   persistPlannedUsages();
   renderTimeline();
 }
-function removePlannedUsage(encounterId, name, id) {
-  const usages = plannedUsagesForKey(encounterId, name);
+function removePlannedUsage(encounterId, name, job, id) {
+  const usages = plannedUsagesForKey(encounterId, name, job);
   const index = usages.findIndex(usage => usage.id === id);
   if (index >= 0) usages.splice(index, 1);
   persistPlannedUsages();
   renderTimeline();
 }
-function updatePlannedUsageTime(encounterId, name, id, time) {
-  const usage = plannedUsagesForKey(encounterId, name).find(u => u.id === id);
+function updatePlannedUsageTime(encounterId, name, job, id, time) {
+  const usage = plannedUsagesForKey(encounterId, name, job).find(u => u.id === id);
   if (usage) usage.time = Math.max(0, time);
   persistPlannedUsages();
 }
 function persistPlannedUsages() {
   try { localStorage.setItem('fflogs_vod_planned_usages', JSON.stringify(plannedUsages)); } catch (e) {}
 }
-function buildPlannedChip(encounterId, name, usage, opts) {
-  const { color, imageUrl, cooldownSeconds, pxPerSecond, durationSeconds, rowHeight, chipSize } = opts;
+function buildPlannedChip(encounterId, name, job, usage, opts) {
+  const { color, imageUrl, cooldownSeconds, abilityDurationSeconds, pxPerSecond, durationSeconds, rowHeight, chipSize } = opts;
   const wrap = document.createElement('div');
   wrap.className = 'absolute group';
   wrap.style.cssText = `top:${(rowHeight - chipSize) / 2}px; height:${chipSize}px; left:${usage.time * pxPerSecond}px;`;
   const setLeft = time => { wrap.style.left = (time * pxPerSecond) + 'px'; };
-  const tooltipFor = time => `${name} used at ${formatSecondsToMMSS(time)}${cooldownSeconds ? ` · ready again at ${formatSecondsToMMSS(time + cooldownSeconds)}` : ''}`;
+  const tooltipFor = time => `${name} used at ${formatSecondsToMMSS(time)}${abilityDurationSeconds ? ` · duration ${abilityDurationSeconds}s` : ''}${cooldownSeconds ? ` · ready again at ${formatSecondsToMMSS(time + cooldownSeconds)}` : ''}`;
 
   if (cooldownSeconds > 0) {
     const bar = document.createElement('div');
     bar.className = 'absolute rounded-r pointer-events-none';
     bar.style.cssText = `left:${chipSize}px; top:${chipSize / 2 - 3}px; height:6px; width:${cooldownSeconds * pxPerSecond}px; background:linear-gradient(to right, ${color}aa, ${color}22);`;
+    wrap.appendChild(bar);
+  }
+  if (abilityDurationSeconds > 0) {
+    const bar = document.createElement('div');
+    const visibleDuration = Math.min(abilityDurationSeconds, Math.max(0, durationSeconds - usage.time));
+    bar.className = 'absolute rounded-r pointer-events-none';
+    bar.style.cssText = `left:${chipSize}px; top:${chipSize / 2 + 3}px; height:4px; width:${visibleDuration * pxPerSecond}px; background:linear-gradient(to right, #34d399aa, #34d39922);`;
+    bar.title = `${name} duration: ${abilityDurationSeconds}s`;
     wrap.appendChild(bar);
   }
 
@@ -2457,7 +2499,7 @@ function buildPlannedChip(encounterId, name, usage, opts) {
   removeBtn.title = `Remove ${name} at ${formatSecondsToMMSS(usage.time)}`;
   removeBtn.addEventListener('click', event => {
     event.stopPropagation();
-    removePlannedUsage(encounterId, name, usage.id);
+    removePlannedUsage(encounterId, name, job, usage.id);
   });
 
   let dragging = false, startX = 0, startTime = usage.time;
@@ -2478,7 +2520,7 @@ function buildPlannedChip(encounterId, name, usage, opts) {
   const endDrag = () => {
     if (!dragging) return;
     dragging = false;
-    updatePlannedUsageTime(encounterId, name, usage.id, usage.time);
+    updatePlannedUsageTime(encounterId, name, job, usage.id, usage.time);
   };
   chip.addEventListener('pointerup', endDrag);
   chip.addEventListener('pointercancel', endDrag);
@@ -2575,6 +2617,14 @@ function getPlanningAbilityRows(events, fight) {
             }
           }
         });
+      const manualDuration = Number(trackedAbilityDurations[abilityCooldownKey(abilityName)]) || 0;
+      const durationAnchors = abilityCasts.length ? abilityCasts : spans;
+      const timelineSpans = manualDuration > 0
+        ? durationAnchors.map(anchor => {
+          const start = abilityCasts.length ? anchor.timestamp : anchor.start;
+          return { start, end: Math.min(fight.endTime, start + manualDuration * 1000), targetID: anchor.targetID, name: abilityName };
+        })
+        : spans;
       jobs.get(jobKey).push({
         type: 'ability',
         job: jobKey,
@@ -2583,7 +2633,7 @@ function getPlanningAbilityRows(events, fight) {
         actorNames,
         color: JOB_COLORS[jobKey] || '#38bdf8',
         casts: abilityCasts,
-        spans
+        spans: timelineSpans
       });
     });
   });
@@ -2660,7 +2710,15 @@ function renderCombatTimeline(fight, container, planningMode = false) {
         }
       }
     });
-    return { abilityName, casts, spans };
+    const manualDuration = Number(trackedAbilityDurations[abilityCooldownKey(abilityName)]) || 0;
+    const durationAnchors = casts.length ? casts : spans;
+    const timelineSpans = manualDuration > 0
+      ? durationAnchors.map(anchor => {
+        const start = casts.length ? anchor.timestamp : anchor.start;
+        return { start, end: Math.min(fight.endTime, start + manualDuration * 1000), targetID: anchor.targetID, name: abilityName };
+      })
+      : spans;
+    return { abilityName, casts, spans: timelineSpans };
   });
   const fightNotes = planningMode ? [] : notes.filter(note => note.fightId === fight.id);
   const mechanicLanes = [];
