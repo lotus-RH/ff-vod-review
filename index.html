@@ -2852,11 +2852,20 @@ function renderCombatTimeline(fight, container, planningMode = false) {
       return;
     }
     const { abilityName, casts, spans } = row;
+    const abilityImageUrl = trackedAbilityImages[abilityCooldownKey(abilityName)] || '';
     if (planningMode) {
       const abilityLabel = abilityName.length > 17 ? abilityName.slice(0, 16) + '…' : abilityName;
-      add('text', { x: 12, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, abilityLabel).appendChild(document.createElementNS(svgNS, 'title')).textContent = `${abilityName}${row.actorNames.length ? ` · ${row.actorNames.join(', ')}` : ''}`;
+      if (abilityImageUrl) {
+        const icon = add('image', { x: 12, y: centerY - 8, width: 16, height: 16, href: abilityImageUrl, preserveAspectRatio: 'xMidYMid meet' });
+        icon.appendChild(document.createElementNS(svgNS, 'title')).textContent = abilityName;
+      }
+      add('text', { x: abilityImageUrl ? 32 : 12, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, abilityLabel).appendChild(document.createElementNS(svgNS, 'title')).textContent = `${abilityName}${row.actorNames.length ? ` · ${row.actorNames.join(', ')}` : ''}`;
     } else {
-      add('text', { x: 4, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, abilityName.length > 17 ? abilityName.slice(0, 16) + '…' : abilityName);
+      if (abilityImageUrl) {
+        const icon = add('image', { x: 4, y: centerY - 8, width: 16, height: 16, href: abilityImageUrl, preserveAspectRatio: 'xMidYMid meet' });
+        icon.appendChild(document.createElementNS(svgNS, 'title')).textContent = abilityName;
+      }
+      add('text', { x: abilityImageUrl ? 24 : 4, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, abilityName.length > 17 ? abilityName.slice(0, 16) + '…' : abilityName);
     }
     add('line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b', 'stroke-width': 1 });
     spans.forEach(span => {
@@ -2869,7 +2878,9 @@ function renderCombatTimeline(fight, container, planningMode = false) {
     });
     casts.forEach(event => {
       const x = xAt(event.timestamp);
-      const marker = add('rect', { x: x - 5, y: centerY - 5, width: 10, height: 10, fill: planningMode ? row.color : '#38bdf8', stroke: '#0f172a', 'stroke-width': 1, class: 'cursor-pointer' });
+      const marker = abilityImageUrl
+        ? add('image', { x: x - 8, y: centerY - 8, width: 16, height: 16, href: abilityImageUrl, preserveAspectRatio: 'xMidYMid meet', class: 'cursor-pointer' })
+        : add('rect', { x: x - 5, y: centerY - 5, width: 10, height: 10, fill: planningMode ? row.color : '#38bdf8', stroke: '#0f172a', 'stroke-width': 1, class: 'cursor-pointer' });
       marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${eventAbilityName(event)} pressed by ${actorNames.get(String(event.sourceID)) || 'player'} at ${formatSecondsToMMSS((event.timestamp - start) / 1000)}`;
       if (!planningMode) marker.addEventListener('click', () => jumpToSpecificOffsetMs(event.timestamp - start));
     });
