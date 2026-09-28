@@ -1395,6 +1395,7 @@ async function loadReport(code) {
     document.getElementById('active-log-title').textContent = `${r.title} — ${report.zoneName}`;
     document.getElementById('active-log-title').classList.remove('hidden');
     activeFightId = report.fights.length ? report.fights[0].id : null;
+    resetPlanningClassVisibility();
     ensureReportPlayersArePOVs();
     renderPlanningControls();
     if (!activePovId && povs.length) activePovId = povs[0].id;
@@ -2219,13 +2220,24 @@ function loadPlanningEncounter() {
   renderTimeline();
 }
 
+function getPlanningClassJobs() {
+  const jobs = new Set(Object.keys(JOB_COLORS));
+  trackedAbilityNames.forEach(name => {
+    const assignedJobs = getAbilityClasses(name);
+    (assignedJobs.length ? assignedJobs : ['Unassigned']).forEach(job => jobs.add(String(job).toUpperCase()));
+  });
+  return jobs;
+}
+
+function resetPlanningClassVisibility() {
+  const rosterJobs = new Set(getReportPlayers().map(actor => jobCodeForSubType(actor.subType)).filter(Boolean));
+  hiddenPlanningClasses = new Set([...getPlanningClassJobs()].filter(job => !rosterJobs.has(job)));
+}
+
 function renderPlanningClassFilters() {
   const container = document.getElementById('planning-class-filters');
   if (!container) return;
-  const rosterJobs = report
-    ? getReportPlayers().map(actor => jobCodeForSubType(actor.subType))
-    : povs.map(pov => jobCodeForSubType(pov.job));
-  const jobs = new Set(rosterJobs.filter(Boolean));
+  const jobs = getPlanningClassJobs();
   container.innerHTML = '';
   const renderJobButton = (groupContainer, job) => {
     const enabled = !hiddenPlanningClasses.has(job);
