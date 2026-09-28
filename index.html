@@ -2101,7 +2101,7 @@ function renderCuratedPlanningTimeline(encounter, container) {
   const xAt = seconds => left + Math.max(0, Math.min(1, seconds / durationSeconds)) * timelineWidthPx;
   const mechanicRowHeight = 36;
   const abilityRowHeight = 30;
-  const mechanicHeight = Math.max(36, 4 + (mechanicCount + 1) * mechanicRowHeight);
+  const mechanicHeight = mechanicRowHeight + 8;
   const abilityRowCount = [...classRows.values()].reduce((count, rows) => count + (rows.length ? rows.length + 1 : 0), 0);
   const abilityHeight = Math.max(1, abilityRowCount * abilityRowHeight + 8);
   const svgNS = 'http://www.w3.org/2000/svg';
@@ -2140,21 +2140,18 @@ function renderCuratedPlanningTimeline(encounter, container) {
     }
   };
   drawGrid(mechanicsSvg);
-  let mechanicRowIndex = 0;
+  const mechanicCenterY = 4 + mechanicRowHeight / 2;
   addTo(mechanicsSvg, 'rect', { x: 0, y: 4, width, height: mechanicRowHeight - 1, fill: '#fbbf24', opacity: 0.1 });
-  addTo(mechanicsSvg, 'text', { x: 4, y: 4 + mechanicRowHeight / 2 + 3, fill: '#fbbf24', 'font-size': 11, 'font-weight': 700 }, 'Mechanics');
-  addTo(mechanicsSvg, 'line', { x1: left, y1: 4 + mechanicRowHeight - 1, x2: right, y2: 4 + mechanicRowHeight - 1, stroke: '#fbbf24', 'stroke-opacity': 0.35 });
-  mechanicRowIndex++;
+  addTo(mechanicsSvg, 'text', { x: 4, y: mechanicCenterY + 3, fill: '#fbbf24', 'font-size': 11, 'font-weight': 700 }, 'Mechanics');
+  addTo(mechanicsSvg, 'line', { x1: left, y1: mechanicCenterY + 5, x2: right, y2: mechanicCenterY + 5, stroke: '#1e293b' });
+  let mechanicMarkerIndex = 0;
   filteredMechanics.forEach(mechanic => {
-    const y = 4 + mechanicRowIndex++ * mechanicRowHeight;
-    const centerY = y + mechanicRowHeight / 2;
     const name = String(mechanic.name || `Ability ${mechanic.abilityId || ''}`);
     const color = getMechanicCategory(name) ? categoryColor(getMechanicCategory(name)) : '#fbbf24';
-    addTo(mechanicsSvg, 'text', { x: 12, y: centerY + 3, fill: color, 'font-size': 10 }, name.length > 24 ? name.slice(0, 23) + '…' : name).appendChild(document.createElementNS(svgNS, 'title')).textContent = name;
-    addTo(mechanicsSvg, 'line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b' });
     mechanic.castOffsets.forEach(seconds => {
       const x = xAt(seconds);
-      const marker = addTo(mechanicsSvg, 'path', { d: `M ${x} ${centerY - 6} l 4 6 l -4 6 l -4 -6 Z`, fill: color, stroke: '#0f172a', 'stroke-width': 1 });
+      const markerY = mechanicCenterY + ((mechanicMarkerIndex++ % 3) - 1) * 5;
+      const marker = addTo(mechanicsSvg, 'path', { d: `M ${x} ${markerY - 5} l 4 5 l -4 5 l -4 -5 Z`, fill: color, stroke: '#0f172a', 'stroke-width': 1 });
       marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${name} observed at ${formatSecondsToMMSS(seconds)}`;
     });
   });
@@ -2185,6 +2182,7 @@ function renderCuratedPlanningTimeline(encounter, container) {
   fixedMechanics.appendChild(mechanicsSvg);
   const abilitiesScroll = document.createElement('div');
   abilitiesScroll.className = 'flex-1 min-h-0 overflow-y-auto overflow-x-hidden';
+  abilitiesScroll.style.cssText = 'flex:1 1 0%;min-height:0;height:0;overflow-y:scroll;overflow-x:hidden;scrollbar-gutter:stable;';
   if (abilityRowCount) {
     abilitiesScroll.appendChild(abilitiesSvg);
   } else {
@@ -2192,6 +2190,7 @@ function renderCuratedPlanningTimeline(encounter, container) {
   }
   container.classList.remove('overflow-auto');
   container.classList.add('flex', 'flex-col', 'overflow-hidden');
+  container.style.cssText = 'display:flex;flex:1 1 0%;flex-direction:column;min-height:0;height:100%;overflow:hidden;';
   container.replaceChildren(fixedMechanics, abilitiesScroll);
 }
 
