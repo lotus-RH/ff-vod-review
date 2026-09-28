@@ -2222,19 +2222,19 @@ function loadPlanningEncounter() {
 function renderPlanningClassFilters() {
   const container = document.getElementById('planning-class-filters');
   if (!container) return;
-  const jobs = new Set(PLANNING_CLASS_GROUPS.flatMap(group => group.jobs));
-  trackedAbilityNames.forEach(name => {
-    const assignedJobs = getAbilityClasses(name);
-    (assignedJobs.length ? assignedJobs : ['Unassigned']).forEach(job => jobs.add(job.toUpperCase()));
-  });
+  const rosterJobs = report
+    ? getReportPlayers().map(actor => jobCodeForSubType(actor.subType))
+    : povs.map(pov => jobCodeForSubType(pov.job));
+  const jobs = new Set(rosterJobs.filter(Boolean));
   container.innerHTML = '';
   const renderJobButton = (groupContainer, job) => {
     const enabled = !hiddenPlanningClasses.has(job);
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = 'text-[10px] font-semibold px-2 py-1 border rounded transition';
-    button.textContent = job;
+    button.className = 'flex items-center gap-1 text-[10px] font-semibold px-2 py-1 border rounded transition';
+    button.innerHTML = `<i class="fa-solid ${enabled ? 'fa-eye' : 'fa-eye-slash'}" aria-hidden="true"></i><span>${job}</span>`;
     button.setAttribute('aria-pressed', String(enabled));
+    button.setAttribute('aria-label', `${enabled ? 'Hide' : 'Show'} ${job} ability tracks`);
     button.title = `${enabled ? 'Hide' : 'Show'} ${job} ability tracks`;
     const color = JOB_COLORS[job] || '#38bdf8';
     button.style.color = enabled ? color : '#64748b';
@@ -2323,7 +2323,14 @@ function renderCuratedPlanningTimeline(encounter, container) {
   const gridBg = `repeating-linear-gradient(to right, rgba(30,41,59,0.9) 0, rgba(30,41,59,0.9) 1px, transparent 1px, transparent ${pxPerSecond * 30}px)`;
   const encounterId = String(encounter.encounterID || activePlanningEncounterId || '');
 
-  const MECHANIC_CHIP = 20, MECHANIC_LANES = 5;
+  const MECHANIC_CHIP = 20;
+  const mechanicLaneByColor = new Map();
+  filteredMechanics.forEach(mechanic => {
+    const category = getMechanicCategory(String(mechanic.name || ''));
+    const color = category ? categoryColor(category) : '#fbbf24';
+    if (!mechanicLaneByColor.has(color)) mechanicLaneByColor.set(color, mechanicLaneByColor.size);
+  });
+  const MECHANIC_LANES = Math.max(1, mechanicLaneByColor.size);
   const MECHANIC_ROW_H = MECHANIC_LANES * (MECHANIC_CHIP + 6) + 2;
   const ABILITY_ROW_H = 40, ABILITY_CHIP = 26;
 
@@ -2362,13 +2369,14 @@ function renderCuratedPlanningTimeline(encounter, container) {
   mechTrack.className = 'relative';
   mechTrack.style.cssText = `width:${trackWidth}px;height:${MECHANIC_ROW_H}px;overflow:hidden;background:rgba(251,191,36,0.06);background-image:${gridBg};`;
   const mechCenterY = MECHANIC_ROW_H / 2;
-  let mechanicMarkerIndex = 0;
   filteredMechanics.forEach(mechanic => {
     const name = String(mechanic.name || `Ability ${mechanic.abilityId || ''}`);
-    const color = getMechanicCategory(name) ? categoryColor(getMechanicCategory(name)) : '#fbbf24';
+    const category = getMechanicCategory(name);
+    const color = category ? categoryColor(category) : '#fbbf24';
+    const lane = mechanicLaneByColor.get(color);
     mechanic.castOffsets.forEach(seconds => {
       const x = xAt(seconds);
-      const yOffset = ((mechanicMarkerIndex++ % MECHANIC_LANES) - Math.floor(MECHANIC_LANES / 2)) * (MECHANIC_CHIP + 6);
+      const yOffset = (lane - (MECHANIC_LANES - 1) / 2) * (MECHANIC_CHIP + 6);
       const chip = document.createElement('div');
       chip.className = 'absolute rounded-[4px] border border-slate-950/70 shadow';
       chip.style.cssText = `left:${x - MECHANIC_CHIP / 2}px; top:${mechCenterY + yOffset - MECHANIC_CHIP / 2}px; width:${MECHANIC_CHIP}px; height:${MECHANIC_CHIP}px; background:${color};`;
