@@ -336,18 +336,17 @@
       </div>
 
       <div class="border-t border-slate-800 pt-3 mt-1">
-        <details>
-          <summary class="font-bold text-sm flex items-center gap-2 cursor-pointer select-none text-slate-400 hover:text-slate-200"><i class="fa-brands fa-youtube text-rose-400"></i> Advanced: Auto-Sync from YouTube (optional — skip this)</summary>
+        <details open>
+          <summary class="font-bold text-sm flex items-center gap-2 cursor-pointer select-none text-slate-400 hover:text-slate-200"><i class="fa-brands fa-youtube text-rose-400"></i> Auto-Sync from YouTube (recommended — one-time setup)</summary>
           <div class="mt-2">
             <p class="text-slate-400 leading-relaxed">
-              Add a free YouTube Data API key to auto-detect sync offsets from a VOD's actual live broadcast start time —
-              no manual timestamp entry needed, as long as the video was streamed live on YouTube (not just uploaded).
-              If the broadcast has ended, it also auto-detects any constant drift rate (the video running very slightly
-              faster or slower than real time over a long VOD) by comparing YouTube's own video length to the real
-              broadcast duration — fully automatic, with no second timestamp to find or type in.
+              Add a free YouTube Data API key here once, and every POV video you paste in afterward syncs itself
+              automatically from that VOD's actual live broadcast start time — no manual timestamp entry, ever,
+              as long as the video was streamed live on YouTube (not just uploaded). Do this once per browser, or
+              save it into the shared setup file below so every viewer gets it automatically.
               Get one free at <span class="text-ffcyan-400 mono-font">console.cloud.google.com</span> → enable
-              "YouTube Data API v3" → Credentials → Create API Key. <b>You don't need this</b> — manual calibration
-              (typing in one timestamp per video) works fine without it.
+              "YouTube Data API v3" → Credentials → Create API Key. Manual calibration (typing in one timestamp
+              per video) is still available as a fallback for uploaded/edited videos.
             </p>
             <label class="text-[10px] text-slate-500 uppercase block mb-1 mt-2">YouTube Data API Key</label>
             <input id="youtube-key-input" type="text" placeholder="AIza..." class="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1.5 font-mono text-[11px]">
@@ -1258,11 +1257,11 @@ function saveYouTubeKey() {
 }
 
 /* =========================================================================
-   YOUTUBE AUTO-SYNC (live broadcast start time + auto-detected drift rate)
+   YOUTUBE AUTO-SYNC (live broadcast start time)
    ========================================================================= */
 async function fetchYouTubeLiveTiming(videoId) {
   if (!settings.youtubeApiKey) throw new Error('Add a YouTube Data API key in Settings first.');
-  const url = `https://www.googleapis.com/youtube/v3/videos?part=liveStreamingDetails,contentDetails&id=${encodeURIComponent(videoId)}&key=${encodeURIComponent(settings.youtubeApiKey)}`;
+  const url = `https://www.googleapis.com/youtube/v3/videos?part=liveStreamingDetails&id=${encodeURIComponent(videoId)}&key=${encodeURIComponent(settings.youtubeApiKey)}`;
   const res = await fetch(url);
   const data = await res.json();
   if (data.error) throw new Error(data.error.message || 'YouTube API error.');
@@ -1273,19 +1272,7 @@ async function fetchYouTubeLiveTiming(videoId) {
     throw new Error('No live-broadcast start time on this video — it may have been uploaded/edited rather than streamed live. Use manual calibration below instead.');
   }
   const startAbsMs = Date.parse(details.actualStartTime);
-  // If the broadcast has ended, YouTube's own duration vs its real elapsed broadcast time reveals the drift rate — no manual pull needed.
-  let rate = 1;
-  if (details.actualEndTime && item.contentDetails && item.contentDetails.duration) {
-    const realElapsedSeconds = (Date.parse(details.actualEndTime) - startAbsMs) / 1000;
-    const videoDurationSeconds = parseISO8601Duration(item.contentDetails.duration);
-    if (realElapsedSeconds > 0 && videoDurationSeconds > 0) rate = videoDurationSeconds / realElapsedSeconds;
-  }
-  return { startAbsMs, rate };
-}
-function parseISO8601Duration(iso) {
-  const m = String(iso || '').match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?$/);
-  if (!m) return 0;
-  return Number(m[1] || 0) * 3600 + Number(m[2] || 0) * 60 + Number(m[3] || 0);
+  return { startAbsMs };
 }
 
 /* =========================================================================
@@ -2907,32 +2894,25 @@ async function tryAutoSyncSegment(pov, seg, row) {
   persistPOVs();
   const statusEl = row.querySelector('.seg-status');
   const nudgeInput = row.querySelector('.seg-nudge-input');
-  const configuredNudge = nudgeInput.value.trim() === '' ? DEFAULT_AUTO_SYNC_NUDGE_SECONDS : Number(nudgeInput.value);
+  const configuredNudge = nudgeInput && nudgeInput.value.trim() !== '' ? Number(nudgeInput.value) : DEFAULT_AUTO_SYNC_NUDGE_SECONDS;
   const nudgeSeconds = Number.isFinite(configuredNudge) ? configuredNudge : DEFAULT_AUTO_SYNC_NUDGE_SECONDS;
-  const btn = row.querySelector('.seg-autosync');
-  const originalLabel = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Checking...';
   statusEl.className = 'text-[10px] text-slate-500 seg-status';
-  statusEl.textContent = 'Checking YouTube for live broadcast start time...';
+  statusEl.textContent = 'Syncing from YouTube...';
   try {
     const timing = await fetchYouTubeLiveTiming(vid);
     if (seg.syncAttemptId !== attemptId) return;
     seg.startAbsMs = timing.startAbsMs + nudgeSeconds * 1000;
-    seg.rate = timing.rate;
     seg.autoSynced = true;
     seg.syncNudgeSeconds = nudgeSeconds;
     persistPOVs();
-    const rateText = timing.rate !== 1 ? ` and auto-detected a ${(timing.rate * 100).toFixed(3)}% playback rate (drift-corrected across the whole VOD)` : '';
-    showToast(`Auto-synced from YouTube with a ${nudgeSeconds}s nudge${rateText}.`, 'success');
+    showToast('Synced automatically from YouTube.', 'success');
     renderPOVModalBody();
     if (getActivePOV() && getActivePOV().id === pov.id) jumpToCurrentPullStart();
   } catch (e) {
     if (seg.syncAttemptId !== attemptId) return;
     statusEl.className = 'text-[10px] text-rose-400 seg-status';
-    statusEl.textContent = `${e.message} Manual calibration is still available.`;
-    btn.disabled = false;
-    btn.innerHTML = originalLabel;
+    statusEl.textContent = `${e.message}`;
+    renderPOVModalBody();
   }
 }
 
@@ -2970,47 +2950,35 @@ function renderPOVModalBody() {
     const jobOptions = Object.keys(JOB_COLORS).map(j => `<option value="${j}" ${pov.job === j ? 'selected' : ''}>${j}</option>`).join('');
 
     let segmentsHtml = pov.segments.map(seg => {
-      const statusText = seg.startAbsMs != null
-        ? `${seg.autoSynced ? `Auto-synced (${seg.syncNudgeSeconds ?? DEFAULT_AUTO_SYNC_NUDGE_SECONDS}s nudge)` : 'Synced'} — video 00:00 = ${new Date(seg.startAbsMs).toLocaleString()}${seg.rate && seg.rate !== 1 ? ` · rate ${(seg.rate * 100).toFixed(3)}%` : ''}`
-        : 'Not synced yet — paste a video below and set its start time';
-      const statusColor = seg.startAbsMs != null ? 'text-emerald-400' : 'text-slate-500';
+      const synced = seg.startAbsMs != null;
+      const statusText = synced
+        ? `${seg.autoSynced ? 'Synced automatically' : 'Synced'} — video 00:00 = ${new Date(seg.startAbsMs).toLocaleString()}`
+        : (seg.videoId ? 'Not synced yet — checking YouTube...' : 'Paste a YouTube video link above — it syncs automatically.');
+      const statusColor = synced ? 'text-emerald-400' : 'text-slate-500';
       return `
       <div class="bg-slate-900 p-2 rounded border border-slate-800 space-y-1.5" data-seg="${seg.id}">
         <div class="grid grid-cols-12 gap-1.5 items-center">
-          <input class="col-span-11 seg-video bg-slate-950 border border-slate-800 rounded px-2 py-1 font-mono text-[11px]" placeholder="YouTube URL or ID" value="${escapeHTML(seg.videoId || '')}">
+          <input class="col-span-10 seg-video bg-slate-950 border border-slate-800 rounded px-2 py-1 font-mono text-[11px]" placeholder="Paste a YouTube video URL" value="${escapeHTML(seg.videoId || '')}">
+          <button class="col-span-1 seg-retry bg-slate-800 hover:bg-slate-700 rounded px-1 py-1 text-[10px]" title="Retry auto-sync"><i class="fa-solid fa-rotate"></i></button>
           <button class="col-span-1 seg-del bg-rose-900/60 hover:bg-rose-800 rounded px-1 py-1 text-[10px]"><i class="fa-solid fa-trash-can"></i></button>
-        </div>
-        <div class="grid grid-cols-12 gap-1.5 items-center">
-          <select class="col-span-4 seg-pull bg-slate-950 border border-slate-800 rounded px-1 py-1 text-[11px]">
-            <option value="">This video starts at pull...</option>
-            ${report ? report.fights.map((f, i) => `<option value="${f.id}">Pull ${i + 1} — ${escapeHTML(f.name)}</option>`).join('') : ''}
-          </select>
-          <input class="col-span-3 seg-time bg-slate-950 border border-slate-800 rounded px-2 py-1 font-mono text-[11px]" placeholder="MM:SS in video">
-          <button class="col-span-2 seg-grab bg-slate-800 hover:bg-slate-700 rounded px-1 py-1 text-[10px]" title="Use current player position">grab</button>
-          <button class="col-span-3 seg-apply bg-ffpurple-600 hover:bg-ffpurple-500 rounded px-1 py-1 text-[10px] font-bold">Set sync point</button>
         </div>
         <div class="text-[10px] ${statusColor} seg-status">${statusText}</div>
 
-        <details>
-          <summary class="text-[10px] text-slate-500 cursor-pointer hover:text-slate-300 select-none">Advanced: try auto-sync / nudge (optional)</summary>
+        <details ${synced ? '' : 'open'}>
+          <summary class="text-[10px] text-slate-500 cursor-pointer hover:text-slate-300 select-none">${synced ? 'Manual override (rarely needed)' : 'Manual sync (only needed if auto-sync fails, e.g. an uploaded/edited video)'}</summary>
           <div class="grid grid-cols-12 gap-1.5 items-center mt-1.5">
-            <button class="col-span-7 seg-autosync bg-slate-800 hover:bg-slate-700 rounded px-2 py-1 text-[10px]"><i class="fa-brands fa-youtube"></i> Try auto-sync from YouTube</button>
-            <span class="col-span-5 text-[9px] text-slate-600">needs a YouTube API key in Settings</span>
-          </div>
-          <div class="grid grid-cols-12 gap-1.5 items-center mt-1.5">
-            <span class="col-span-4 text-[10px] text-slate-500">Nudge sync (seconds):</span>
-            <input class="col-span-3 seg-nudge-input bg-slate-950 border border-slate-800 rounded px-2 py-1 font-mono text-[11px]" value="${seg.autoSynced ? '' : DEFAULT_AUTO_SYNC_NUDGE_SECONDS}" placeholder="e.g. 2 or -1.5" type="number" step="0.1">
-            <button class="col-span-5 seg-nudge-apply bg-slate-800 hover:bg-slate-700 rounded px-1 py-1 text-[10px]">Apply nudge</button>
-          </div>
-          <p class="text-[10px] text-slate-600 mt-2">If a much later pull is still off by a few seconds even after the sync point above, the video's real-time speed itself may differ slightly from the log (common on long VODs). Fix that here using a second, later pull as a reference:</p>
-          <div class="grid grid-cols-12 gap-1.5 items-center mt-1.5">
-            <select class="col-span-4 seg-rate-pull bg-slate-950 border border-slate-800 rounded px-1 py-1 text-[11px]">
-              <option value="">At a later pull...</option>
+            <select class="col-span-4 seg-pull bg-slate-950 border border-slate-800 rounded px-1 py-1 text-[11px]">
+              <option value="">This video starts at pull...</option>
               ${report ? report.fights.map((f, i) => `<option value="${f.id}">Pull ${i + 1} — ${escapeHTML(f.name)}</option>`).join('') : ''}
             </select>
-            <input class="col-span-3 seg-rate-time bg-slate-950 border border-slate-800 rounded px-2 py-1 font-mono text-[11px]" placeholder="MM:SS in video">
-            <button class="col-span-2 seg-rate-grab bg-slate-800 hover:bg-slate-700 rounded px-1 py-1 text-[10px]" title="Use current player position">grab</button>
-            <button class="col-span-3 seg-rate-apply bg-ffpurple-600 hover:bg-ffpurple-500 rounded px-1 py-1 text-[10px] font-bold">Calculate rate</button>
+            <input class="col-span-3 seg-time bg-slate-950 border border-slate-800 rounded px-2 py-1 font-mono text-[11px]" placeholder="MM:SS in video">
+            <button class="col-span-2 seg-grab bg-slate-800 hover:bg-slate-700 rounded px-1 py-1 text-[10px]" title="Use current player position">grab</button>
+            <button class="col-span-3 seg-apply bg-ffpurple-600 hover:bg-ffpurple-500 rounded px-1 py-1 text-[10px] font-bold">Set sync point</button>
+          </div>
+          <div class="grid grid-cols-12 gap-1.5 items-center mt-1.5">
+            <span class="col-span-4 text-[10px] text-slate-500">Nudge (seconds):</span>
+            <input class="col-span-3 seg-nudge-input bg-slate-950 border border-slate-800 rounded px-2 py-1 font-mono text-[11px]" value="${seg.autoSynced ? '' : DEFAULT_AUTO_SYNC_NUDGE_SECONDS}" placeholder="e.g. 2 or -1.5" type="number" step="0.1">
+            <button class="col-span-5 seg-nudge-apply bg-slate-800 hover:bg-slate-700 rounded px-1 py-1 text-[10px]">Apply nudge</button>
           </div>
         </details>
       </div>`;
@@ -3035,17 +3003,20 @@ function renderPOVModalBody() {
     wrap.querySelectorAll('[data-seg]').forEach(row => {
       const segId = row.getAttribute('data-seg');
       const seg = pov.segments.find(s => s.id === segId);
-      row.querySelector('.seg-video').addEventListener('change', e => {
-        seg.videoId = extractYouTubeId(e.target.value);
+      const videoInput = row.querySelector('.seg-video');
+      const trySync = () => {
+        seg.videoId = extractYouTubeId(videoInput.value);
         persistPOVs();
         if (seg.videoId) tryAutoSyncSegment(pov, seg, row);
-      });
-      row.querySelector('.seg-del').addEventListener('click', () => removeSegment(pov.id, segId));
-
-      row.querySelector('.seg-autosync').addEventListener('click', () => {
-        if (!extractYouTubeId(row.querySelector('.seg-video').value)) { showToast('Enter a YouTube URL or video ID first.', 'error'); return; }
+      };
+      // Paste-and-done: sync fires as soon as a valid link lands, no extra clicks needed.
+      videoInput.addEventListener('change', trySync);
+      videoInput.addEventListener('paste', () => setTimeout(trySync, 0));
+      row.querySelector('.seg-retry').addEventListener('click', () => {
+        if (!extractYouTubeId(videoInput.value)) { showToast('Paste a YouTube URL or video ID first.', 'error'); return; }
         tryAutoSyncSegment(pov, seg, row);
       });
+      row.querySelector('.seg-del').addEventListener('click', () => removeSegment(pov.id, segId));
 
       row.querySelector('.seg-grab').addEventListener('click', () => {
         if (!ytReady || !ytPlayer || currentLoadedVideoId !== seg.videoId) { showToast('Load this segment video in the main player first, then grab.', 'error'); return; }
@@ -3054,7 +3025,7 @@ function renderPOVModalBody() {
       row.querySelector('.seg-apply').addEventListener('click', () => {
         const fightId = row.querySelector('.seg-pull').value;
         const timeStr = row.querySelector('.seg-time').value;
-        const vid = extractYouTubeId(row.querySelector('.seg-video').value);
+        const vid = extractYouTubeId(videoInput.value);
         if (!vid) { showToast('Enter a YouTube URL or video ID first.', 'error'); return; }
         if (!fightId) { showToast('Choose which pull this timestamp corresponds to.', 'error'); return; }
         const secs = parseMMSSorHHMMSS(timeStr);
@@ -3077,28 +3048,6 @@ function renderPOVModalBody() {
         seg.startAbsMs += n * 1000;
         persistPOVs();
         showToast(`Nudged by ${n}s.`, 'success');
-        renderPOVModalBody();
-        if (getActivePOV() && getActivePOV().id === pov.id) jumpToCurrentPullStart();
-      });
-      row.querySelector('.seg-rate-grab').addEventListener('click', () => {
-        if (!ytReady || !ytPlayer || currentLoadedVideoId !== seg.videoId) { showToast('Load this segment video in the main player first, then grab.', 'error'); return; }
-        row.querySelector('.seg-rate-time').value = formatSecondsToMMSS(Math.floor(ytPlayer.getCurrentTime()));
-      });
-      row.querySelector('.seg-rate-apply').addEventListener('click', () => {
-        if (seg.startAbsMs == null) { showToast('Set the first sync point above before calibrating a rate.', 'error'); return; }
-        const fightId = row.querySelector('.seg-rate-pull').value;
-        const timeStr = row.querySelector('.seg-rate-time').value;
-        if (!fightId) { showToast('Choose a later pull to calibrate against.', 'error'); return; }
-        const secs = parseMMSSorHHMMSS(timeStr);
-        if (secs == null) { showToast('Enter a valid time like 5:52:02.', 'error'); return; }
-        const fight2 = report.fights.find(f => String(f.id) === String(fightId));
-        const elapsedLogSeconds = (pullAbsStartMs(fight2) - seg.startAbsMs) / 1000;
-        if (elapsedLogSeconds <= 0) { showToast('Pick a pull that happens after this sync point.', 'error'); return; }
-        const rate = secs / elapsedLogSeconds;
-        if (!Number.isFinite(rate) || rate < 0.5 || rate > 2) { showToast('That rate looks way off — double check the pull and timestamp.', 'error'); return; }
-        seg.rate = rate;
-        persistPOVs();
-        showToast(`Rate calibrated: video runs at ${(rate * 100).toFixed(3)}% of log speed.`, 'success');
         renderPOVModalBody();
         if (getActivePOV() && getActivePOV().id === pov.id) jumpToCurrentPullStart();
       });
