@@ -411,8 +411,9 @@ let selectedPhaseFilter = '';
 
 let ytPlayer = null;
 let ytReady = false;
-let ytPendingLoad = null;  // {videoId, seconds} queued if player not ready yet
+let ytPendingLoad = null;  // {videoId, seconds, segmentId} queued if player not ready yet
 let currentLoadedVideoId = null;
+let currentLoadedSegmentId = null;
 let pollTimer = null;
 
 /* =========================================================================
@@ -542,7 +543,7 @@ function onYouTubeIframeAPIReady() {
     events: {
       onReady: () => {
         ytReady = true;
-        if (ytPendingLoad) { doLoadAndSeek(ytPendingLoad.videoId, ytPendingLoad.seconds); ytPendingLoad = null; }
+        if (ytPendingLoad) { doLoadAndSeek(ytPendingLoad.videoId, ytPendingLoad.seconds, ytPendingLoad.segmentId); ytPendingLoad = null; }
       }
     }
   });
@@ -1352,7 +1353,7 @@ function seekToAbsTime(absMs) {
   const seg = resolveSegmentForAbsTime(pov, absMs);
   if (!seg) { showToast('This POV has no calibrated video segment yet. Open POVs to set one.', 'error'); return; }
   const videoSeconds = Math.max(0, (absMs - seg.startAbsMs) / 1000);
-  loadAndSeek(seg.videoId, videoSeconds);
+  loadAndSeek(seg.videoId, videoSeconds, seg.id);
 }
 
 function jumpToCurrentPullStart() {
@@ -1379,9 +1380,12 @@ function jumpToSpecificOffsetMs(offsetMs) {
 function getTimelinePlaybackOffsetMs(fight) {
   const pov = getActivePOV();
   if (!pov || !ytReady || !ytPlayer || !currentLoadedVideoId) return null;
-  const segment = pov.segments.find(item => item.videoId === currentLoadedVideoId && item.startAbsMs != null);
+  const segment = getLoadedPOVSegment(pov);
   if (!segment) return null;
   return ytPlayer.getCurrentTime() * 1000 + segment.startAbsMs - pullAbsStartMs(fight);
+}
+function getLoadedPOVSegment(pov) {
+  return pov && pov.segments.find(segment => segment.id === currentLoadedSegmentId && segment.videoId === currentLoadedVideoId && segment.startAbsMs != null);
 }
 function updateTimelinePlayhead(offsetMs) {
   const fight = getActiveFight();
@@ -1410,11 +1414,11 @@ function seekVideoRelative(deltaSeconds) {
 /* =========================================================================
    YOUTUBE PLAYER CONTROL
    ========================================================================= */
-function loadAndSeek(videoId, seconds) {
-  if (!ytReady || !ytPlayer) { ytPendingLoad = { videoId, seconds }; return; }
-  doLoadAndSeek(videoId, seconds);
+function loadAndSeek(videoId, seconds, segmentId) {
+  if (!ytReady || !ytPlayer) { ytPendingLoad = { videoId, seconds, segmentId }; return; }
+  doLoadAndSeek(videoId, seconds, segmentId);
 }
-function doLoadAndSeek(videoId, seconds) {
+function doLoadAndSeek(videoId, seconds, segmentId) {
   document.getElementById('no-video-placeholder').classList.add('hidden');
   if (currentLoadedVideoId !== videoId) {
     ytPlayer.loadVideoById({ videoId, startSeconds: seconds });
@@ -1422,6 +1426,7 @@ function doLoadAndSeek(videoId, seconds) {
   } else {
     ytPlayer.seekTo(seconds, true);
   }
+  currentLoadedSegmentId = segmentId;
   ensurePolling();
 }
 function ensurePolling() {
@@ -1434,10 +1439,9 @@ function ensurePolling() {
     const pov = getActivePOV();
     const fight = getActiveFight();
     if (pov && fight) {
-      const seg = resolveSegmentForAbsTime(pov, report.startTime + fight.startTime);
-      const segForCurrent = pov.segments.find(s => s.videoId === currentLoadedVideoId) || seg;
-      if (segForCurrent && segForCurrent.startAbsMs != null) {
-        const absNow = segForCurrent.startAbsMs + vSec * 1000;
+      const segment = getLoadedPOVSegment(pov);
+      if (segment) {
+        const absNow = segment.startAbsMs + vSec * 1000;
         const logOffsetSec = Math.floor((absNow - pullAbsStartMs(fight)) / 1000);
         document.getElementById('log-time-display').textContent = formatSecondsToMMSS(logOffsetSec);
       }
