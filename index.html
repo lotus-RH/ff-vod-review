@@ -187,6 +187,11 @@
             <button onclick="openAbilityModal()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-2.5 py-1 text-slate-300"><i class="fa-solid fa-list"></i> Abilities</button>
           </div>
         </div>
+        <div class="flex items-center gap-2 mb-2 shrink-0" title="Scrub the active POV video to this point in the pull">
+          <span id="timeline-seek-current" class="font-mono text-[10px] text-ffcyan-400 w-10 text-right">00:00</span>
+          <input id="timeline-seek-input" type="range" min="0" max="1" step="0.1" value="0" aria-label="Seek within the current fight" class="flex-1 h-1 accent-ffcyan-400 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40">
+          <span id="timeline-seek-duration" class="font-mono text-[10px] text-slate-500 w-10">00:00</span>
+        </div>
         <div id="timeline-visualization" class="w-full flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-slate-950 rounded-lg border border-slate-800 px-2" style="scrollbar-gutter: stable;"></div>
         <div class="text-[11px] text-slate-500 mt-1.5 shrink-0" id="timeline-help">Enter one or more ability names to show their casts and buff durations in this pull.</div>
       </div>
@@ -435,6 +440,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     addTrackedAbilityFromForm();
   });
   document.getElementById('wipe-threshold-input').addEventListener('input', updateWipeThreshold);
+  document.getElementById('timeline-seek-input').addEventListener('input', event => {
+    const offsetMs = Number(event.target.value) * 1000;
+    updateTimelinePlayhead(offsetMs);
+    seekToSpecificOffsetMs(offsetMs);
+  });
   document.getElementById('phase-filter').addEventListener('change', event => {
     selectedPhaseFilter = event.target.value;
     renderPullList();
@@ -1366,6 +1376,31 @@ function jumpToSpecificOffsetMs(offsetMs) {
   if (!fight) return;
   seekToAbsTime(pullAbsStartMs(fight) + offsetMs);
 }
+function getTimelinePlaybackOffsetMs(fight) {
+  const pov = getActivePOV();
+  if (!pov || !ytReady || !ytPlayer || !currentLoadedVideoId) return null;
+  const segment = pov.segments.find(item => item.videoId === currentLoadedVideoId && item.startAbsMs != null);
+  if (!segment) return null;
+  return ytPlayer.getCurrentTime() * 1000 + segment.startAbsMs - pullAbsStartMs(fight);
+}
+function updateTimelinePlayhead(offsetMs) {
+  const fight = getActiveFight();
+  const slider = document.getElementById('timeline-seek-input');
+  if (!fight || !slider) return;
+  const durationMs = Math.max(1, fight.endTime - fight.startTime);
+  const clampedMs = Math.max(0, Math.min(durationMs, Number(offsetMs) || 0));
+  const currentX = document.getElementById('timeline-seek-current');
+  if (currentX) currentX.textContent = formatSecondsToMMSS(clampedMs / 1000);
+  slider.value = String(clampedMs / 1000);
+  const hasVideo = !!(getActivePOV() && getActivePOV().segments.some(segment => segment.videoId && segment.startAbsMs != null));
+  slider.disabled = !hasVideo;
+  const position = document.querySelectorAll('#timeline-visualization [data-timeline-playhead]');
+  position.forEach(line => {
+    const x = 110 + (Math.max(1, timelineWidth(line.ownerSVGElement.parentElement)) - 125) * (clampedMs / durationMs);
+    line.setAttribute('x1', x);
+    line.setAttribute('x2', x);
+  });
+}
 function seekVideoRelative(deltaSeconds) {
   if (!ytReady || !ytPlayer || !ytPlayer.getCurrentTime) { showToast('No video loaded.', 'error'); return; }
   const t = ytPlayer.getCurrentTime() + deltaSeconds;
@@ -1407,6 +1442,7 @@ function ensurePolling() {
         document.getElementById('log-time-display').textContent = formatSecondsToMMSS(logOffsetSec);
       }
     }
+    if (fight) updateTimelinePlayhead(getTimelinePlaybackOffsetMs(fight));
   }, 500);
 }
 
@@ -1890,7 +1926,7 @@ function renderCombatTimeline(fight, container) {
         }
       }
     });
-    return { abilityName, cooldownSeconds: Number(trackedAbilityCooldowns[abilityCooldownKey(abilityName)]) || 0, casts, spans };
+    return { abilityName, casts, spans };
   });
   const fightNotes = notes.filter(note => note.fightId === fight.id);
   const mechanicLanes = [];
@@ -1907,6 +1943,13 @@ function renderCombatTimeline(fight, container) {
   const start = fight.startTime, duration = Math.max(1, fight.endTime - start);
   const left = 110, right = W - 15, width = right - left;
   const xAt = timestamp => left + Math.max(0, Math.min(1, (timestamp - start) / duration)) * width;
+  const seekInput = document.getElementById('timeline-seek-input');
+  const durationLabel = document.getElementById('timeline-seek-duration');
+  if (seekInput) {
+    seekInput.max = String(duration / 1000);
+    seekInput.step = String(Math.max(0.1, duration / 100000));
+  }
+  if (durationLabel) durationLabel.textContent = formatSecondsToMMSS(duration / 1000);
   const makeSvg = h => {
     const el = document.createElementNS(svgNS, 'svg');
     el.setAttribute('viewBox', `0 0 ${W} ${h}`);
@@ -1936,6 +1979,14 @@ function renderCombatTimeline(fight, container) {
     axisSvg.appendChild(label);
     add('line', { x1: x, y1: 0, x2: x, y2: height, stroke: '#1e293b', 'stroke-width': 1 });
   }
+  const axisPlayhead = document.createElementNS(svgNS, 'line');
+  axisPlayhead.setAttribute('data-timeline-playhead', 'true');
+  axisPlayhead.setAttribute('y1', '0');
+  axisPlayhead.setAttribute('y2', '18');
+  axisPlayhead.setAttribute('stroke', '#22d3ee');
+  axisPlayhead.setAttribute('stroke-width', '2');
+  axisPlayhead.setAttribute('pointer-events', 'none');
+  axisSvg.appendChild(axisPlayhead);
   let rowIndex = 0;
   mechanicLanes.forEach(lane => {
     const y = 4 + rowIndex++ * rowHeight;
@@ -1967,18 +2018,9 @@ function renderCombatTimeline(fight, container) {
   abilityRows.forEach(row => {
     const y = 4 + rowIndex++ * rowHeight;
     const centerY = y + rowHeight / 2;
-    const { abilityName, cooldownSeconds, casts, spans } = row;
+    const { abilityName, casts, spans } = row;
     add('text', { x: 4, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, abilityName.length > 17 ? abilityName.slice(0, 16) + '…' : abilityName);
     add('line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b', 'stroke-width': 1 });
-    if (cooldownSeconds > 0) {
-      casts.forEach(event => {
-        const endTimestamp = Math.min(event.timestamp + cooldownSeconds * 1000, fight.endTime);
-        const x = xAt(event.timestamp);
-        const endX = xAt(endTimestamp);
-        const rect = add('rect', { x, y: centerY - 10, width: Math.max(2, endX - x), height: 6, rx: 2, fill: '#f59e0b', opacity: 0.8 });
-        rect.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${abilityName} cooldown: ${cooldownSeconds}s remaining after press`;
-      });
-    }
     spans.forEach(span => {
       const x = xAt(span.start);
       const endX = xAt(span.end);
@@ -1994,8 +2036,10 @@ function renderCombatTimeline(fight, container) {
       marker.addEventListener('click', () => jumpToSpecificOffsetMs(event.timestamp - start));
     });
   });
+  add('line', { 'data-timeline-playhead': 'true', x1: left, y1: 0, x2: left, y2: height, stroke: '#22d3ee', 'stroke-width': 2, 'stroke-opacity': 0.85, 'pointer-events': 'none' });
   container.appendChild(axisWrap);
   container.appendChild(svg);
+  updateTimelinePlayhead(getTimelinePlaybackOffsetMs(fight));
   renderMechanicsList();
   if (isLoading) {
     const status = document.createElement('div');
