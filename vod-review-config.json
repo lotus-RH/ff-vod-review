@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-28T09:29:13.582Z",
+  "updatedAt": "2026-09-28T15:35:44.369Z",
   "storage": {
     "fflogs_vod_ability_classes_default": {
       "dark missionary": "DRK",
@@ -84,6 +84,33 @@
       ],
       "philosophia": [
         "SGE"
+      ],
+      "seraphism": [
+        "SCH"
+      ],
+      "expedient": [
+        "SCH"
+      ],
+      "deployment tactics": [
+        "SCH"
+      ],
+      "sacred soil": [
+        "SCH"
+      ],
+      "fey illumination": [
+        "SCH"
+      ],
+      "troubadour": [
+        "BRD"
+      ],
+      "nature's minne": [
+        "BRD"
+      ],
+      "reprisal": [
+        "PLD",
+        "WAR",
+        "DRK",
+        "GNB"
       ]
     },
     "fflogs_vod_povs_BCFw4yxZzRp97GA2": [
@@ -93,12 +120,22 @@
         "job": "SCH",
         "segments": [
           {
-            "id": "seg_1790579567461_800",
+            "id": "seg_1790601946326_861",
             "videoId": "FvtMl_Q51Fw",
             "label": "Segment 1",
-            "startAbsMs": 1780565417000,
-            "syncAttemptId": 1,
-            "autoSynced": true
+            "startAbsMs": 1780565409000,
+            "syncAttemptId": 7,
+            "autoSynced": true,
+            "syncNudgeSeconds": -8
+          },
+          {
+            "id": "seg_1790603028865_275",
+            "videoId": "HkA0p0iQhv4",
+            "label": "Segment 2",
+            "startAbsMs": 1780598781000,
+            "syncAttemptId": 2,
+            "autoSynced": true,
+            "syncNudgeSeconds": -8
           }
         ]
       },
@@ -106,7 +143,26 @@
         "id": "pov_1790586037534_350",
         "player": "Lunner",
         "job": "DRK",
-        "segments": []
+        "segments": [
+          {
+            "id": "seg_1790602891893_35",
+            "videoId": "bJ8WjpWGhio",
+            "label": "Segment 1",
+            "startAbsMs": 1780565481000,
+            "syncAttemptId": 3,
+            "autoSynced": true,
+            "syncNudgeSeconds": -8
+          },
+          {
+            "id": "seg_1790603024502_182",
+            "videoId": "n0et_uXnVFk",
+            "label": "Segment 2",
+            "startAbsMs": 1780599966000,
+            "syncAttemptId": 1,
+            "autoSynced": true,
+            "syncNudgeSeconds": -8
+          }
+        ]
       }
     ],
     "fflogs_vod_mechanic_recast_ignore_default": {
@@ -115,11 +171,19 @@
       "wave cannon": 10,
       "double-trouble trap": 10,
       "ultimate embrace": 10,
-      "trine": 20,
+      "trine": 30,
       "wings of destruction": 10,
       "thunder iii": 5,
       "tele-trouncing": 5,
-      "gravity iii": 10
+      "gravity iii": 10,
+      "the path of light": 5,
+      "hyperdrive": 5,
+      "latitudinal implosion": 5,
+      "longitudinal implosion": 5,
+      "shockwave": 5,
+      "ave maria": 5,
+      "indolent will": 5,
+      "graven image": 5
     },
     "fflogs_vod_mechanic_recast_ignore_BCFw4yxZzRp97GA2": {
       "revolting ruin iii": 10,
@@ -127,18 +191,1284 @@
       "wave cannon": 10,
       "double-trouble trap": 10,
       "ultimate embrace": 10,
-      "trine": 20,
+      "trine": 30,
       "wings of destruction": 10,
       "thunder iii": 5,
       "tele-trouncing": 5,
-      "gravity iii": 10
+      "gravity iii": 10,
+      "the path of light": 5,
+      "hyperdrive": 5,
+      "latitudinal implosion": 5,
+      "longitudinal implosion": 5,
+      "shockwave": 5,
+      "ave maria": 5,
+      "indolent will": 5,
+      "graven image": 5
     },
+    "fflogs_vod_ability_images_default": {
+      "fey illumination": "https://static.wikia.nocookie.net/finalfantasy/images/3/3f/Fey_Illumination_Pet_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210608082310",
+      "reprisal": "https://static.wikia.nocookie.net/finalfantasy/images/8/86/Reprisal_Role_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210530020645",
+      "passage of arms": "https://static.wikia.nocookie.net/finalfantasy/images/3/39/Passage_of_Arms_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210608082828",
+      "divine veil": "https://static.wikia.nocookie.net/finalfantasy/images/7/75/Divine_Veil_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210608081958",
+      "shake it off": "https://static.wikia.nocookie.net/finalfantasy/images/6/64/Shake_It_Off_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210608083106",
+      "heart of light": "https://static.wikia.nocookie.net/finalfantasy/images/d/d0/Heart_of_Light_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210610004429",
+      "dark missionary": "https://static.wikia.nocookie.net/finalfantasy/images/4/4b/Dark_Missionary_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210609231645",
+      "arcane crest": "https://static.wikia.nocookie.net/finalfantasy/images/0/05/Arcane_Crest_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20211206212823",
+      "feint": "https://static.wikia.nocookie.net/finalfantasy/images/9/90/Feint_Role_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210530020044",
+      "magick barrier": "https://static.wikia.nocookie.net/finalfantasy/images/9/9e/Magick_Barrier_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20211206213129",
+      "addle": "https://static.wikia.nocookie.net/finalfantasy/images/e/ec/Addle_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210530015604",
+      "tactician": "https://static.wikia.nocookie.net/finalfantasy/images/d/db/Tactician_MCH_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210609230906",
+      "dismantle": "https://static.wikia.nocookie.net/finalfantasy/images/4/41/Dismantle_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210611193431",
+      "troubadour": "https://static.wikia.nocookie.net/finalfantasy/images/8/82/Troubadour_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210608083439",
+      "nature's minne": "https://static.wikia.nocookie.net/finalfantasy/images/e/ef/Nature%27s_Minne_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210608082802",
+      "shield samba": "https://static.wikia.nocookie.net/finalfantasy/images/8/87/Shield_Samba_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210610010510",
+      "mantra": "https://static.wikia.nocookie.net/finalfantasy/images/f/f6/Mantra_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210530020427",
+      "sacred soil": "https://static.wikia.nocookie.net/finalfantasy/images/b/b4/Sacred_Soil_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210608083041",
+      "deployment tactics": "https://static.wikia.nocookie.net/finalfantasy/images/3/3f/Deployment_Tactics_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210608081918",
+      "expedient": "https://static.wikia.nocookie.net/finalfantasy/images/8/81/Expedient_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20211206212959",
+      "seraphism": "https://static.wikia.nocookie.net/finalfantasy/images/e/e0/Seraphism_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20250330021248",
+      "collective unconscious": "https://static.wikia.nocookie.net/finalfantasy/images/a/ad/Collective_Unconscious_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210609234136",
+      "neutral sect": "https://static.wikia.nocookie.net/finalfantasy/images/5/53/Neutral_Sect_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210610010806",
+      "macrocosmos": "https://static.wikia.nocookie.net/finalfantasy/images/9/95/Macrocosmos_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20211206213127",
+      "sun sign": "https://static.wikia.nocookie.net/finalfantasy/images/1/17/Sun_Sign_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20250330021256",
+      "benediction": "https://static.wikia.nocookie.net/finalfantasy/images/c/c4/Benediction_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210608081654",
+      "plenary indulgence": "https://static.wikia.nocookie.net/finalfantasy/images/4/43/Plenary_Indulgence_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210608082840",
+      "temperance": "https://static.wikia.nocookie.net/finalfantasy/images/2/2d/Temperance_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210608083325",
+      "divine caress": "https://static.wikia.nocookie.net/finalfantasy/images/7/7f/Divine_Caress_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20250330021026"
+    },
+    "fflogs_vod_encounter_mechanics": {
+      "1085": {
+        "encounterID": 1085,
+        "name": "Dancing Mad",
+        "durationSeconds": 511,
+        "mechanics": [
+          {
+            "abilityId": 50167,
+            "name": "Aero III Assault",
+            "names": [
+              "Aero III Assault"
+            ],
+            "castOffsets": [
+              387,
+              388
+            ]
+          },
+          {
+            "abilityId": 47837,
+            "name": "All Things Ending",
+            "names": [
+              "All Things Ending"
+            ],
+            "castOffsets": [
+              270,
+              271,
+              291,
+              312,
+              313,
+              333,
+              334
+            ]
+          },
+          {
+            "abilityId": 47836,
+            "name": "All Things Ending",
+            "names": [
+              "All Things Ending"
+            ],
+            "castOffsets": [
+              270,
+              271,
+              291,
+              292,
+              312,
+              313,
+              333,
+              334
+            ]
+          },
+          {
+            "abilityId": 47795,
+            "name": "Ave Maria",
+            "names": [
+              "Ave Maria"
+            ],
+            "castOffsets": [
+              187,
+              188
+            ]
+          },
+          {
+            "abilityId": 47768,
+            "name": "Blizzard III Blowout",
+            "names": [
+              "Blizzard III Blowout"
+            ],
+            "castOffsets": [
+              38,
+              54,
+              88
+            ]
+          },
+          {
+            "abilityId": 47774,
+            "name": "Blizzard III Blowout",
+            "names": [
+              "Blizzard III Blowout"
+            ],
+            "castOffsets": [
+              38,
+              54,
+              55,
+              88
+            ]
+          },
+          {
+            "abilityId": 47771,
+            "name": "Blizzard III Blowout",
+            "names": [
+              "Blizzard III Blowout"
+            ],
+            "castOffsets": [
+              38,
+              54,
+              55,
+              88
+            ]
+          },
+          {
+            "abilityId": 47765,
+            "name": "Blizzard III Blowout",
+            "names": [
+              "Blizzard III Blowout"
+            ],
+            "castOffsets": [
+              88
+            ]
+          },
+          {
+            "abilityId": 47858,
+            "name": "Bowels of Agony",
+            "names": [
+              "Bowels of Agony"
+            ],
+            "castOffsets": [
+              450,
+              451
+            ]
+          },
+          {
+            "abilityId": 47864,
+            "name": "Cyclone",
+            "names": [
+              "Cyclone"
+            ],
+            "castOffsets": [
+              472,
+              473,
+              474,
+              475,
+              476,
+              477,
+              479,
+              498,
+              499,
+              500,
+              501,
+              502,
+              503,
+              504,
+              506
+            ]
+          },
+          {
+            "abilityId": 47842,
+            "name": "Definition of Insanity",
+            "names": [
+              "Definition of Insanity"
+            ],
+            "castOffsets": [
+              425,
+              426
+            ]
+          },
+          {
+            "abilityId": 47782,
+            "name": "Double-Trouble Trap",
+            "names": [
+              "Double-Trouble Trap"
+            ],
+            "castOffsets": [
+              45,
+              46
+            ]
+          },
+          {
+            "abilityId": 47783,
+            "name": "Double-Trouble Trap",
+            "names": [
+              "Double-Trouble Trap"
+            ],
+            "castOffsets": [
+              50,
+              51,
+              119,
+              168,
+              169
+            ]
+          },
+          {
+            "abilityId": 50173,
+            "name": "Enhanced Thrill Of War II",
+            "names": [
+              "Enhanced Thrill Of War II"
+            ],
+            "castOffsets": [
+              25,
+              26,
+              76,
+              77,
+              180,
+              181
+            ]
+          },
+          {
+            "abilityId": 47786,
+            "name": "Explosion",
+            "names": [
+              "Explosion"
+            ],
+            "castOffsets": [
+              46,
+              47
+            ]
+          },
+          {
+            "abilityId": 47779,
+            "name": "Flagrant Fire III",
+            "names": [
+              "Flagrant Fire III"
+            ],
+            "castOffsets": [
+              39,
+              188
+            ]
+          },
+          {
+            "abilityId": 47778,
+            "name": "Flagrant Fire III",
+            "names": [
+              "Flagrant Fire III"
+            ],
+            "castOffsets": [
+              39,
+              188
+            ]
+          },
+          {
+            "abilityId": 47804,
+            "name": "Forsaken",
+            "names": [
+              "Forsaken"
+            ],
+            "castOffsets": [
+              236,
+              237
+            ]
+          },
+          {
+            "abilityId": 47826,
+            "name": "Future's End",
+            "names": [
+              "Future's End"
+            ],
+            "castOffsets": [
+              259,
+              279,
+              280,
+              300,
+              301,
+              321,
+              322
+            ]
+          },
+          {
+            "abilityId": 47830,
+            "name": "Future's End",
+            "names": [
+              "Future's End"
+            ],
+            "castOffsets": [
+              259,
+              280,
+              281,
+              301,
+              302,
+              322
+            ]
+          },
+          {
+            "abilityId": 47832,
+            "name": "Future's End",
+            "names": [
+              "Future's End"
+            ],
+            "castOffsets": [
+              259,
+              280,
+              281,
+              301,
+              302,
+              322
+            ]
+          },
+          {
+            "abilityId": 48370,
+            "name": "Graven Image",
+            "names": [
+              "Graven Image"
+            ],
+            "castOffsets": [
+              30,
+              81,
+              164,
+              165
+            ]
+          },
+          {
+            "abilityId": 47788,
+            "name": "Gravitas",
+            "names": [
+              "Gravitas"
+            ],
+            "castOffsets": [
+              88,
+              89,
+              106,
+              107
+            ]
+          },
+          {
+            "abilityId": 47789,
+            "name": "Gravitational Explosion",
+            "names": [
+              "Gravitational Explosion"
+            ],
+            "castOffsets": [
+              96,
+              112
+            ]
+          },
+          {
+            "abilityId": 47793,
+            "name": "Gravitational Wave",
+            "names": [
+              "Gravitational Wave"
+            ],
+            "castOffsets": [
+              102,
+              115,
+              116
+            ]
+          },
+          {
+            "abilityId": 47791,
+            "name": "Gravity III",
+            "names": [
+              "Gravity III"
+            ],
+            "castOffsets": [
+              121,
+              122,
+              123
+            ]
+          },
+          {
+            "abilityId": 49739,
+            "name": "Hyperdrive",
+            "names": [
+              "Hyperdrive"
+            ],
+            "castOffsets": [
+              66,
+              67,
+              68,
+              69,
+              71,
+              136,
+              137,
+              138,
+              139,
+              140,
+              141
+            ]
+          },
+          {
+            "abilityId": 47798,
+            "name": "Idyllic Will",
+            "names": [
+              "Idyllic Will"
+            ],
+            "castOffsets": [
+              174,
+              175
+            ]
+          },
+          {
+            "abilityId": 47796,
+            "name": "Indolent Will",
+            "names": [
+              "Indolent Will"
+            ],
+            "castOffsets": [
+              187,
+              188
+            ]
+          },
+          {
+            "abilityId": 47797,
+            "name": "Indulgent Will",
+            "names": [
+              "Indulgent Will"
+            ],
+            "castOffsets": [
+              174,
+              175
+            ]
+          },
+          {
+            "abilityId": 47860,
+            "name": "Inferno",
+            "names": [
+              "Inferno"
+            ],
+            "castOffsets": [
+              471,
+              473,
+              498
+            ]
+          },
+          {
+            "abilityId": 47794,
+            "name": "Intemperate Will",
+            "names": [
+              "Intemperate Will"
+            ],
+            "castOffsets": [
+              102,
+              115
+            ]
+          },
+          {
+            "abilityId": 47870,
+            "name": "Latitudinal Implosion",
+            "names": [
+              "Latitudinal Implosion"
+            ],
+            "castOffsets": [
+              492,
+              493
+            ]
+          },
+          {
+            "abilityId": 50722,
+            "name": "Light of Judgment",
+            "names": [
+              "Light of Judgment"
+            ],
+            "castOffsets": [
+              63,
+              64,
+              133,
+              134
+            ]
+          },
+          {
+            "abilityId": 47803,
+            "name": "Light of Judgment",
+            "names": [
+              "Light of Judgment"
+            ],
+            "castOffsets": [
+              203
+            ]
+          },
+          {
+            "abilityId": 47805,
+            "name": "Light of Judgment",
+            "names": [
+              "Light of Judgment"
+            ],
+            "castOffsets": [
+              342,
+              343
+            ]
+          },
+          {
+            "abilityId": 47841,
+            "name": "Light of Judgment",
+            "names": [
+              "Light of Judgment"
+            ],
+            "castOffsets": [
+              386
+            ]
+          },
+          {
+            "abilityId": 47869,
+            "name": "Longitudinal Implosion",
+            "names": [
+              "Longitudinal Implosion"
+            ],
+            "castOffsets": [
+              492
+            ]
+          },
+          {
+            "abilityId": 47764,
+            "name": "Mystery Magic",
+            "names": [
+              "Mystery Magic"
+            ],
+            "castOffsets": [
+              38,
+              54,
+              55,
+              187,
+              188
+            ]
+          },
+          {
+            "abilityId": 47827,
+            "name": "Past's End",
+            "names": [
+              "Past's End"
+            ],
+            "castOffsets": [
+              259,
+              279,
+              280,
+              301,
+              321,
+              322
+            ]
+          },
+          {
+            "abilityId": 47833,
+            "name": "Past's End",
+            "names": [
+              "Past's End"
+            ],
+            "castOffsets": [
+              259,
+              260,
+              280,
+              301,
+              302,
+              322,
+              323
+            ]
+          },
+          {
+            "abilityId": 47831,
+            "name": "Past's End",
+            "names": [
+              "Past's End"
+            ],
+            "castOffsets": [
+              259,
+              260,
+              280,
+              301,
+              302,
+              322,
+              323
+            ]
+          },
+          {
+            "abilityId": 47785,
+            "name": "Pulse Wave",
+            "names": [
+              "Pulse Wave"
+            ],
+            "castOffsets": [
+              36
+            ]
+          },
+          {
+            "abilityId": 50179,
+            "name": "Revolting Ruin III",
+            "names": [
+              "Revolting Ruin III"
+            ],
+            "castOffsets": [
+              16,
+              98
+            ]
+          },
+          {
+            "abilityId": 50401,
+            "name": "Revolting Ruin III",
+            "names": [
+              "Revolting Ruin III"
+            ],
+            "castOffsets": [
+              19,
+              20,
+              101,
+              102
+            ]
+          },
+          {
+            "abilityId": 47871,
+            "name": "Shockwave",
+            "names": [
+              "Shockwave"
+            ],
+            "castOffsets": [
+              492,
+              493,
+              494,
+              495
+            ]
+          },
+          {
+            "abilityId": 47808,
+            "name": "Spelldriver",
+            "names": [
+              "Spelldriver"
+            ],
+            "castOffsets": [
+              250,
+              251,
+              271,
+              272,
+              292,
+              293,
+              313,
+              314,
+              323
+            ]
+          },
+          {
+            "abilityId": 47811,
+            "name": "Spells' Trouble",
+            "names": [
+              "Spells' Trouble"
+            ],
+            "castOffsets": [
+              343
+            ]
+          },
+          {
+            "abilityId": 47809,
+            "name": "Spellscatter",
+            "names": [
+              "Spellscatter"
+            ],
+            "castOffsets": [
+              250,
+              251,
+              260,
+              261,
+              271,
+              272,
+              281,
+              282,
+              292,
+              293,
+              302,
+              303,
+              313,
+              314,
+              323,
+              324
+            ]
+          },
+          {
+            "abilityId": 47810,
+            "name": "Spellwave",
+            "names": [
+              "Spellwave"
+            ],
+            "castOffsets": [
+              250,
+              251,
+              260,
+              261,
+              271,
+              272,
+              281,
+              282,
+              292,
+              293,
+              302,
+              303,
+              313,
+              314,
+              323,
+              324
+            ]
+          },
+          {
+            "abilityId": 47859,
+            "name": "Stray Flames",
+            "names": [
+              "Stray Flames"
+            ],
+            "castOffsets": [
+              470,
+              472,
+              497
+            ]
+          },
+          {
+            "abilityId": 47862,
+            "name": "Stray Spray",
+            "names": [
+              "Stray Spray"
+            ],
+            "castOffsets": [
+              470,
+              472,
+              497
+            ]
+          },
+          {
+            "abilityId": 47801,
+            "name": "Tele-Trouncing",
+            "names": [
+              "Tele-Trouncing"
+            ],
+            "castOffsets": [
+              152,
+              153
+            ]
+          },
+          {
+            "abilityId": 47802,
+            "name": "Tele-Trouncing",
+            "names": [
+              "Tele-Trouncing"
+            ],
+            "castOffsets": [
+              160,
+              161,
+              163,
+              164
+            ]
+          },
+          {
+            "abilityId": 49890,
+            "name": "the Decisive Battle",
+            "names": [
+              "the Decisive Battle"
+            ],
+            "castOffsets": [
+              431,
+              432
+            ]
+          },
+          {
+            "abilityId": 49891,
+            "name": "the Decisive Battle",
+            "names": [
+              "the Decisive Battle"
+            ],
+            "castOffsets": [
+              431,
+              432
+            ]
+          },
+          {
+            "abilityId": 47806,
+            "name": "The Path of Light",
+            "names": [
+              "The Path of Light"
+            ],
+            "castOffsets": [
+              249,
+              250,
+              259,
+              260,
+              270,
+              271,
+              280,
+              281,
+              291,
+              292,
+              301,
+              302,
+              312,
+              313,
+              322,
+              323
+            ]
+          },
+          {
+            "abilityId": 47807,
+            "name": "The River of Light",
+            "names": [
+              "The River of Light"
+            ],
+            "castOffsets": [
+              260,
+              271,
+              272,
+              281,
+              282,
+              293,
+              303,
+              313,
+              314,
+              323,
+              324
+            ]
+          },
+          {
+            "abilityId": 47775,
+            "name": "Thrumming Thunder III",
+            "names": [
+              "Thrumming Thunder III"
+            ],
+            "castOffsets": [
+              54,
+              187
+            ]
+          },
+          {
+            "abilityId": 47777,
+            "name": "Thrumming Thunder III",
+            "names": [
+              "Thrumming Thunder III"
+            ],
+            "castOffsets": [
+              54,
+              55,
+              187,
+              188
+            ]
+          },
+          {
+            "abilityId": 47776,
+            "name": "Thrumming Thunder III",
+            "names": [
+              "Thrumming Thunder III"
+            ],
+            "castOffsets": [
+              54,
+              55,
+              187,
+              188
+            ]
+          },
+          {
+            "abilityId": 47890,
+            "name": "Thunder III",
+            "names": [
+              "Thunder III"
+            ],
+            "castOffsets": [
+              470
+            ]
+          },
+          {
+            "abilityId": 47881,
+            "name": "Thunder III",
+            "names": [
+              "Thunder III"
+            ],
+            "castOffsets": [
+              479,
+              480
+            ]
+          },
+          {
+            "abilityId": 47884,
+            "name": "Thunder III",
+            "names": [
+              "Thunder III"
+            ],
+            "castOffsets": [
+              479,
+              480,
+              482,
+              483
+            ]
+          },
+          {
+            "abilityId": 49878,
+            "name": "Trance",
+            "names": [
+              "Trance"
+            ],
+            "castOffsets": [
+              490,
+              491
+            ]
+          },
+          {
+            "abilityId": 47839,
+            "name": "Trine",
+            "names": [
+              "Trine"
+            ],
+            "castOffsets": [
+              353,
+              354
+            ]
+          },
+          {
+            "abilityId": 47840,
+            "name": "Trine",
+            "names": [
+              "Trine"
+            ],
+            "castOffsets": [
+              366,
+              367,
+              368,
+              369,
+              370,
+              371
+            ]
+          },
+          {
+            "abilityId": 47861,
+            "name": "Tsunami",
+            "names": [
+              "Tsunami"
+            ],
+            "castOffsets": [
+              471,
+              473,
+              498
+            ]
+          },
+          {
+            "abilityId": 49740,
+            "name": "Ultimate Embrace",
+            "names": [
+              "Ultimate Embrace"
+            ],
+            "castOffsets": [
+              221,
+              378,
+              379
+            ]
+          },
+          {
+            "abilityId": 50516,
+            "name": "unknown_c554",
+            "names": [
+              "unknown_c554"
+            ],
+            "castOffsets": [
+              169,
+              170,
+              435,
+              436
+            ]
+          },
+          {
+            "abilityId": 50517,
+            "name": "unknown_c555",
+            "names": [
+              "unknown_c555"
+            ],
+            "castOffsets": [
+              178,
+              179,
+              484,
+              485
+            ]
+          },
+          {
+            "abilityId": 47787,
+            "name": "Unmitigated Explosion",
+            "names": [
+              "Unmitigated Explosion"
+            ],
+            "castOffsets": [
+              48
+            ]
+          },
+          {
+            "abilityId": 47792,
+            "name": "Vitrophyre",
+            "names": [
+              "Vitrophyre"
+            ],
+            "castOffsets": [
+              92,
+              93,
+              110,
+              111
+            ]
+          },
+          {
+            "abilityId": 47784,
+            "name": "Wave Cannon",
+            "names": [
+              "Wave Cannon"
+            ],
+            "castOffsets": [
+              43
+            ]
+          },
+          {
+            "abilityId": 47821,
+            "name": "Wings of Destruction",
+            "names": [
+              "Wings of Destruction"
+            ],
+            "castOffsets": [
+              360,
+              361
+            ]
+          },
+          {
+            "abilityId": 50311,
+            "name": "Wings of Destruction",
+            "names": [
+              "Wings of Destruction"
+            ],
+            "castOffsets": [
+              371,
+              372
+            ]
+          },
+          {
+            "abilityId": 47823,
+            "name": "Wings of Destruction",
+            "names": [
+              "Wings of Destruction"
+            ],
+            "castOffsets": [
+              371,
+              372
+            ]
+          },
+          {
+            "abilityId": 47822,
+            "name": "Wings of Destruction",
+            "names": [
+              "Wings of Destruction"
+            ],
+            "castOffsets": [
+              360,
+              361
+            ]
+          }
+        ]
+      }
+    },
+    "fflogs_vod_planning_zoom": 0.5,
     "fflogs_vod_settings": {
       "clientId": "01a0e389-ccbd-70f8-bd01-cd87d319e6f3",
       "youtubeApiKey": "AIzaSyChmGlUQe1Ls_-uA-ZwRbvMemKwTk02Zlo"
     },
+    "fflogs_vod_planned_usages": {
+      "1085": {
+        "divine veil": [
+          {
+            "id": "pu_1790598786363_q1xdo",
+            "time": 47.375328083989515
+          }
+        ],
+        "passage of arms": [],
+        "shake it off": [],
+        "dark missionary": [],
+        "heart of light": [],
+        "benediction": [],
+        "divine caress": [],
+        "plenary indulgence": [],
+        "temperance": [],
+        "collective unconscious": [],
+        "macrocosmos": [],
+        "neutral sect": [],
+        "sun sign": [],
+        "deployment tactics": [],
+        "expedient": [],
+        "fey illumination": [
+          {
+            "id": "pu_1790598849068_6i1z9",
+            "time": 150
+          }
+        ],
+        "sacred soil": [],
+        "seraphism": [],
+        "holos": [],
+        "kerachole": [],
+        "panhaima": [],
+        "philosophia": [],
+        "pneuma": [],
+        "feint": [],
+        "arcane crest": [],
+        "mantra": [],
+        "shield samba": [],
+        "dismantle": [],
+        "tactician": [],
+        "nature's minne": [],
+        "troubadour": [],
+        "addle": [],
+        "magick barrier": [],
+        "reprisal": [],
+        "planned:PLD:divine veil": [
+          {
+            "id": "pu_1790598786363_q1xdo",
+            "time": 43.43832020997377
+          }
+        ],
+        "planned:PLD:passage of arms": [
+          {
+            "id": "pu_1790607293684_u6mou",
+            "time": 58.53018372703412
+          }
+        ],
+        "planned:PLD:reprisal": [],
+        "planned:WAR:reprisal": [],
+        "planned:WAR:shake it off": [],
+        "planned:DRK:dark missionary": [],
+        "planned:DRK:reprisal": [],
+        "planned:GNB:heart of light": [],
+        "planned:GNB:reprisal": [],
+        "planned:WHM:benediction": [],
+        "planned:WHM:divine caress": [],
+        "planned:WHM:plenary indulgence": [],
+        "planned:WHM:temperance": [],
+        "planned:AST:collective unconscious": [],
+        "planned:AST:macrocosmos": [],
+        "planned:AST:neutral sect": [],
+        "planned:AST:sun sign": [],
+        "planned:SCH:deployment tactics": [
+          {
+            "id": "pu_1790609356795_ik1oc",
+            "time": 147.24409448818898
+          }
+        ],
+        "planned:SCH:expedient": [],
+        "planned:SCH:fey illumination": [
+          {
+            "id": "pu_1790598849068_6i1z9",
+            "time": 150
+          }
+        ],
+        "planned:SCH:sacred soil": [],
+        "planned:SCH:seraphism": [],
+        "planned:SGE:holos": [],
+        "planned:SGE:kerachole": [],
+        "planned:SGE:panhaima": [],
+        "planned:SGE:philosophia": [],
+        "planned:SGE:pneuma": [],
+        "planned:NIN:feint": [],
+        "planned:RPR:arcane crest": [],
+        "planned:RPR:feint": [],
+        "planned:MNK:feint": [],
+        "planned:MNK:mantra": [],
+        "planned:VPR:feint": [],
+        "planned:DRG:feint": [],
+        "planned:SAM:feint": [],
+        "planned:DNC:shield samba": [],
+        "planned:MCH:dismantle": [],
+        "planned:MCH:tactician": [],
+        "planned:BRD:nature's minne": [],
+        "planned:BRD:troubadour": [],
+        "planned:RDM:addle": [],
+        "planned:RDM:magick barrier": [],
+        "planned:PCT:addle": [],
+        "planned:BLM:addle": [],
+        "planned:SMN:addle": []
+      }
+    },
+    "fflogs_vod_ability_images_BCFw4yxZzRp97GA2": {
+      "fey illumination": "https://static.wikia.nocookie.net/finalfantasy/images/3/3f/Fey_Illumination_Pet_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210608082310",
+      "reprisal": "https://static.wikia.nocookie.net/finalfantasy/images/8/86/Reprisal_Role_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210530020645",
+      "passage of arms": "https://static.wikia.nocookie.net/finalfantasy/images/3/39/Passage_of_Arms_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210608082828",
+      "divine veil": "https://static.wikia.nocookie.net/finalfantasy/images/7/75/Divine_Veil_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210608081958",
+      "shake it off": "https://static.wikia.nocookie.net/finalfantasy/images/6/64/Shake_It_Off_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210608083106",
+      "heart of light": "https://static.wikia.nocookie.net/finalfantasy/images/d/d0/Heart_of_Light_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210610004429",
+      "dark missionary": "https://static.wikia.nocookie.net/finalfantasy/images/4/4b/Dark_Missionary_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210609231645",
+      "arcane crest": "https://static.wikia.nocookie.net/finalfantasy/images/0/05/Arcane_Crest_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20211206212823",
+      "feint": "https://static.wikia.nocookie.net/finalfantasy/images/9/90/Feint_Role_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210530020044",
+      "magick barrier": "https://static.wikia.nocookie.net/finalfantasy/images/9/9e/Magick_Barrier_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20211206213129",
+      "addle": "https://static.wikia.nocookie.net/finalfantasy/images/e/ec/Addle_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210530015604",
+      "tactician": "https://static.wikia.nocookie.net/finalfantasy/images/d/db/Tactician_MCH_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210609230906",
+      "dismantle": "https://static.wikia.nocookie.net/finalfantasy/images/4/41/Dismantle_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210611193431",
+      "troubadour": "https://static.wikia.nocookie.net/finalfantasy/images/8/82/Troubadour_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210608083439",
+      "nature's minne": "https://static.wikia.nocookie.net/finalfantasy/images/e/ef/Nature%27s_Minne_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210608082802",
+      "shield samba": "https://static.wikia.nocookie.net/finalfantasy/images/8/87/Shield_Samba_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210610010510",
+      "mantra": "https://static.wikia.nocookie.net/finalfantasy/images/f/f6/Mantra_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210530020427",
+      "sacred soil": "https://static.wikia.nocookie.net/finalfantasy/images/b/b4/Sacred_Soil_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210608083041",
+      "deployment tactics": "https://static.wikia.nocookie.net/finalfantasy/images/3/3f/Deployment_Tactics_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210608081918",
+      "expedient": "https://static.wikia.nocookie.net/finalfantasy/images/8/81/Expedient_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20211206212959",
+      "seraphism": "https://static.wikia.nocookie.net/finalfantasy/images/e/e0/Seraphism_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20250330021248",
+      "collective unconscious": "https://static.wikia.nocookie.net/finalfantasy/images/a/ad/Collective_Unconscious_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210609234136",
+      "neutral sect": "https://static.wikia.nocookie.net/finalfantasy/images/5/53/Neutral_Sect_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210610010806",
+      "macrocosmos": "https://static.wikia.nocookie.net/finalfantasy/images/9/95/Macrocosmos_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20211206213127",
+      "sun sign": "https://static.wikia.nocookie.net/finalfantasy/images/1/17/Sun_Sign_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20250330021256",
+      "benediction": "https://static.wikia.nocookie.net/finalfantasy/images/c/c4/Benediction_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210608081654",
+      "plenary indulgence": "https://static.wikia.nocookie.net/finalfantasy/images/4/43/Plenary_Indulgence_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210608082840",
+      "temperance": "https://static.wikia.nocookie.net/finalfantasy/images/2/2d/Temperance_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20210608083325",
+      "divine caress": "https://static.wikia.nocookie.net/finalfantasy/images/7/7f/Divine_Caress_from_Final_Fantasy_XIV_icon.png/revision/latest?cb=20250330021026"
+    },
+    "fflogs_vod_ability_durations_BCFw4yxZzRp97GA2": {
+      "dark missionary": 15,
+      "feint": 15,
+      "addle": 15,
+      "divine veil": 30,
+      "passage of arms": 18,
+      "shake it off": 30,
+      "heart of light": 15,
+      "arcane crest": 5,
+      "magick barrier": 10,
+      "tactician": 15,
+      "dismantle": 10,
+      "troubadour": 15,
+      "nature's minne": 15,
+      "shield samba": 15,
+      "mantra": 15,
+      "fey illumination": 20,
+      "sacred soil": 15,
+      "expedient": 20,
+      "seraphism": 20,
+      "reprisal": 15,
+      "collective unconscious": 5,
+      "neutral sect": 30,
+      "macrocosmos": 15,
+      "sun sign": 15,
+      "plenary indulgence": 10,
+      "temperance": 20,
+      "divine caress": 10
+    },
     "fflogs_vod_ability_cooldowns_BCFw4yxZzRp97GA2": {
-      "dark missionary": 90
+      "dark missionary": 90,
+      "feint": 90,
+      "addle": 90,
+      "divine veil": 90,
+      "passage of arms": 120,
+      "shake it off": 90,
+      "heart of light": 90,
+      "tactician": 90,
+      "dismantle": 120,
+      "mantra": 90,
+      "macrocosmos": 180,
+      "collective unconscious": 60,
+      "neutral sect": 120,
+      "benediction": 180,
+      "plenary indulgence": 60,
+      "temperance": 120,
+      "philosophia": 180,
+      "fey illumination": 120,
+      "sacred soil": 30,
+      "deployment tactics": 90,
+      "expedient": 120,
+      "seraphism": 180,
+      "troubadour": 90,
+      "nature's minne": 90,
+      "arcane crest": 30,
+      "magick barrier": 120,
+      "shield samba": 90,
+      "reprisal": 60
     },
     "fflogs_vod_ability_classes_BCFw4yxZzRp97GA2": {
       "dark missionary": "DRK",
@@ -222,6 +1552,33 @@
       ],
       "philosophia": [
         "SGE"
+      ],
+      "seraphism": [
+        "SCH"
+      ],
+      "expedient": [
+        "SCH"
+      ],
+      "deployment tactics": [
+        "SCH"
+      ],
+      "sacred soil": [
+        "SCH"
+      ],
+      "fey illumination": [
+        "SCH"
+      ],
+      "troubadour": [
+        "BRD"
+      ],
+      "nature's minne": [
+        "BRD"
+      ],
+      "reprisal": [
+        "PLD",
+        "WAR",
+        "DRK",
+        "GNB"
       ]
     },
     "fflogs_vod_mechanic_categories": {
@@ -234,7 +1591,9 @@
       "ultimate embrace": "Tank",
       "forsaken": "Raidwide",
       "wings of destruction": "Tank",
-      "thunder iii": "Tank"
+      "thunder iii": "Tank",
+      "ave maria": "Raidwide",
+      "indolent will": "Raidwide"
     },
     "fflogs_vod_ability_names_BCFw4yxZzRp97GA2": [
       "Dark Missionary",
@@ -262,9 +1621,17 @@
       "Holos",
       "Panhaima",
       "Pneuma",
-      "Philosophia"
+      "Philosophia",
+      "Fey Illumination",
+      "Sacred Soil",
+      "Deployment Tactics",
+      "Expedient",
+      "Seraphism",
+      "Troubadour",
+      "Nature's Minne",
+      "Reprisal"
     ],
-    "fflogs_vod_hidden_mechanics_BCFw4yxZzRp97GA2": [
+    "fflogs_vod_hidden_mechanics_default": [
       "Enhanced Thrill Of War II",
       "Pulse Wave",
       "Thrumming Thunder III",
@@ -276,7 +1643,6 @@
       "Indulgent Will",
       "unknown_c555",
       "Idyllic Will",
-      "Indolent Will",
       "Spellwave",
       "Spelldriver",
       "Spellscatter",
@@ -292,7 +1658,44 @@
       "Cyclone",
       "Trance",
       "Stray Flames",
-      "Inferno"
+      "Inferno",
+      "Stray Spray",
+      "Shockwave",
+      "The River of Light",
+      "Spells' Trouble"
+    ],
+    "fflogs_vod_hidden_mechanics_BCFw4yxZzRp97GA2": [
+      "Enhanced Thrill Of War II",
+      "Pulse Wave",
+      "Thrumming Thunder III",
+      "Explosion",
+      "Vitrophyre",
+      "Intemperate Will",
+      "Gravitational Wave",
+      "unknown_c554",
+      "Indulgent Will",
+      "unknown_c555",
+      "Idyllic Will",
+      "Spellwave",
+      "Spelldriver",
+      "Spellscatter",
+      "Past's End",
+      "Future's End",
+      "All Things Ending",
+      "Flagrant Fire III",
+      "Blizzard III Blowout",
+      "Aero III Assault",
+      "Definition of Insanity",
+      "the Decisive Battle",
+      "Tsunami",
+      "Cyclone",
+      "Trance",
+      "Stray Flames",
+      "Inferno",
+      "Stray Spray",
+      "Shockwave",
+      "The River of Light",
+      "Spells' Trouble"
     ],
     "fflogs_vod_ability_names_default": [
       "Dark Missionary",
@@ -320,10 +1723,74 @@
       "Holos",
       "Panhaima",
       "Pneuma",
-      "Philosophia"
+      "Philosophia",
+      "Fey Illumination",
+      "Sacred Soil",
+      "Deployment Tactics",
+      "Expedient",
+      "Seraphism",
+      "Troubadour",
+      "Nature's Minne",
+      "Reprisal"
     ],
+    "fflogs_vod_ability_durations_default": {
+      "dark missionary": 15,
+      "feint": 15,
+      "addle": 15,
+      "divine veil": 30,
+      "passage of arms": 18,
+      "shake it off": 30,
+      "heart of light": 15,
+      "arcane crest": 5,
+      "magick barrier": 10,
+      "tactician": 15,
+      "dismantle": 10,
+      "troubadour": 15,
+      "nature's minne": 15,
+      "shield samba": 15,
+      "mantra": 15,
+      "fey illumination": 20,
+      "sacred soil": 15,
+      "expedient": 20,
+      "seraphism": 20,
+      "reprisal": 15,
+      "collective unconscious": 5,
+      "neutral sect": 30,
+      "macrocosmos": 15,
+      "sun sign": 15,
+      "plenary indulgence": 10,
+      "temperance": 20,
+      "divine caress": 10
+    },
     "fflogs_vod_ability_cooldowns_default": {
-      "dark missionary": 90
+      "dark missionary": 90,
+      "feint": 90,
+      "addle": 90,
+      "divine veil": 90,
+      "passage of arms": 120,
+      "shake it off": 90,
+      "heart of light": 90,
+      "tactician": 90,
+      "dismantle": 120,
+      "mantra": 90,
+      "macrocosmos": 180,
+      "collective unconscious": 60,
+      "neutral sect": 120,
+      "benediction": 180,
+      "plenary indulgence": 60,
+      "temperance": 120,
+      "philosophia": 180,
+      "fey illumination": 120,
+      "sacred soil": 30,
+      "deployment tactics": 90,
+      "expedient": 120,
+      "seraphism": 180,
+      "troubadour": 90,
+      "nature's minne": 90,
+      "arcane crest": 30,
+      "magick barrier": 120,
+      "shield samba": 90,
+      "reprisal": 60
     }
   }
 }
