@@ -2850,9 +2850,13 @@ function removePOV(id) {
   renderPOVModalBody();
 }
 function selectPOV(id) {
+  const fight = getActiveFight();
+  const playbackOffsetMs = fight ? getTimelinePlaybackOffsetMs(fight) : null;
+  const slider = document.getElementById('timeline-seek-input');
+  const offsetMs = playbackOffsetMs != null ? playbackOffsetMs : (slider ? Number(slider.value) * 1000 : 0);
   activePovId = id;
   renderPOVTabs();
-  jumpToCurrentPullStart();
+  if (fight) seekToAbsTime(pullAbsStartMs(fight) + offsetMs);
 }
 function addSegment(povId) {
   const pov = povs.find(p => p.id === povId);
