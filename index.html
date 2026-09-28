@@ -45,7 +45,7 @@
       <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-ffpurple-600 to-ffcyan-500 flex items-center justify-center font-bold text-white glow-purple">
         <i class="fa-solid fa-play-circle text-lg"></i>
       </div>
-      <h1 class="font-bold text-sm tracking-wide hidden sm:block">Lotus <span class="text-transparent bg-clip-text bg-gradient-to-r from-ffyellow-400 to-fforange-400">Review & Planning</span></h1>
+      <h1 class="font-bold text-sm tracking-wide hidden sm:block">Lotus <span class="text-transparent bg-clip-text bg-gradient-to-r from-ffpurple-400 to-ffcyan-400">Review & Planning</span></h1>
     </div>
 
     <div class="flex items-center gap-1.5 min-w-0 bg-slate-950/80 px-2 py-1.5 rounded-lg border border-slate-800">
@@ -158,7 +158,8 @@
     </div>
 
     <!-- BOTTOM PANEL -->
-    <div class="h-[38vh] min-h-[256px] border-t border-slate-800 bg-slate-900 flex flex-col shrink-0">
+    <div id="panel-resizer" title="Drag to resize" class="h-2 shrink-0 cursor-row-resize bg-slate-800/80 hover:bg-ffpurple-600/70 transition flex items-center justify-center touch-none"><span class="w-10 h-0.5 rounded bg-slate-600"></span></div>
+    <div id="bottom-panel" class="h-[38vh] min-h-[200px] border-t border-slate-800 bg-slate-900 flex flex-col shrink-0">
       <div class="flex items-center justify-between px-4 bg-slate-950 border-b border-slate-800">
         <div class="flex space-x-1">
           <button onclick="switchBottomTab('timeline')" id="tab-btn-timeline" class="bottom-tab-btn active px-4 py-2 text-xs font-semibold border-b-2 border-ffpurple-500 text-ffpurple-400 flex items-center gap-1.5"><i class="fa-solid fa-chart-line"></i> Timeline</button>
@@ -174,20 +175,20 @@
         </div>
       </div>
 
-      <div id="tab-content-timeline" class="bottom-tab-content flex-1 p-3 overflow-y-auto">
-        <div class="flex justify-between items-center mb-1 text-xs text-slate-400">
+      <div id="tab-content-timeline" class="bottom-tab-content flex-1 min-h-0 p-3 flex flex-col overflow-hidden">
+        <div class="flex justify-between items-center mb-1 text-xs text-slate-400 shrink-0">
           <span id="timeline-pull-title" class="font-medium">No pull selected</span>
           <span class="text-[11px] text-slate-500">Boss mechanics · Amber: cooldown · Green: buff duration</span>
         </div>
-        <div class="flex items-center justify-between gap-2 mb-2 text-[10px]">
+        <div class="flex items-center justify-between gap-2 mb-2 text-[10px] shrink-0">
           <span id="tracked-ability-summary" class="text-slate-500">No abilities added</span>
           <div class="flex items-center gap-1.5">
             <button onclick="openMechanicsModal()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-2.5 py-1 text-slate-300"><i class="fa-solid fa-burst"></i> Mechanics</button>
             <button onclick="openAbilityModal()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-2.5 py-1 text-slate-300"><i class="fa-solid fa-list"></i> Abilities</button>
           </div>
         </div>
-        <div id="timeline-visualization" class="w-full overflow-x-auto bg-slate-950 rounded-lg border border-slate-800 px-2 py-1"></div>
-        <div class="text-[11px] text-slate-500 mt-2" id="timeline-help">Enter one or more ability names to show their casts and buff durations in this pull.</div>
+        <div id="timeline-visualization" class="w-full flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-slate-950 rounded-lg border border-slate-800 px-2" style="scrollbar-gutter: stable;"></div>
+        <div class="text-[11px] text-slate-500 mt-1.5 shrink-0" id="timeline-help">Enter one or more ability names to show their casts and buff durations in this pull.</div>
       </div>
 
       <div id="tab-content-deaths" class="bottom-tab-content hidden flex-1 p-3 overflow-y-auto">
@@ -233,7 +234,7 @@
 
 <!-- SETTINGS MODAL -->
 <div id="settings-modal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4">
-  <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-lg shadow-2xl">
+  <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl">
     <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800">
       <h2 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-plug text-ffpurple-400"></i> FFLogs Connection</h2>
       <button onclick="closeSettingsModal()" class="text-slate-500 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
@@ -262,6 +263,15 @@
           <button onclick="disconnectFFLogs()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded border border-slate-700">Disconnect</button>
           <button onclick="saveSettingsAndConnect()" class="bg-ffpurple-600 hover:bg-ffpurple-500 text-white font-medium px-3 py-1.5 rounded"><i class="fa-solid fa-right-to-bracket"></i> Save &amp; Connect</button>
         </div>
+      </div>
+
+      <div class="border-t border-slate-800 pt-3 mt-1">
+        <h3 class="font-bold text-sm flex items-center gap-2 mb-1.5"><i class="fa-solid fa-share-nodes text-ffcyan-400"></i> Shared setup for everyone</h3>
+        <p class="text-slate-400 leading-relaxed">Settings live in each browser, so a private window starts blank. Once your setup looks right, download the file below and upload it to your GitHub repo next to <span class="mono-font text-slate-300">index.html</span>. Anyone opening the site gets your Client ID, tracked abilities, mechanic categories, POVs and notes automatically. Re-download and re-upload whenever you change things.</p>
+        <label class="flex items-center gap-1.5 mt-2 text-slate-400 cursor-pointer select-none"><input type="checkbox" id="share-include-youtube" checked> Include YouTube API key <span class="text-slate-600">(public in a public repo — restrict it to your site's URL in Google Cloud)</span></label>
+        <label class="flex items-center gap-1.5 mt-1 text-slate-400 cursor-pointer select-none"><input type="checkbox" id="share-include-reports" checked> Include POVs &amp; notes for every log</label>
+        <div class="flex justify-end mt-2"><button onclick="exportSharedSetup()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-file-arrow-down"></i> Download vod-review-config.json</button></div>
+        <p class="text-slate-600 text-[10px] mt-1">Note: each viewer still logs into FFLogs once with the Connect button to load logs.</p>
       </div>
 
       <div class="border-t border-slate-800 pt-3 mt-1">
@@ -376,7 +386,8 @@ let timelineEventsCache = {}; // fightId -> { buffs: [], damage: [], healing: []
 let trackedAbilityNames = [];
 let trackedAbilityCooldowns = {};
 let hiddenMechanicNames = [];
-let mechanicCategories = (() => { try { return JSON.parse(localStorage.getItem('fflogs_vod_mechanic_categories')) || {}; } catch (e) { return {}; } })();
+let mechanicCategories = {};
+let customMitigationNames = [];
 function getMechanicCategory(name) { return String(mechanicCategories[String(name).toLocaleLowerCase()] || '').trim(); }
 const CATEGORY_COLORS = ['#f472b6', '#a78bfa', '#38bdf8', '#34d399', '#fb923c', '#f87171', '#facc15', '#2dd4bf'];
 function categoryColor(category) {
@@ -401,7 +412,11 @@ let pollTimer = null;
 /* =========================================================================
    INIT
    ========================================================================= */
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
+  await applySharedConfig();
+  try { mechanicCategories = JSON.parse(localStorage.getItem('fflogs_vod_mechanic_categories')) || {}; } catch (e) { mechanicCategories = {}; }
+  try { customMitigationNames = JSON.parse(localStorage.getItem('fflogs_vod_custom_mitigations')) || []; } catch (e) { customMitigationNames = []; }
+  initPanelResizer();
   loadSettings();
   document.getElementById('redirect-uri-display').value = settings.redirectUri;
   if (!window.isSecureContext) {
@@ -424,6 +439,90 @@ window.addEventListener('DOMContentLoaded', () => {
     renderPullList();
   });
 });
+
+
+/* =========================================================================
+   RESIZABLE BOTTOM PANEL
+   ========================================================================= */
+function initPanelResizer() {
+  const handle = document.getElementById('panel-resizer');
+  const panel = document.getElementById('bottom-panel');
+  if (!handle || !panel) return;
+  const clampH = h => Math.max(200, Math.min(window.innerHeight * 0.8, h));
+  try {
+    const saved = Number(localStorage.getItem('fflogs_vod_bottom_panel_h'));
+    if (saved > 0) panel.style.height = clampH(saved) + 'px';
+  } catch (e) {}
+  let dragging = false;
+  handle.addEventListener('pointerdown', e => { dragging = true; handle.setPointerCapture(e.pointerId); e.preventDefault(); });
+  handle.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    panel.style.height = clampH(window.innerHeight - e.clientY) + 'px';
+  });
+  const end = () => {
+    if (!dragging) return;
+    dragging = false;
+    try { localStorage.setItem('fflogs_vod_bottom_panel_h', String(parseInt(panel.style.height, 10) || 0)); } catch (e) {}
+    if (report) renderTimeline();
+  };
+  handle.addEventListener('pointerup', end);
+  handle.addEventListener('pointercancel', end);
+}
+
+/* =========================================================================
+   SHARED SETUP (config file next to index.html)
+   ========================================================================= */
+const SHARED_CONFIG_URL = 'vod-review-config.json';
+const CONFIG_EXCLUDE = new Set(['fflogs_vod_auth', 'fflogs_vod_config_applied', 'fflogs_vod_bottom_panel_h']);
+
+async function applySharedConfig() {
+  try {
+    const res = await fetch(SHARED_CONFIG_URL, { cache: 'no-store' });
+    if (!res.ok) return;
+    const cfg = await res.json();
+    if (!cfg || typeof cfg !== 'object' || !cfg.storage || typeof cfg.storage !== 'object') return;
+    const stamp = String(cfg.updatedAt || '');
+    const alreadyApplied = stamp && localStorage.getItem('fflogs_vod_config_applied') === stamp;
+    if (alreadyApplied) return;
+    Object.entries(cfg.storage).forEach(([key, value]) => {
+      if (!key.startsWith('fflogs_vod_') || CONFIG_EXCLUDE.has(key)) return;
+      if (!stamp && localStorage.getItem(key) !== null) return; // no version stamp: only fill gaps
+      if (key === 'fflogs_vod_settings') {
+        let local = {};
+        try { local = JSON.parse(localStorage.getItem(key)) || {}; } catch (e) {}
+        value = { ...local, ...value, redirectUri: local.redirectUri || '' };
+      }
+      localStorage.setItem(key, JSON.stringify(value));
+    });
+    if (stamp) localStorage.setItem('fflogs_vod_config_applied', stamp);
+  } catch (e) { /* no shared config published - that's fine */ }
+}
+
+function exportSharedSetup() {
+  const includeYouTube = document.getElementById('share-include-youtube').checked;
+  const includeReports = document.getElementById('share-include-reports').checked;
+  const storage = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key || !key.startsWith('fflogs_vod_') || CONFIG_EXCLUDE.has(key)) continue;
+    if (!includeReports && /^fflogs_vod_(povs|notes)_/.test(key)) continue;
+    try { storage[key] = JSON.parse(localStorage.getItem(key)); } catch (e) {}
+  }
+  if (storage.fflogs_vod_settings) {
+    const s = { ...storage.fflogs_vod_settings };
+    delete s.redirectUri;
+    if (!includeYouTube) delete s.youtubeApiKey;
+    storage.fflogs_vod_settings = s;
+  }
+  const payload = { version: 1, updatedAt: new Date().toISOString(), storage };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = SHARED_CONFIG_URL;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  showToast('Downloaded ' + SHARED_CONFIG_URL + ' — upload it next to index.html in your repo.', 'success');
+}
 
 function onYouTubeIframeAPIReady() {
   ytPlayer = new YT.Player('yt-player-el', {
@@ -462,10 +561,10 @@ function notesKey() { return `fflogs_vod_notes_${report ? report.code : 'none'}`
 function loadReportLocalData() {
   try { povs = JSON.parse(localStorage.getItem(povsKey())) || []; } catch (e) { povs = []; }
   try { notes = JSON.parse(localStorage.getItem(notesKey())) || []; } catch (e) { notes = []; }
-  try { trackedAbilityNames = JSON.parse(localStorage.getItem(abilityNamesKey())) || []; } catch (e) { trackedAbilityNames = []; }
-  try { trackedAbilityCooldowns = JSON.parse(localStorage.getItem(abilityCooldownsKey())) || {}; } catch (e) { trackedAbilityCooldowns = {}; }
-  try { hiddenMechanicNames = JSON.parse(localStorage.getItem(hiddenMechanicNamesKey())) || []; } catch (e) { hiddenMechanicNames = []; }
-  try { mechanicRecastIgnoreSeconds = JSON.parse(localStorage.getItem(mechanicRecastIgnoreKey())) || {}; } catch (e) { mechanicRecastIgnoreSeconds = {}; }
+  trackedAbilityNames = readJsonWithDefault(abilityNamesKey(), 'fflogs_vod_ability_names_default', []);
+  trackedAbilityCooldowns = readJsonWithDefault(abilityCooldownsKey(), 'fflogs_vod_ability_cooldowns_default', {});
+  hiddenMechanicNames = readJsonWithDefault(hiddenMechanicNamesKey(), 'fflogs_vod_hidden_mechanics_default', []);
+  mechanicRecastIgnoreSeconds = readJsonWithDefault(mechanicRecastIgnoreKey(), 'fflogs_vod_mechanic_recast_ignore_default', {});
   renderAbilityCount();
 }
 function persistPOVs() { localStorage.setItem(povsKey(), JSON.stringify(povs)); }
@@ -475,9 +574,22 @@ function abilityCooldownsKey() { return `fflogs_vod_ability_cooldowns_${report ?
 function hiddenMechanicNamesKey() { return `fflogs_vod_hidden_mechanics_${report ? report.code : 'none'}`; }
 function mechanicRecastIgnoreKey() { return `fflogs_vod_mechanic_recast_ignore_${report ? report.code : 'none'}`; }
 function abilityCooldownKey(name) { return name.toLocaleLowerCase(); }
+// New logs start from whatever you last configured (stored under a shared "default" key).
+function readJsonWithDefault(key, defaultKey, fallback) {
+  try {
+    const own = localStorage.getItem(key);
+    const raw = own !== null ? own : localStorage.getItem(defaultKey);
+    return raw !== null ? (JSON.parse(raw) ?? fallback) : fallback;
+  } catch (e) { return fallback; }
+}
+function writeJsonWithDefault(key, defaultKey, value) {
+  const raw = JSON.stringify(value);
+  localStorage.setItem(key, raw);
+  localStorage.setItem(defaultKey, raw);
+}
 function persistTrackedAbilityNames() {
-  localStorage.setItem(abilityNamesKey(), JSON.stringify(trackedAbilityNames));
-  localStorage.setItem(abilityCooldownsKey(), JSON.stringify(trackedAbilityCooldowns));
+  writeJsonWithDefault(abilityNamesKey(), 'fflogs_vod_ability_names_default', trackedAbilityNames);
+  writeJsonWithDefault(abilityCooldownsKey(), 'fflogs_vod_ability_cooldowns_default', trackedAbilityCooldowns);
   renderAbilityCount();
   renderTimeline();
 }
@@ -629,7 +741,7 @@ function renderMechanicsList() {
     toggle.addEventListener('change', () => {
       if (toggle.checked) hiddenMechanicNames = hiddenMechanicNames.filter(name => name !== row.name);
       else if (!hiddenMechanicNames.includes(row.name)) hiddenMechanicNames.push(row.name);
-      localStorage.setItem(hiddenMechanicNamesKey(), JSON.stringify(hiddenMechanicNames));
+      writeJsonWithDefault(hiddenMechanicNamesKey(), 'fflogs_vod_hidden_mechanics_default', hiddenMechanicNames);
       renderTimeline();
     });
     const name = document.createElement('span');
@@ -658,7 +770,7 @@ function renderMechanicsList() {
       } else {
         mechanicRecastIgnoreSeconds[key] = seconds;
       }
-      localStorage.setItem(mechanicRecastIgnoreKey(), JSON.stringify(mechanicRecastIgnoreSeconds));
+      writeJsonWithDefault(mechanicRecastIgnoreKey(), 'fflogs_vod_mechanic_recast_ignore_default', mechanicRecastIgnoreSeconds);
       renderTimeline();
     });
     recastControl.appendChild(recastInput);
@@ -1382,32 +1494,44 @@ function renderDeathsTimeline(fightId) {
    DEATH DETAIL ("Last Moments") — recent damage taken + active mitigations
    ========================================================================= */
 const DEATH_DETAIL_QUERY = `
-query ($code: String!, $fightID: Int!, $targetID: Int!, $winStart: Float!, $winEnd: Float!) {
+query ($code: String!, $fightID: Int!, $targetID: Int!, $fightStart: Float!, $winStart: Float!, $debuffStart: Float!, $winEnd: Float!) {
   reportData {
     report(code: $code) {
-      damage: events(fightIDs: [$fightID], dataType: DamageTaken, targetID: $targetID, startTime: $winStart, endTime: $winEnd) { data }
-      heals: events(fightIDs: [$fightID], dataType: Healing, targetID: $targetID, startTime: $winStart, endTime: $winEnd) { data }
+      damage: events(fightIDs: [$fightID], dataType: DamageTaken, targetID: $targetID, startTime: $winStart, endTime: $winEnd, limit: 10000) { data }
+      heals: events(fightIDs: [$fightID], dataType: Healing, targetID: $targetID, startTime: $winStart, endTime: $winEnd, limit: 10000) { data }
+      buffs: events(fightIDs: [$fightID], dataType: Buffs, targetID: $targetID, startTime: $fightStart, endTime: $winEnd, limit: 10000) { data }
+      debuffs: events(fightIDs: [$fightID], dataType: Debuffs, hostilityType: Enemies, startTime: $debuffStart, endTime: $winEnd, limit: 10000) { data }
     }
   }
 }`;
 
-// Known defensive / shield abilities (matched by name). Damage-up buffs are deliberately NOT in here.
+// Known defensive / shield effects (matched by status name). Damage buffs are deliberately NOT here.
+// Anything missing can be marked as mitigation by clicking it in the "all effects" list.
 const MITIGATION_NAMES = new Set([
   // Tanks
-  'rampart','vengeance','damnation','sentinel','guardian','bulwark','sheltron','holy sheltron','intervention','divine veil','passage of arms','hallowed ground','shake it off','raw intuition','bloodwhetting','nascent flash','nascent glint','stem the flow','stem the tide','holmgang','shadow wall','shadowed vigil','dark mind','oblation','the blackest night','dark missionary','living dead','walking dead','undead rebirth','camouflage','nebula','great nebula','heart of stone','heart of corundum','heart of light','superbolide','reprisal',
+  'rampart','vengeance','damnation','sentinel','guardian','bulwark','sheltron','holy sheltron','knight\'s resolve','intervention','divine veil','passage of arms','hallowed ground','shake it off','raw intuition','bloodwhetting','nascent flash','nascent glint','stem the flow','stem the tide','holmgang','shadow wall','shadowed vigil','dark mind','oblation','the blackest night','dark missionary','living dead','walking dead','undead rebirth','camouflage','nebula','great nebula','heart of stone','heart of corundum','clarity of corundum','heart of light','superbolide','reprisal',
   // Healers
-  'sacred soil','fey illumination','seraphic veil','consolation','temperance','divine benison','aquaveil','plenary indulgence','asylum','divine caress','sun sign','collective unconscious','exaltation','macrocosmos','celestial intersection','celestial opposition','neutral sect','kerachole','holos','panhaima','haima','taurochole','eukrasian diagnosis','eukrasian prognosis','eukrasian prognosis ii','galvanize','catalyze','adloquium','succor',
-  // Physical ranged / casters
-  'troubadour','tactician','shield samba','dismantle','feint','addle','magick barrier','tengentsu','third eye','radiant aegis'
+  'sacred soil','fey illumination','seraphic veil','consolation','temperance','divine grace','divine benison','aquaveil','plenary indulgence','confession','asylum','divine caress','sun sign','collective unconscious','wheel of fortune','exaltation','macrocosmos','celestial intersection','celestial opposition','neutral sect','kerachole','holos','panhaima','haima','taurochole','eukrasian diagnosis','eukrasian prognosis','eukrasian prognosis ii','galvanize','catalyze','adloquium','succor','angel\'s whisper',
+  // DPS
+  'troubadour','tactician','shield samba','dismantle','feint','addle','magick barrier','manaward','tengentsu','tengentsu\'s foresight','third eye','radiant aegis'
 ]);
 function isMitigationName(name) {
   const key = String(name || '').toLocaleLowerCase();
   if (!key || /^ability #?\d+$/.test(key)) return false;
   if (MITIGATION_NAMES.has(key)) return true;
+  if (customMitigationNames.some(n => String(n).toLocaleLowerCase() === key)) return true;
   return trackedAbilityNames.some(n => String(n).toLocaleLowerCase() === key);
+}
+function toggleCustomMitigation(name) {
+  const key = String(name).toLocaleLowerCase();
+  const has = customMitigationNames.some(n => String(n).toLocaleLowerCase() === key);
+  customMitigationNames = has ? customMitigationNames.filter(n => String(n).toLocaleLowerCase() !== key) : [...customMitigationNames, name];
+  localStorage.setItem('fflogs_vod_custom_mitigations', JSON.stringify(customMitigationNames));
+  if (lastDeathDetail) renderDeathDetail(lastDeathDetail.result, lastDeathDetail.death, lastDeathDetail.fight);
 }
 
 let deathDetailCache = {};
+let lastDeathDetail = null;
 
 async function openDeathDetailModal(fightId, death) {
   const fight = report.fights.find(f => f.id === fightId);
@@ -1417,23 +1541,28 @@ async function openDeathDetailModal(fightId, death) {
   const body = document.getElementById('death-detail-body');
   body.innerHTML = '<div class="text-slate-500 italic text-center py-6"><i class="fa-solid fa-spinner fa-spin"></i> Loading last moments...</div>';
 
-  const cacheKey = `${fightId}_${death.targetID}_${death.timeMs}`;
+  const cacheKey = `v2_${fightId}_${death.targetID}_${death.timeMs}`;
   if (deathDetailCache[cacheKey]) { renderDeathDetail(deathDetailCache[cacheKey], death, fight); return; }
   if (death.targetID == null) { body.innerHTML = '<div class="text-rose-400 text-center py-6">Could not identify this player for lookup.</div>'; return; }
 
   try {
-    const deathAbsTime = fight.startTime + death.timeMs;
+    const deathAbs = fight.startTime + death.timeMs;
+    const winStart = Math.max(fight.startTime, deathAbs - 20000);
     const data = await fflogsQuery(DEATH_DETAIL_QUERY, {
       code: report.code,
       fightID: fightId,
       targetID: death.targetID,
-      winStart: Math.max(fight.startTime, deathAbsTime - 20000),
-      winEnd: deathAbsTime + 500
+      fightStart: fight.startTime,
+      winStart,
+      debuffStart: Math.max(fight.startTime, winStart - 40000),
+      winEnd: deathAbs + 500
     });
     const r = data.reportData.report;
     const result = {
       damage: (r.damage && r.damage.data) || [],
-      heals: (r.heals && r.heals.data) || []
+      heals: (r.heals && r.heals.data) || [],
+      buffs: (r.buffs && r.buffs.data) || [],
+      debuffs: (r.debuffs && r.debuffs.data) || []
     };
     deathDetailCache[cacheKey] = result;
     renderDeathDetail(result, death, fight);
@@ -1449,34 +1578,63 @@ function resolveAbilityName(abilityGameID) {
   const name = report.abilityNames && report.abilityNames.get(Number(abilityGameID));
   return name || ('Ability #' + abilityGameID);
 }
-
-function buffNamesOnEvent(ev) {
-  const ids = String(ev.buffs || '').split('.').filter(Boolean);
-  const names = [...new Set(ids.map(id => resolveAbilityName(Number(id))))];
-  return { all: names.sort(), mitigation: names.filter(isMitigationName).sort() };
-}
 function eventMitigationPct(ev) {
   const unmitigated = Number(ev.unmitigatedAmount), amount = Number(ev.amount);
   if (unmitigated > 0 && Number.isFinite(amount)) return (1 - amount / unmitigated) * 100;
   if (ev.multiplier != null && Number.isFinite(Number(ev.multiplier))) return (1 - Number(ev.multiplier)) * 100;
   return null;
 }
-function eventHpPct(ev) {
-  return (ev.hitPoints != null && Number(ev.maxHitPoints) > 0) ? Math.max(0, Math.min(100, ev.hitPoints / ev.maxHitPoints * 100)) : null;
+function eventTargetHp(ev) {
+  const r = ev.targetResources || {};
+  const hp = r.hitPoints != null ? r.hitPoints : ev.hitPoints;
+  const max = r.maxHitPoints != null ? r.maxHitPoints : ev.maxHitPoints;
+  return (hp != null && Number(max) > 0) ? { hp: Number(hp), max: Number(max) } : null;
 }
-function mitigationChips(names) {
-  return names.map(n => `<span class="bg-emerald-950/50 text-emerald-300 border border-emerald-700/40 rounded px-1.5 py-0.5 text-[10px]">${escapeHTML(n)}</span>`).join('');
+function fmtHp(n) { return n >= 10000 ? (n / 1000).toFixed(1) + 'k' : Math.round(n).toLocaleString(); }
+function effectChips(names, kind) {
+  const cls = kind === 'debuff'
+    ? 'bg-sky-950/50 text-sky-300 border-sky-700/40'
+    : 'bg-emerald-950/50 text-emerald-300 border-emerald-700/40';
+  return names.map(n => `<span class="${cls} border rounded px-1.5 py-0.5 text-[10px]">${escapeHTML(n)}${kind === 'debuff' ? ' <span class="opacity-60">(on boss)</span>' : ''}</span>`).join('');
+}
+
+// Which effects were on the player (and which debuffs on the attacker) at a given moment.
+function makeEffectTracker(result) {
+  const isApply = t => /^(applybuff|applybuffstack|refreshbuff|applydebuff|applydebuffstack|refreshdebuff)$/.test(t);
+  const isRemove = t => /^(removebuff|removebuffstack|removedebuff|removedebuffstack)$/.test(t);
+  const buffs = (result.buffs || []).slice().sort((a, b) => a.timestamp - b.timestamp);
+  const debuffs = (result.debuffs || []).slice().sort((a, b) => a.timestamp - b.timestamp);
+  const buffActive = new Map(), debuffActive = new Map();
+  let bi = 0, di = 0;
+  return function at(ts, attackerId, buffString) {
+    while (bi < buffs.length && buffs[bi].timestamp <= ts) {
+      const ev = buffs[bi++], t = String(ev.type).toLowerCase(), key = `${ev.abilityGameID}:${ev.sourceID}`;
+      if (isApply(t)) buffActive.set(key, ev.abilityGameID); else if (isRemove(t)) buffActive.delete(key);
+    }
+    while (di < debuffs.length && debuffs[di].timestamp <= ts) {
+      const ev = debuffs[di++], t = String(ev.type).toLowerCase(), key = `${ev.targetID}:${ev.abilityGameID}:${ev.sourceID}`;
+      if (isApply(t)) debuffActive.set(key, ev); else if (isRemove(t)) debuffActive.delete(key);
+    }
+    const buffNames = new Set([...buffActive.values()].map(resolveAbilityName));
+    String(buffString || '').split('.').filter(Boolean).forEach(id => buffNames.add(resolveAbilityName(Number(id))));
+    const debuffNames = new Set();
+    debuffActive.forEach(ev => { if (attackerId == null || String(ev.targetID) === String(attackerId)) debuffNames.add(resolveAbilityName(ev.abilityGameID)); });
+    const allBuffs = [...buffNames].sort(), allDebuffs = [...debuffNames].sort();
+    return { allBuffs, allDebuffs, mitBuffs: allBuffs.filter(isMitigationName), mitDebuffs: allDebuffs.filter(isMitigationName) };
+  };
 }
 
 function renderDeathDetail(result, death, fight) {
+  lastDeathDetail = { result, death, fight };
   const body = document.getElementById('death-detail-body');
   const deathAbs = fight.startTime + death.timeMs;
   const actorNames = new Map(report.actors.map(a => [String(a.id), a.name]));
   const typeOf = ev => String(ev.type || '').toLowerCase();
 
   let damage = result.damage || [];
-  const applied = damage.filter(ev => typeOf(ev) === 'damage');
-  if (applied.length) damage = applied;
+  const appliedDamage = damage.filter(ev => typeOf(ev) === 'damage');
+  const hpIsBeforeHit = !appliedDamage.length; // only "calculateddamage" present -> snapshot is pre-hit
+  if (appliedDamage.length) damage = appliedDamage;
   damage = damage.filter(ev => ev.timestamp <= deathAbs + 500).sort((a, b) => a.timestamp - b.timestamp);
 
   let heals = result.heals || [];
@@ -1490,12 +1648,42 @@ function renderDeathDetail(result, death, fight) {
     ...heals.map(ev => ({ kind: 'heal', ev }))
   ].sort((a, b) => a.ev.timestamp - b.ev.timestamp);
 
+  // Effects at each hit + HP after each event (real snapshot when FFLogs gives one, otherwise estimated).
+  const effectsAt = makeEffectTracker(result);
+  let curHp = null, maxHp = null, anyRealHp = false;
+  rows.forEach(row => {
+    const ev = row.ev;
+    if (row.kind === 'dmg') row.effects = effectsAt(ev.timestamp, ev.sourceID, ev.buffs);
+    const snap = eventTargetHp(ev);
+    if (snap) {
+      anyRealHp = true; maxHp = snap.max;
+      curHp = (row.kind === 'dmg' && hpIsBeforeHit) ? Math.max(0, snap.hp - Number(ev.amount || 0)) : snap.hp;
+      row.hpAfter = { hp: curHp, max: maxHp, estimated: false };
+    } else if (curHp != null && maxHp) {
+      const amt = Number(ev.amount || 0);
+      curHp = row.kind === 'dmg' ? Math.max(0, curHp - amt) : Math.min(maxHp, curHp + amt);
+      row.hpAfter = { hp: curHp, max: maxHp, estimated: true };
+    }
+  });
   const killingBlow = damage.length ? damage[damage.length - 1] : null;
+  const killRow = rows.find(r => r.ev === killingBlow);
+  if (killRow && killRow.hpAfter == null && maxHp) killRow.hpAfter = { hp: 0, max: maxHp, estimated: true };
+
   const killerName = death.ability && death.ability !== 'Unknown cause'
     ? death.ability
     : (killingBlow ? resolveAbilityName(killingBlow.abilityGameID) : 'Unknown cause');
-  const killBuffs = killingBlow ? buffNamesOnEvent(killingBlow) : { all: [], mitigation: [] };
+  const killFx = killRow && killRow.effects ? killRow.effects : { allBuffs: [], allDebuffs: [], mitBuffs: [], mitDebuffs: [] };
   const killMit = killingBlow ? eventMitigationPct(killingBlow) : null;
+  const hpBeforeKill = (() => {
+    const idx = rows.indexOf(killRow);
+    for (let i = idx - 1; i >= 0; i--) if (rows[i].hpAfter) return rows[i].hpAfter;
+    return null;
+  })();
+
+  const effectToggle = (name, kind) => {
+    const on = isMitigationName(name);
+    return `<button class="fx-toggle ${on ? 'bg-emerald-950/50 text-emerald-300 border-emerald-700/40' : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-600'} border rounded px-1.5 py-0.5 text-[10px]" data-name="${escapeHTML(name)}" title="${on ? 'Counted as mitigation — click to un-mark' : 'Click to count this as mitigation'}">${escapeHTML(name)}${kind === 'debuff' ? ' <span class="opacity-60">(boss)</span>' : ''}</button>`;
+  };
 
   let html = `<div class="bg-slate-950 border border-slate-800 rounded-lg p-3">
     <div class="flex items-start justify-between gap-3">
@@ -1506,52 +1694,68 @@ function renderDeathDetail(result, death, fight) {
       </div>
       <button class="jump-death bg-slate-800 hover:bg-slate-700 text-ffcyan-400 px-2.5 py-1 rounded font-mono font-bold flex items-center gap-1 shrink-0"><i class="fa-solid fa-play text-[9px]"></i> Jump to death</button>
     </div>
-    ${killingBlow ? `<div class="mt-2 text-[11px] text-slate-400">Final hit: <span class="text-amber-400 font-mono">${Number(killingBlow.amount || 0).toLocaleString()}</span>${killMit != null ? ` · <span class="${killMit > 0 ? 'text-emerald-400' : 'text-rose-300'}">${killMit > 0 ? Math.round(killMit) + '% mitigated' : (killMit < -0.5 ? Math.round(-killMit) + '% extra damage taken' : 'no mitigation')}</span>` : ''}${Number(killingBlow.absorbed) > 0 ? ` · <span class="text-sky-300">${Number(killingBlow.absorbed).toLocaleString()} absorbed</span>` : ''}</div>` : ''}
+    ${killingBlow ? `<div class="mt-2 text-[11px] text-slate-400 flex flex-wrap gap-x-3 gap-y-0.5">
+      <span>Final hit <span class="text-amber-400 font-mono">${Number(killingBlow.amount || 0).toLocaleString()}</span></span>
+      ${killMit != null ? `<span class="${killMit > 0.5 ? 'text-emerald-400' : (killMit < -0.5 ? 'text-rose-300' : 'text-slate-500')}">${killMit > 0.5 ? Math.round(killMit) + '% mitigated' : (killMit < -0.5 ? Math.round(-killMit) + '% extra damage taken' : 'no mitigation')}</span>` : ''}
+      ${Number(killingBlow.absorbed) > 0 ? `<span class="text-sky-300">${Number(killingBlow.absorbed).toLocaleString()} absorbed</span>` : ''}
+      ${hpBeforeKill ? `<span>HP before: <span class="text-slate-200 font-mono">${Math.round(hpBeforeKill.hp / hpBeforeKill.max * 100)}%</span> <span class="text-slate-500">(${fmtHp(hpBeforeKill.hp)} / ${fmtHp(hpBeforeKill.max)})</span></span>` : ''}
+    </div>` : ''}
   </div>`;
 
+  const nothingActive = !killFx.mitBuffs.length && !killFx.mitDebuffs.length;
   html += `<div class="bg-slate-950 border border-slate-800 rounded-lg p-3">
     <div class="text-[10px] uppercase text-slate-500 font-bold mb-1.5">Mitigation active on the killing blow</div>
-    ${killBuffs.mitigation.length
-      ? `<div class="flex flex-wrap gap-1">${mitigationChips(killBuffs.mitigation)}</div>`
-      : `<div class="text-slate-500 italic text-[11px]">${killingBlow ? 'No recognized mitigation or shields were on them.' : 'No damage events found to read mitigation from.'}</div>`}
-    ${killBuffs.all.length ? `<details class="mt-2"><summary class="text-[10px] text-slate-500 cursor-pointer hover:text-slate-300 select-none">All ${killBuffs.all.length} effects on them (includes damage buffs)</summary><div class="flex flex-wrap gap-1 mt-1.5">${killBuffs.all.map(n => `<span class="bg-slate-900 text-slate-400 border border-slate-800 rounded px-1.5 py-0.5 text-[10px]">${escapeHTML(n)}</span>`).join('')}</div></details>` : ''}
+    ${nothingActive
+      ? `<div class="text-slate-500 italic text-[11px]">${killingBlow ? 'No recognized mitigation or shields found. Check the full effect list below and click anything that should count.' : 'No damage events found to read mitigation from.'}</div>`
+      : `<div class="flex flex-wrap gap-1">${effectChips(killFx.mitBuffs, 'buff')}${effectChips(killFx.mitDebuffs, 'debuff')}</div>`}
+    ${(killFx.allBuffs.length || killFx.allDebuffs.length) ? `<details class="mt-2"><summary class="text-[10px] text-slate-500 cursor-pointer hover:text-slate-300 select-none">All effects at that moment (click to mark/unmark as mitigation)</summary>
+      <div class="flex flex-wrap gap-1 mt-1.5">${killFx.allBuffs.map(n => effectToggle(n, 'buff')).join('')}${killFx.allDebuffs.map(n => effectToggle(n, 'debuff')).join('')}</div></details>` : ''}
   </div>`;
 
   html += `<div class="bg-slate-950 border border-slate-800 rounded-lg p-3">
     <div class="text-[10px] uppercase text-slate-500 font-bold mb-1.5">Last 20 seconds</div>
-    ${rows.length ? `<div class="space-y-1 max-h-72 overflow-y-auto pr-1">${rows.map(({ kind, ev }) => {
+    ${rows.length ? `<div class="space-y-1 max-h-80 overflow-y-auto pr-1">${rows.map(row => {
+      const ev = row.ev;
       const relMs = ev.timestamp - fight.startTime;
       const time = formatSecondsToMMSS(Math.round(relMs / 1000));
-      const hp = eventHpPct(ev);
-      const hpBar = hp != null ? `<span class="inline-block w-14 h-1.5 bg-slate-800 rounded overflow-hidden align-middle"><span class="block h-full ${hp < 30 ? 'bg-rose-500' : 'bg-emerald-500'}" style="width:${hp.toFixed(0)}%"></span></span><span class="text-slate-500 w-9 text-right">${hp.toFixed(0)}%</span>` : '';
-      if (kind === 'heal') {
+      const h = row.hpAfter;
+      const pct = h ? Math.max(0, Math.min(100, h.hp / h.max * 100)) : null;
+      const hpCell = h
+        ? `<span class="inline-block w-14 h-1.5 bg-slate-800 rounded overflow-hidden align-middle"><span class="block h-full ${pct < 30 ? 'bg-rose-500' : 'bg-emerald-500'}" style="width:${pct.toFixed(0)}%"></span></span><span class="text-slate-300 w-24 text-right" title="${h.estimated ? 'Estimated from damage and healing amounts' : 'Reported by FFLogs'}">${h.estimated ? '~' : ''}${pct.toFixed(0)}% <span class="text-slate-500">${fmtHp(h.hp)}</span></span>`
+        : `<span class="text-slate-700 w-[9.5rem] text-right">HP n/a</span>`;
+      if (row.kind === 'heal') {
         const src = actorNames.get(String(ev.sourceID)) || 'Healer';
         return `<div class="flex items-center justify-between gap-2 px-2 py-1 rounded hover:bg-slate-900 cursor-pointer death-row" data-ms="${relMs}">
           <span class="flex items-center gap-2 min-w-0"><span class="font-mono text-slate-500 text-[10px]">${time}</span><span class="text-emerald-400 truncate"><i class="fa-solid fa-plus text-[9px]"></i> ${escapeHTML(resolveAbilityName(ev.abilityGameID))} <span class="text-slate-500">(${escapeHTML(src)})</span></span></span>
-          <span class="flex items-center gap-2 font-mono text-[10px] shrink-0"><span class="text-emerald-400">+${Number(ev.amount).toLocaleString()}</span>${hpBar}</span></div>`;
+          <span class="flex items-center gap-2 font-mono text-[10px] shrink-0"><span class="text-emerald-400">+${Number(ev.amount).toLocaleString()}</span>${hpCell}</span></div>`;
       }
-      const isKill = killingBlow && ev === killingBlow;
+      const isKill = ev === killingBlow;
       const mit = eventMitigationPct(ev);
-      const bn = buffNamesOnEvent(ev);
+      const fx = row.effects;
       return `<div class="px-2 py-1 rounded cursor-pointer death-row ${isKill ? 'bg-rose-950/50 border border-rose-700/50' : 'hover:bg-slate-900 border border-transparent'}" data-ms="${relMs}">
         <div class="flex items-center justify-between gap-2">
           <span class="flex items-center gap-2 min-w-0"><span class="font-mono text-slate-500 text-[10px]">${time}</span><span class="${isKill ? 'text-rose-300 font-bold' : 'text-slate-200'} truncate">${escapeHTML(resolveAbilityName(ev.abilityGameID))}${isKill ? ' (killing blow)' : ''}${ev.tick ? ' <span class="text-slate-500 font-normal">(tick)</span>' : ''}</span></span>
           <span class="flex items-center gap-2 font-mono text-[10px] shrink-0">
             <span class="text-amber-400">-${Number(ev.amount || 0).toLocaleString()}</span>
             ${mit != null ? `<span class="${mit > 0.5 ? 'text-emerald-400' : (mit < -0.5 ? 'text-rose-300' : 'text-slate-500')}">${mit > 0.5 ? Math.round(mit) + '% mit' : (mit < -0.5 ? '+' + Math.round(-mit) + '% dmg' : '0% mit')}</span>` : ''}
-            ${hpBar}
+            ${hpCell}
           </span>
         </div>
-        ${bn.mitigation.length ? `<div class="flex flex-wrap gap-1 mt-1 pl-9">${mitigationChips(bn.mitigation)}</div>` : ''}
+        ${(fx.mitBuffs.length || fx.mitDebuffs.length) ? `<div class="flex flex-wrap gap-1 mt-1 pl-9">${effectChips(fx.mitBuffs, 'buff')}${effectChips(fx.mitDebuffs, 'debuff')}</div>` : ''}
       </div>`;
     }).join('')}</div>` : `<div class="text-slate-500 italic text-[11px]">No damage or healing data found in this window.</div>`}
-    <div class="text-[10px] text-slate-600 mt-2">Mitigation % comes from FFLogs' own damage numbers; the chips are recognized defensives and shields on the player at each hit. Debuffs on the boss (Reprisal, Addle, Feint) may not be listed.</div>
+    <div class="text-[10px] text-slate-600 mt-2">Mitigation % is FFLogs' own damage math. Green chips are defensives/shields on the player; blue chips are debuffs on the attacker (Reprisal, Addle, Feint). ${anyRealHp ? '' : 'FFLogs did not include HP snapshots here, so HP could not be shown.'}</div>
+    <details class="mt-1"><summary class="text-[10px] text-slate-600 cursor-pointer hover:text-slate-400 select-none">Debug info</summary>
+      <div class="text-[10px] text-slate-500 font-mono mt-1 break-words">damage events: ${(result.damage || []).length} · heals: ${(result.heals || []).length} · buff events on player: ${(result.buffs || []).length} · enemy debuff events: ${(result.debuffs || []).length}<br>damage event fields: ${escapeHTML(Object.keys((result.damage || [])[0] || {}).join(', ') || 'none')}</div></details>
   </div>`;
 
   body.innerHTML = html;
   body.querySelector('.jump-death').addEventListener('click', () => jumpToSpecificOffsetMs(death.timeMs));
   body.querySelectorAll('.death-row').forEach(row => {
     row.addEventListener('click', () => jumpToSpecificOffsetMs(Number(row.getAttribute('data-ms'))));
+  });
+  body.querySelectorAll('.fx-toggle').forEach(btn => {
+    btn.addEventListener('click', () => toggleCustomMitigation(btn.getAttribute('data-name')));
   });
 }
 
@@ -1641,17 +1845,27 @@ function renderCombatTimeline(fight, container) {
     mechanicLanes.push({ label: category, color: categoryColor(category), rows: mechanicRows.filter(row => getMechanicCategory(row.name) === category) });
   });
   const rowCount = mechanicLanes.length + (fightNotes.length ? 1 : 0) + abilityRows.length;
-  const height = Math.max(56, 34 + rowCount * 32);
   const rowHeight = 32;
+  const height = Math.max(40, 8 + rowCount * rowHeight);
   const svgNS = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(svgNS, 'svg');
-  svg.setAttribute('viewBox', `0 0 ${timelineWidth(container)} ${height}`);
-  svg.setAttribute('width', '100%');
-  svg.setAttribute('class', 'block w-full min-w-full');
-  svg.setAttribute('height', height);
+  const W = timelineWidth(container);
   const start = fight.startTime, duration = Math.max(1, fight.endTime - start);
-  const left = 110, right = timelineWidth(container) - 15, width = right - left;
+  const left = 110, right = W - 15, width = right - left;
   const xAt = timestamp => left + Math.max(0, Math.min(1, (timestamp - start) / duration)) * width;
+  const makeSvg = h => {
+    const el = document.createElementNS(svgNS, 'svg');
+    el.setAttribute('viewBox', `0 0 ${W} ${h}`);
+    el.setAttribute('width', W);
+    el.setAttribute('height', h);
+    el.setAttribute('class', 'block');
+    return el;
+  };
+  // Sticky time axis stays visible while the lanes scroll underneath.
+  const axisWrap = document.createElement('div');
+  axisWrap.style.cssText = 'position:sticky;top:0;z-index:2;background:#020617;';
+  const axisSvg = makeSvg(18);
+  axisWrap.appendChild(axisSvg);
+  const svg = makeSvg(height);
   const add = (tag, attrs, text) => {
     const el = document.createElementNS(svgNS, tag);
     Object.entries(attrs || {}).forEach(([name, value]) => el.setAttribute(name, value));
@@ -1661,12 +1875,15 @@ function renderCombatTimeline(fight, container) {
   };
   for (let tick = 0; tick <= 4; tick++) {
     const x = left + width * tick / 4;
-    add('line', { x1: x, y1: 18, x2: x, y2: height - 6, stroke: '#1e293b', 'stroke-width': 1 });
-    add('text', { x, y: 12, fill: '#64748b', 'font-size': 10, 'text-anchor': tick === 0 ? 'start' : tick === 4 ? 'end' : 'middle' }, formatSecondsToMMSS(duration / 1000 * tick / 4));
+    const label = document.createElementNS(svgNS, 'text');
+    [['x', x], ['y', 13], ['fill', '#64748b'], ['font-size', 10], ['text-anchor', tick === 0 ? 'start' : tick === 4 ? 'end' : 'middle']].forEach(([k, v]) => label.setAttribute(k, v));
+    label.textContent = formatSecondsToMMSS(duration / 1000 * tick / 4);
+    axisSvg.appendChild(label);
+    add('line', { x1: x, y1: 0, x2: x, y2: height, stroke: '#1e293b', 'stroke-width': 1 });
   }
   let rowIndex = 0;
   mechanicLanes.forEach(lane => {
-    const y = 27 + rowIndex++ * rowHeight;
+    const y = 4 + rowIndex++ * rowHeight;
     const centerY = y + rowHeight / 2;
     add('text', { x: 4, y: centerY + 3, fill: lane.color, 'font-size': 10 }, lane.label.length > 17 ? lane.label.slice(0, 16) + '…' : lane.label).appendChild(document.createElementNS(svgNS, 'title')).textContent = lane.label;
     add('line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b', 'stroke-width': 1 });
@@ -1681,7 +1898,7 @@ function renderCombatTimeline(fight, container) {
       });
   });
   if (fightNotes.length) {
-    const notesY = 27 + rowIndex++ * rowHeight;
+    const notesY = 4 + rowIndex++ * rowHeight;
     const centerY = notesY + rowHeight / 2;
     add('text', { x: 4, y: centerY + 3, fill: '#22d3ee', 'font-size': 10 }, 'Notes');
     add('line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b', 'stroke-width': 1 });
@@ -1693,7 +1910,7 @@ function renderCombatTimeline(fight, container) {
     });
   }
   abilityRows.forEach(row => {
-    const y = 27 + rowIndex++ * rowHeight;
+    const y = 4 + rowIndex++ * rowHeight;
     const centerY = y + rowHeight / 2;
     const { abilityName, cooldownSeconds, casts, spans } = row;
     add('text', { x: 4, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, abilityName.length > 17 ? abilityName.slice(0, 16) + '…' : abilityName);
@@ -1722,6 +1939,7 @@ function renderCombatTimeline(fight, container) {
       marker.addEventListener('click', () => jumpToSpecificOffsetMs(event.timestamp - start));
     });
   });
+  container.appendChild(axisWrap);
   container.appendChild(svg);
   renderMechanicsList();
   if (isLoading) {
