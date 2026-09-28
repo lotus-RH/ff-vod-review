@@ -424,6 +424,13 @@ const JOB_COLORS = {
   RPR:'#965a90', BRD:'#91ba40', MCH:'#6ee1d6', DNC:'#e2b0af',
   BLM:'#a579d6', SMN:'#2d9b78', RDM:'#e28fb0', PCT:'#e8a5c4'
 };
+const PLANNING_CLASS_GROUPS = [
+  { name: 'Tanks', jobs: ['PLD', 'WAR', 'DRK', 'GNB'] },
+  { name: 'Healer', jobs: ['WHM', 'AST', 'SCH', 'SGE'] },
+  { name: 'Melee', jobs: ['NIN', 'RPR', 'MNK', 'VPR', 'DRG', 'SAM'] },
+  { name: 'Phys', jobs: ['DNC', 'MCH', 'BRD'] },
+  { name: 'Caster', jobs: ['RDM', 'PCT', 'BLM', 'SMN'] }
+];
 const DEFAULT_AUTO_SYNC_NUDGE_SECONDS = -8;
 
 /* =========================================================================
@@ -2072,7 +2079,7 @@ function renderPlanningClassFilters() {
     (assignedJobs.length ? assignedJobs : ['Unassigned']).forEach(job => jobs.add(job.toUpperCase()));
   });
   container.innerHTML = '';
-  [...jobs].sort((a, b) => a.localeCompare(b)).forEach(job => {
+  const renderJobButton = (groupContainer, job) => {
     const enabled = !hiddenPlanningClasses.has(job);
     const button = document.createElement('button');
     button.type = 'button';
@@ -2089,8 +2096,27 @@ function renderPlanningClassFilters() {
       else hiddenPlanningClasses.delete(job);
       renderTimeline();
     });
-    container.appendChild(button);
+    groupContainer.appendChild(button);
+  };
+  const groupedJobs = new Set();
+  const renderGroup = (labelText, groupJobs) => {
+    if (!groupJobs.length) return;
+    const groupContainer = document.createElement('div');
+    groupContainer.className = 'flex items-center gap-1.5 border-l border-slate-800 pl-2';
+    const label = document.createElement('span');
+    label.className = 'text-[9px] uppercase text-slate-500';
+    label.textContent = labelText;
+    groupContainer.appendChild(label);
+    groupJobs.forEach(job => renderJobButton(groupContainer, job));
+    container.appendChild(groupContainer);
+  };
+  PLANNING_CLASS_GROUPS.forEach(group => {
+    const groupJobs = group.jobs.filter(job => jobs.has(job));
+    groupJobs.forEach(job => groupedJobs.add(job));
+    renderGroup(group.name, groupJobs);
   });
+  const otherJobs = [...jobs].filter(job => !groupedJobs.has(job)).sort((a, b) => a.localeCompare(b));
+  renderGroup('Other', otherJobs);
   if (!jobs.size) {
     container.innerHTML = '<span class="text-[10px] text-slate-600">Add tracked abilities and assign classes to create class tracks.</span>';
   }
@@ -2125,19 +2151,26 @@ function renderCuratedPlanningTimeline(encounter, container) {
       }
     });
   });
+  const roleGroups = PLANNING_CLASS_GROUPS.map(group => ({
+    name: group.name,
+    jobs: group.jobs.filter(job => classRows.has(job) && classRows.get(job).length)
+  })).filter(group => group.jobs.length);
+  const groupedJobs = new Set(roleGroups.flatMap(group => group.jobs));
+  const otherJobs = [...classRows.keys()].filter(job => !groupedJobs.has(job) && classRows.get(job).length).sort((a, b) => a.localeCompare(b));
+  if (otherJobs.length) roleGroups.push({ name: 'Other', jobs: otherJobs });
   const mechanicCount = filteredMechanics.length;
-  const classCount = [...classRows.values()].filter(rows => rows.length).length;
+  const classCount = roleGroups.reduce((count, group) => count + group.jobs.length, 0);
   const abilityLaneCount = [...classRows.values()].reduce((count, rows) => count + rows.length, 0);
   const observationCount = mechanics.reduce((count, mechanic) => count + (mechanic.castOffsets || []).length, 0);
   document.getElementById('planning-pull-summary').textContent = `${encounter.name || 'Encounter'} · ID ${encounter.encounterID} · ${observationCount} recorded cast timings from loaded logs`;
-  document.getElementById('planning-ability-summary').textContent = `${mechanicCount} observed mechanics · ${abilityLaneCount} tracked ability lanes · ${classCount} class sections`;
+  document.getElementById('planning-ability-summary').textContent = `${mechanicCount} observed mechanics · ${abilityLaneCount} tracked ability lanes · ${classCount} classes across ${roleGroups.length} roles`;
   const width = timelineWidth(container);
   const left = 205, right = width - 15, timelineWidthPx = right - left;
   const xAt = seconds => left + Math.max(0, Math.min(1, seconds / durationSeconds)) * timelineWidthPx;
   const mechanicRowHeight = 120;
   const abilityRowHeight = 30;
   const mechanicHeight = mechanicRowHeight + 8;
-  const abilityRowCount = [...classRows.values()].reduce((count, rows) => count + (rows.length ? rows.length + 1 : 0), 0);
+  const abilityRowCount = roleGroups.reduce((count, group) => count + 1 + group.jobs.reduce((jobCount, job) => jobCount + 1 + classRows.get(job).length, 0), 0);
   const abilityHeight = Math.max(1, abilityRowCount * abilityRowHeight + 8);
   const svgNS = 'http://www.w3.org/2000/svg';
   const makeSvg = svgHeight => {
@@ -2200,15 +2233,24 @@ function renderCuratedPlanningTimeline(encounter, container) {
     addTo(abilitiesSvg, 'text', { x: 4, y: y + abilityRowHeight / 2 + 3, fill: color, 'font-size': 11, 'font-weight': 700 }, label);
     addTo(abilitiesSvg, 'line', { x1: left, y1: y + abilityRowHeight - 1, x2: right, y2: y + abilityRowHeight - 1, stroke: color, 'stroke-opacity': 0.35 });
   };
-  [...classRows.entries()].sort(([a], [b]) => a.localeCompare(b)).forEach(([job, abilities]) => {
-    if (!abilities.length) return;
-    const color = JOB_COLORS[job] || '#38bdf8';
-    drawAbilitySection(job, color);
-    abilities.sort((a, b) => a.localeCompare(b)).forEach(name => {
-      const y = 4 + abilityRowIndex++ * abilityRowHeight;
-      const centerY = y + abilityRowHeight / 2;
-      addTo(abilitiesSvg, 'text', { x: 12, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, name.length > 24 ? name.slice(0, 23) + '…' : name).appendChild(document.createElementNS(svgNS, 'title')).textContent = name;
-      addTo(abilitiesSvg, 'line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b' });
+  const drawRoleSection = label => {
+    const y = 4 + abilityRowIndex++ * abilityRowHeight;
+    addTo(abilitiesSvg, 'rect', { x: 0, y, width, height: abilityRowHeight - 1, fill: '#334155', opacity: 0.35 });
+    addTo(abilitiesSvg, 'text', { x: 4, y: y + abilityRowHeight / 2 + 3, fill: '#cbd5e1', 'font-size': 10, 'font-weight': 700 }, label.toUpperCase());
+    addTo(abilitiesSvg, 'line', { x1: left, y1: y + abilityRowHeight - 1, x2: right, y2: y + abilityRowHeight - 1, stroke: '#475569', 'stroke-opacity': 0.65 });
+  };
+  roleGroups.forEach(group => {
+    drawRoleSection(group.name);
+    group.jobs.forEach(job => {
+      const abilities = classRows.get(job);
+      const color = JOB_COLORS[job] || '#38bdf8';
+      drawAbilitySection(job, color);
+      abilities.sort((a, b) => a.localeCompare(b)).forEach(name => {
+        const y = 4 + abilityRowIndex++ * abilityRowHeight;
+        const centerY = y + abilityRowHeight / 2;
+        addTo(abilitiesSvg, 'text', { x: 12, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, name.length > 24 ? name.slice(0, 23) + '…' : name).appendChild(document.createElementNS(svgNS, 'title')).textContent = name;
+        addTo(abilitiesSvg, 'line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b' });
+      });
     });
   });
   const fixedMechanics = document.createElement('div');
