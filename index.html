@@ -384,6 +384,7 @@ let notes = [];            // [{ id, fightId, logSeconds, author, text, category
 let deathsCache = {};      // fightId -> [{time, player, ability}]
 let timelineEventsCache = {}; // fightId -> { buffs: [], damage: [], healing: [], casts: [] }
 let trackedAbilityNames = [];
+let trackedAbilityClasses = {};
 let trackedAbilityCooldowns = {};
 let hiddenMechanicNames = [];
 let mechanicCategories = {};
@@ -562,6 +563,7 @@ function loadReportLocalData() {
   try { povs = JSON.parse(localStorage.getItem(povsKey())) || []; } catch (e) { povs = []; }
   try { notes = JSON.parse(localStorage.getItem(notesKey())) || []; } catch (e) { notes = []; }
   trackedAbilityNames = readJsonWithDefault(abilityNamesKey(), 'fflogs_vod_ability_names_default', []);
+  trackedAbilityClasses = readJsonWithDefault(abilityClassesKey(), 'fflogs_vod_ability_classes_default', {});
   trackedAbilityCooldowns = readJsonWithDefault(abilityCooldownsKey(), 'fflogs_vod_ability_cooldowns_default', {});
   hiddenMechanicNames = readJsonWithDefault(hiddenMechanicNamesKey(), 'fflogs_vod_hidden_mechanics_default', []);
   mechanicRecastIgnoreSeconds = readJsonWithDefault(mechanicRecastIgnoreKey(), 'fflogs_vod_mechanic_recast_ignore_default', {});
@@ -570,6 +572,7 @@ function loadReportLocalData() {
 function persistPOVs() { localStorage.setItem(povsKey(), JSON.stringify(povs)); }
 function persistNotes() { localStorage.setItem(notesKey(), JSON.stringify(notes)); }
 function abilityNamesKey() { return `fflogs_vod_ability_names_${report ? report.code : 'none'}`; }
+function abilityClassesKey() { return `fflogs_vod_ability_classes_${report ? report.code : 'none'}`; }
 function abilityCooldownsKey() { return `fflogs_vod_ability_cooldowns_${report ? report.code : 'none'}`; }
 function hiddenMechanicNamesKey() { return `fflogs_vod_hidden_mechanics_${report ? report.code : 'none'}`; }
 function mechanicRecastIgnoreKey() { return `fflogs_vod_mechanic_recast_ignore_${report ? report.code : 'none'}`; }
@@ -589,6 +592,7 @@ function writeJsonWithDefault(key, defaultKey, value) {
 }
 function persistTrackedAbilityNames() {
   writeJsonWithDefault(abilityNamesKey(), 'fflogs_vod_ability_names_default', trackedAbilityNames);
+  writeJsonWithDefault(abilityClassesKey(), 'fflogs_vod_ability_classes_default', trackedAbilityClasses);
   writeJsonWithDefault(abilityCooldownsKey(), 'fflogs_vod_ability_cooldowns_default', trackedAbilityCooldowns);
   renderAbilityCount();
   renderTimeline();
@@ -598,7 +602,15 @@ function renderAbilityCount() {
   const countEl = document.getElementById('ability-count');
   const summaryEl = document.getElementById('tracked-ability-summary');
   if (countEl) countEl.textContent = count;
-  if (summaryEl) summaryEl.textContent = count ? `${count} ${count === 1 ? 'ability' : 'abilities'} shown` : 'No abilities added';
+  const matchingCount = getTimelineAbilityNames().length;
+  if (summaryEl) summaryEl.textContent = count ? `${count} tracked · ${matchingCount} match POV jobs` : 'No abilities added';
+}
+function getTimelineAbilityNames() {
+  const povJobs = new Set(povs.map(pov => pov.job).filter(Boolean));
+  return trackedAbilityNames.filter(name => {
+    const job = trackedAbilityClasses[abilityCooldownKey(name)];
+    return job && povJobs.has(job);
+  });
 }
 function openAbilityModal() {
   renderAbilityList();
@@ -615,10 +627,20 @@ function renderAbilityList() {
   }
   trackedAbilityNames.forEach((name, index) => {
     const row = document.createElement('div');
-    row.className = 'grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2';
+    row.className = 'grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-3 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2';
     const label = document.createElement('span');
     label.className = 'text-slate-200 truncate';
     label.textContent = name;
+    const classSelect = document.createElement('select');
+    classSelect.className = 'bg-slate-900 border border-slate-800 rounded px-2 py-1 text-slate-200';
+    classSelect.title = `Class for ${name}`;
+    classSelect.innerHTML = '<option value="">No class</option>' + Object.keys(JOB_COLORS).map(job => `<option value="${job}">${job}</option>`).join('');
+    classSelect.value = trackedAbilityClasses[abilityCooldownKey(name)] || '';
+    classSelect.addEventListener('change', () => {
+      if (classSelect.value) trackedAbilityClasses[abilityCooldownKey(name)] = classSelect.value;
+      else delete trackedAbilityClasses[abilityCooldownKey(name)];
+      persistTrackedAbilityNames();
+    });
     const cooldownControl = document.createElement('label');
     cooldownControl.className = 'flex items-center gap-1.5 text-[10px] text-slate-500';
     cooldownControl.textContent = 'Cooldown';
@@ -646,7 +668,7 @@ function renderAbilityList() {
     remove.title = `Remove ${name}`;
     remove.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
     remove.addEventListener('click', () => removeTrackedAbility(index));
-    row.append(label, cooldownControl, remove);
+    row.append(label, classSelect, cooldownControl, remove);
     container.appendChild(row);
   });
 }
@@ -666,6 +688,7 @@ function addTrackedAbilityFromForm() {
 }
 function removeTrackedAbility(index) {
   const [name] = trackedAbilityNames.splice(index, 1);
+  delete trackedAbilityClasses[abilityCooldownKey(name)];
   delete trackedAbilityCooldowns[abilityCooldownKey(name)];
   persistTrackedAbilityNames();
   renderAbilityList();
@@ -1805,7 +1828,7 @@ function renderCombatTimeline(fight, container) {
   const actorNames = new Map(report.actors.map(actor => [String(actor.id), actor.name]));
   const playerIds = new Set(report.actors.map(player => String(player.id)));
   const mechanicRows = getMechanicRows(fight).filter(row => !hiddenMechanicNames.includes(row.name));
-  const abilityRows = trackedAbilityNames.map(abilityName => {
+  const abilityRows = getTimelineAbilityNames().map(abilityName => {
     const searchName = abilityName.toLocaleLowerCase();
     const casts = events.casts.filter(event => String(event.type).toLowerCase() === 'cast' && playerIds.has(String(event.sourceID)) && eventAbilityName(event).toLocaleLowerCase() === searchName);
     const castIds = new Set(casts.map(eventAbilityId).filter(Boolean));
@@ -1951,7 +1974,7 @@ function renderCombatTimeline(fight, container) {
   if (!abilityRows.length) {
     const hint = document.createElement('div');
     hint.className = 'text-[10px] text-slate-600 py-1';
-    hint.textContent = 'Enter one or more ability names to show their casts and buff durations.';
+    hint.textContent = 'Assign an ability a class that is represented by a POV to show it here.';
     container.appendChild(hint);
   }
 }
@@ -1967,6 +1990,8 @@ function addPOV(playerName, job) {
   if (!activePovId) activePovId = p.id;
   persistPOVs();
   renderPOVTabs();
+  renderAbilityCount();
+  renderTimeline();
   renderPOVModalBody();
   openPOVModal();
 }
@@ -1975,6 +2000,8 @@ function removePOV(id) {
   if (activePovId === id) activePovId = povs.length ? povs[0].id : null;
   persistPOVs();
   renderPOVTabs();
+  renderAbilityCount();
+  renderTimeline();
   renderPOVModalBody();
 }
 function selectPOV(id) {
@@ -2127,7 +2154,7 @@ function renderPOVModalBody() {
     body.appendChild(wrap);
 
     wrap.querySelector('.pov-name').addEventListener('change', e => { pov.player = e.target.value; persistPOVs(); renderPOVTabs(); renderLogPlayerChips(); });
-    wrap.querySelector('.pov-job').addEventListener('change', e => { pov.job = e.target.value; persistPOVs(); renderPOVTabs(); });
+    wrap.querySelector('.pov-job').addEventListener('change', e => { pov.job = e.target.value; persistPOVs(); renderPOVTabs(); renderAbilityCount(); renderTimeline(); });
     wrap.querySelector('.pov-del').addEventListener('click', () => removePOV(pov.id));
     wrap.querySelector('.pov-add-seg').addEventListener('click', () => addSegment(pov.id));
 
