@@ -1,0 +1,329 @@
+{
+  "version": 1,
+  "updatedAt": "2026-09-28T09:29:13.582Z",
+  "storage": {
+    "fflogs_vod_ability_classes_default": {
+      "dark missionary": "DRK",
+      "divine veil": "PLD",
+      "feint": [
+        "DRG",
+        "MNK",
+        "NIN",
+        "RPR",
+        "VPR",
+        "SAM"
+      ],
+      "addle": [
+        "RDM",
+        "SMN",
+        "PCT",
+        "BLM"
+      ],
+      "passage of arms": [
+        "PLD"
+      ],
+      "shake it off": [
+        "WAR"
+      ],
+      "heart of light": [
+        "GNB"
+      ],
+      "tactician": [
+        "MCH"
+      ],
+      "dismantle": [
+        "MCH"
+      ],
+      "mantra": [
+        "MNK"
+      ],
+      "arcane crest": [
+        "RPR"
+      ],
+      "magick barrier": [
+        "RDM"
+      ],
+      "shield samba": [
+        "DNC"
+      ],
+      "neutral sect": [
+        "AST"
+      ],
+      "collective unconscious": [
+        "AST"
+      ],
+      "macrocosmos": [
+        "AST"
+      ],
+      "sun sign": [
+        "AST"
+      ],
+      "benediction": [
+        "WHM"
+      ],
+      "plenary indulgence": [
+        "WHM"
+      ],
+      "temperance": [
+        "WHM"
+      ],
+      "divine caress": [
+        "WHM"
+      ],
+      "kerachole": [
+        "SGE"
+      ],
+      "holos": [
+        "SGE"
+      ],
+      "panhaima": [
+        "SGE"
+      ],
+      "pneuma": [
+        "SGE"
+      ],
+      "philosophia": [
+        "SGE"
+      ]
+    },
+    "fflogs_vod_povs_BCFw4yxZzRp97GA2": [
+      {
+        "id": "pov_1790579563206_41",
+        "player": "Lewis",
+        "job": "SCH",
+        "segments": [
+          {
+            "id": "seg_1790579567461_800",
+            "videoId": "FvtMl_Q51Fw",
+            "label": "Segment 1",
+            "startAbsMs": 1780565417000,
+            "syncAttemptId": 1,
+            "autoSynced": true
+          }
+        ]
+      },
+      {
+        "id": "pov_1790586037534_350",
+        "player": "Lunner",
+        "job": "DRK",
+        "segments": []
+      }
+    ],
+    "fflogs_vod_mechanic_recast_ignore_default": {
+      "revolting ruin iii": 10,
+      "flagrant fire iii": 10,
+      "wave cannon": 10,
+      "double-trouble trap": 10,
+      "ultimate embrace": 10,
+      "trine": 20,
+      "wings of destruction": 10,
+      "thunder iii": 5,
+      "tele-trouncing": 5,
+      "gravity iii": 10
+    },
+    "fflogs_vod_mechanic_recast_ignore_BCFw4yxZzRp97GA2": {
+      "revolting ruin iii": 10,
+      "flagrant fire iii": 10,
+      "wave cannon": 10,
+      "double-trouble trap": 10,
+      "ultimate embrace": 10,
+      "trine": 20,
+      "wings of destruction": 10,
+      "thunder iii": 5,
+      "tele-trouncing": 5,
+      "gravity iii": 10
+    },
+    "fflogs_vod_settings": {
+      "clientId": "01a0e389-ccbd-70f8-bd01-cd87d319e6f3",
+      "youtubeApiKey": "AIzaSyChmGlUQe1Ls_-uA-ZwRbvMemKwTk02Zlo"
+    },
+    "fflogs_vod_ability_cooldowns_BCFw4yxZzRp97GA2": {
+      "dark missionary": 90
+    },
+    "fflogs_vod_ability_classes_BCFw4yxZzRp97GA2": {
+      "dark missionary": "DRK",
+      "divine veil": "PLD",
+      "feint": [
+        "DRG",
+        "MNK",
+        "NIN",
+        "RPR",
+        "VPR",
+        "SAM"
+      ],
+      "addle": [
+        "RDM",
+        "SMN",
+        "PCT",
+        "BLM"
+      ],
+      "passage of arms": [
+        "PLD"
+      ],
+      "shake it off": [
+        "WAR"
+      ],
+      "heart of light": [
+        "GNB"
+      ],
+      "tactician": [
+        "MCH"
+      ],
+      "dismantle": [
+        "MCH"
+      ],
+      "mantra": [
+        "MNK"
+      ],
+      "arcane crest": [
+        "RPR"
+      ],
+      "magick barrier": [
+        "RDM"
+      ],
+      "shield samba": [
+        "DNC"
+      ],
+      "neutral sect": [
+        "AST"
+      ],
+      "collective unconscious": [
+        "AST"
+      ],
+      "macrocosmos": [
+        "AST"
+      ],
+      "sun sign": [
+        "AST"
+      ],
+      "benediction": [
+        "WHM"
+      ],
+      "plenary indulgence": [
+        "WHM"
+      ],
+      "temperance": [
+        "WHM"
+      ],
+      "divine caress": [
+        "WHM"
+      ],
+      "kerachole": [
+        "SGE"
+      ],
+      "holos": [
+        "SGE"
+      ],
+      "panhaima": [
+        "SGE"
+      ],
+      "pneuma": [
+        "SGE"
+      ],
+      "philosophia": [
+        "SGE"
+      ]
+    },
+    "fflogs_vod_mechanic_categories": {
+      "revolting ruin iii": "Tank",
+      "double-trouble trap": "Stack",
+      "light of judgment": "Raidwide",
+      "hyperdrive": "Tank",
+      "gravitas": "Stack",
+      "gravity iii": "Stack",
+      "ultimate embrace": "Tank",
+      "forsaken": "Raidwide",
+      "wings of destruction": "Tank",
+      "thunder iii": "Tank"
+    },
+    "fflogs_vod_ability_names_BCFw4yxZzRp97GA2": [
+      "Dark Missionary",
+      "Feint",
+      "Addle",
+      "Divine Veil",
+      "Passage of Arms",
+      "Shake it Off",
+      "Heart of Light",
+      "Tactician",
+      "Dismantle",
+      "Mantra",
+      "Arcane Crest",
+      "Magick Barrier",
+      "Shield Samba",
+      "Neutral Sect",
+      "Collective Unconscious",
+      "Macrocosmos",
+      "Sun Sign",
+      "Benediction",
+      "Plenary Indulgence",
+      "Temperance",
+      "Divine Caress",
+      "Kerachole",
+      "Holos",
+      "Panhaima",
+      "Pneuma",
+      "Philosophia"
+    ],
+    "fflogs_vod_hidden_mechanics_BCFw4yxZzRp97GA2": [
+      "Enhanced Thrill Of War II",
+      "Pulse Wave",
+      "Thrumming Thunder III",
+      "Explosion",
+      "Vitrophyre",
+      "Intemperate Will",
+      "Gravitational Wave",
+      "unknown_c554",
+      "Indulgent Will",
+      "unknown_c555",
+      "Idyllic Will",
+      "Indolent Will",
+      "Spellwave",
+      "Spelldriver",
+      "Spellscatter",
+      "Past's End",
+      "Future's End",
+      "All Things Ending",
+      "Flagrant Fire III",
+      "Blizzard III Blowout",
+      "Aero III Assault",
+      "Definition of Insanity",
+      "the Decisive Battle",
+      "Tsunami",
+      "Cyclone",
+      "Trance",
+      "Stray Flames",
+      "Inferno"
+    ],
+    "fflogs_vod_ability_names_default": [
+      "Dark Missionary",
+      "Feint",
+      "Addle",
+      "Divine Veil",
+      "Passage of Arms",
+      "Shake it Off",
+      "Heart of Light",
+      "Tactician",
+      "Dismantle",
+      "Mantra",
+      "Arcane Crest",
+      "Magick Barrier",
+      "Shield Samba",
+      "Neutral Sect",
+      "Collective Unconscious",
+      "Macrocosmos",
+      "Sun Sign",
+      "Benediction",
+      "Plenary Indulgence",
+      "Temperance",
+      "Divine Caress",
+      "Kerachole",
+      "Holos",
+      "Panhaima",
+      "Pneuma",
+      "Philosophia"
+    ],
+    "fflogs_vod_ability_cooldowns_default": {
+      "dark missionary": 90
+    }
+  }
+}
