@@ -266,6 +266,7 @@
         <i class="fa-solid fa-magnifying-glass text-slate-500 text-[10px]"></i>
         <input id="planning-ability-filter" type="search" placeholder="Filter abilities" class="bg-transparent text-xs text-slate-200 w-32" oninput="renderTimeline()">
       </div>
+      <button onclick="importReviewCastsToPlanning()" title="Import tracked ability casts from the selected Review pull" class="text-xs bg-emerald-800 hover:bg-emerald-700 border border-emerald-700 rounded px-2.5 py-1.5 text-emerald-100"><i class="fa-solid fa-file-import mr-1"></i> Import Review casts</button>
     </div>
   </div>
   <div class="flex items-center justify-between gap-3 px-4 py-2 border-b border-slate-800/80 text-[11px] shrink-0">
@@ -2236,6 +2237,55 @@ function loadPlanningEncounter() {
   renderTimeline();
 }
 
+async function importReviewCastsToPlanning() {
+  if (!report || !activeFightId) {
+    showToast('Load a log and select a pull in Review before importing casts.', 'error');
+    return;
+  }
+  const reportCode = report.code;
+  const fightId = activeFightId;
+  const fight = getActiveFight();
+  if (!timelineEventsCache[fightId]) await loadTimelineEventsForFight(fightId);
+  if (!report || report.code !== reportCode || activeFightId !== fightId) {
+    showToast('The selected log or pull changed before the cast import finished.', 'error');
+    return;
+  }
+  const reviewAbilities = new Map(getTimelineAbilityNames().map(name => [name.toLocaleLowerCase(), name]));
+  const actorsById = new Map(report.actors.map(actor => [String(actor.id), actor]));
+  const povJobsByName = new Map(povs.map(pov => [String(pov.player || '').toLocaleLowerCase(), jobCodeForSubType(pov.job)]));
+  const encounterId = String(fight.encounterID);
+  const casts = (timelineEventsCache[fightId] && timelineEventsCache[fightId].casts || [])
+    .filter(event => String(event.type).toLowerCase() === 'cast');
+  let importedCount = 0;
+  casts.forEach(event => {
+    const abilityName = reviewAbilities.get(eventAbilityName(event).toLocaleLowerCase());
+    const actor = actorsById.get(String(event.sourceID));
+    if (!abilityName || !actor) return;
+    const job = jobCodeForSubType(actor.subType) || povJobsByName.get(String(actor.name || '').toLocaleLowerCase());
+    if (!job) return;
+    const usages = plannedUsagesForKey(encounterId, abilityName, job);
+    const sourceID = String(event.sourceID);
+    const sourceTimeMs = Number(event.timestamp);
+    if (usages.some(usage => String(usage.importedFightId) === String(fightId) &&
+      String(usage.sourceID) === sourceID && Number(usage.sourceTimeMs) === sourceTimeMs)) return;
+    usages.push({
+      id: uid('imported-cast'),
+      time: Math.max(0, (sourceTimeMs - fight.startTime) / 1000),
+      importedFightId: fightId,
+      sourceID,
+      sourceTimeMs
+    });
+    importedCount++;
+  });
+  if (!importedCount) {
+    showToast('No new tracked player casts were found in this pull.', 'info');
+    return;
+  }
+  persistPlannedUsages();
+  renderTimeline();
+  showToast(`Imported ${importedCount} cast${importedCount === 1 ? '' : 's'} from Pull ${report.fights.indexOf(fight) + 1}.`, 'success');
+}
+
 function getPlanningClassJobs() {
   const jobs = new Set(Object.keys(JOB_COLORS));
   trackedAbilityNames.forEach(name => {
@@ -2332,8 +2382,15 @@ function renderCuratedPlanningTimeline(encounter, container) {
     return aFirst - bFirst || String(a.name).localeCompare(String(b.name));
   });
   const classRows = new Map();
+  const encounterUsages = plannedUsages[String(encounter.encounterID)] || {};
   trackedAbilityNames.forEach(name => {
-    const jobs = getAbilityClasses(name);
+    const abilityKey = abilityCooldownKey(name);
+    const plannedJobs = Object.keys(encounterUsages).flatMap(key => {
+      if (!key.startsWith('planned:')) return [];
+      const separator = key.indexOf(':', 'planned:'.length);
+      return separator >= 0 && key.slice(separator + 1) === abilityKey ? [key.slice('planned:'.length, separator)] : [];
+    });
+    const jobs = [...new Set([...getAbilityClasses(name).map(job => job.toUpperCase()), ...plannedJobs])];
     (jobs.length ? jobs : ['Unassigned']).forEach(job => {
       const key = job === 'Unassigned' ? job : job.toUpperCase();
       if (!classRows.has(key)) classRows.set(key, []);
