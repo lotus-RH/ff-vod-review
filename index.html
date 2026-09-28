@@ -1874,7 +1874,7 @@ async function openDeathDetailModal(fightId, death) {
   const body = document.getElementById('death-detail-body');
   body.innerHTML = '<div class="text-slate-500 italic text-center py-6"><i class="fa-solid fa-spinner fa-spin"></i> Loading last moments...</div>';
 
-  const cacheKey = `v2_${fightId}_${death.targetID}_${death.timeMs}`;
+  const cacheKey = `v3_${fightId}_${death.targetID}_${death.timeMs}`;
   if (deathDetailCache[cacheKey]) { renderDeathDetail(deathDetailCache[cacheKey], death, fight); return; }
   if (death.targetID == null) { body.innerHTML = '<div class="text-rose-400 text-center py-6">Could not identify this player for lookup.</div>'; return; }
 
@@ -1920,8 +1920,10 @@ function eventMitigationPct(ev) {
 }
 function eventTargetHp(ev) {
   const r = ev.targetResources || ev.resources || {};
-  const hp = r.hitPoints ?? r.hitpoints ?? ev.hitPoints;
-  const max = r.maxHitPoints ?? r.maxhitpoints ?? ev.maxHitPoints;
+  const hpValue = r.hitPoints ?? r.hitpoints ?? r.hp ?? ev.hitPoints ?? ev.hp;
+  const maxValue = r.maxHitPoints ?? r.maxhitpoints ?? r.maxHp ?? ev.maxHitPoints ?? ev.maxHp;
+  const hp = hpValue && typeof hpValue === 'object' ? hpValue.amount ?? hpValue.value : hpValue;
+  const max = maxValue && typeof maxValue === 'object' ? maxValue.amount ?? maxValue.value : maxValue;
   return (hp != null && Number(max) > 0) ? { hp: Number(hp), max: Number(max) } : null;
 }
 function fmtHp(n) { return n >= 10000 ? (n / 1000).toFixed(1) + 'k' : Math.round(n).toLocaleString(); }
@@ -1936,23 +1938,33 @@ function effectChips(names, kind) {
 function makeEffectTracker(result) {
   const isApply = t => /^(applybuff|applybuffstack|refreshbuff|applydebuff|applydebuffstack|refreshdebuff)$/.test(t);
   const isRemove = t => /^(removebuff|removebuffstack|removedebuff|removedebuffstack)$/.test(t);
+  const abilityKey = event => String(eventAbilityId(event) || eventAbilityName(event).toLocaleLowerCase());
   const buffs = (result.buffs || []).slice().sort((a, b) => a.timestamp - b.timestamp);
   const debuffs = (result.debuffs || []).slice().sort((a, b) => a.timestamp - b.timestamp);
   const buffActive = new Map(), debuffActive = new Map();
   let bi = 0, di = 0;
   return function at(ts, attackerId, buffString) {
     while (bi < buffs.length && buffs[bi].timestamp <= ts) {
-      const ev = buffs[bi++], t = String(ev.type).toLowerCase(), key = `${ev.abilityGameID}:${ev.sourceID}`;
-      if (isApply(t)) buffActive.set(key, ev.abilityGameID); else if (isRemove(t)) buffActive.delete(key);
+      const ev = buffs[bi++], t = String(ev.type).toLowerCase(), key = `${abilityKey(ev)}:${ev.sourceID}`;
+      if (isApply(t)) buffActive.set(key, eventAbilityName(ev)); else if (isRemove(t)) buffActive.delete(key);
     }
     while (di < debuffs.length && debuffs[di].timestamp <= ts) {
-      const ev = debuffs[di++], t = String(ev.type).toLowerCase(), key = `${ev.targetID}:${ev.abilityGameID}:${ev.sourceID}`;
-      if (isApply(t)) debuffActive.set(key, ev); else if (isRemove(t)) debuffActive.delete(key);
+      const ev = debuffs[di++], t = String(ev.type).toLowerCase(), key = `${ev.targetID}:${abilityKey(ev)}:${ev.sourceID}`;
+      if (isApply(t)) debuffActive.set(key, { event: ev, name: eventAbilityName(ev) }); else if (isRemove(t)) debuffActive.delete(key);
     }
-    const buffNames = new Set([...buffActive.values()].map(resolveAbilityName));
-    String(buffString || '').split('.').filter(Boolean).forEach(id => buffNames.add(resolveAbilityName(Number(id))));
+    const buffNames = new Set(buffActive.values());
+    const eventBuffs = Array.isArray(buffString) ? buffString : String(buffString || '').split(/[.,\s]+/).filter(Boolean);
+    eventBuffs.forEach(buff => {
+      if (buff && typeof buff === 'object') {
+        buffNames.add(buff.name || buff.abilityName || (buff.ability && buff.ability.name) || eventAbilityName(buff));
+      } else {
+        const value = String(buff);
+        const id = Number(value);
+        buffNames.add(Number.isFinite(id) && id > 0 ? resolveAbilityName(id) : value);
+      }
+    });
     const debuffNames = new Set();
-    debuffActive.forEach(ev => { if (attackerId == null || String(ev.targetID) === String(attackerId)) debuffNames.add(resolveAbilityName(ev.abilityGameID)); });
+    debuffActive.forEach(({ event, name }) => { if (attackerId == null || String(event.targetID) === String(attackerId)) debuffNames.add(name); });
     const allBuffs = [...buffNames].sort(), allDebuffs = [...debuffNames].sort();
     return { allBuffs, allDebuffs, mitBuffs: allBuffs.filter(isMitigationName), mitDebuffs: allDebuffs.filter(isMitigationName) };
   };
@@ -1966,6 +1978,7 @@ function renderDeathDetail(result, death, fight) {
   const typeOf = ev => String(ev.type || '').toLowerCase();
 
   let damage = result.damage || [];
+  const absorbedEvents = damage.filter(ev => typeOf(ev) === 'absorbed');
   const appliedDamage = damage.filter(ev => typeOf(ev) === 'damage');
   const hpIsBeforeHit = !appliedDamage.length; // only "calculateddamage" present -> snapshot is pre-hit
   if (appliedDamage.length) damage = appliedDamage;
@@ -1979,7 +1992,8 @@ function renderDeathDetail(result, death, fight) {
 
   const rows = [
     ...damage.map(ev => ({ kind: 'dmg', ev })),
-    ...heals.map(ev => ({ kind: 'heal', ev }))
+    ...heals.map(ev => ({ kind: 'heal', ev })),
+    ...absorbedEvents.map(ev => ({ kind: 'absorbed', ev }))
   ].sort((a, b) => a.ev.timestamp - b.ev.timestamp);
   const resourceSnapshots = (result.resources || []).map(event => ({
     timestamp: event.timestamp,
@@ -2009,9 +2023,8 @@ function renderDeathDetail(result, death, fight) {
       row.hpAfter = { hp: curHp, max: maxHp, estimated: false };
     } else if (curHp != null && maxHp) {
       const delta = Number(ev.amount || 0);
-      curHp = row.kind === 'dmg'
-        ? Math.max(0, curHp - delta)
-        : Math.min(maxHp, curHp + delta);
+      if (row.kind === 'dmg') curHp = Math.max(0, curHp - delta);
+      else if (row.kind === 'heal') curHp = Math.min(maxHp, curHp + delta);
       row.hpAfter = { hp: curHp, max: maxHp, estimated: true };
     }
   });
@@ -2079,6 +2092,12 @@ function renderDeathDetail(result, death, fight) {
           <span class="flex items-center gap-2 min-w-0"><span class="font-mono text-slate-500 text-[10px]">${time}</span><span class="text-emerald-400 truncate"><i class="fa-solid fa-plus text-[9px]"></i> ${escapeHTML(resolveAbilityName(ev.abilityGameID))} <span class="text-slate-500">(${escapeHTML(src)})</span></span></span>
           <span class="flex items-center gap-2 font-mono text-[10px] shrink-0"><span class="text-emerald-400">+${Number(ev.amount).toLocaleString()}</span>${hpCell}</span></div>`;
       }
+      if (row.kind === 'absorbed') {
+        const src = actorNames.get(String(ev.sourceID)) || 'Unknown source';
+        return `<div class="flex items-center justify-between gap-2 px-2 py-1 rounded hover:bg-slate-900 cursor-pointer death-row" data-ms="${relMs}">
+          <span class="flex items-center gap-2 min-w-0"><span class="font-mono text-slate-500 text-[10px]">${time}</span><span class="text-sky-300 truncate"><i class="fa-solid fa-shield-halved text-[9px]"></i> ${escapeHTML(resolveAbilityName(ev.abilityGameID))} absorbed <span class="text-slate-500">(${escapeHTML(src)})</span></span></span>
+          <span class="flex items-center gap-2 font-mono text-[10px] shrink-0"><span class="text-sky-300">${Number(ev.amount || 0).toLocaleString()} absorbed</span>${hpCell}</span></div>`;
+      }
       const isKill = ev === killingBlow;
       const mit = eventMitigationPct(ev);
       const fx = row.effects;
@@ -2096,7 +2115,7 @@ function renderDeathDetail(result, death, fight) {
     }).join('')}</div>` : `<div class="text-slate-500 italic text-[11px]">No damage or healing data found in this window.</div>`}
     <div class="text-[10px] text-slate-600 mt-2">Mitigation % is FFLogs' own damage math. Green chips are defensives/shields on the player; blue chips are debuffs on the attacker (Reprisal, Addle, Feint). ${anyRealHp ? '' : 'FFLogs did not include HP snapshots here, so HP could not be shown.'}</div>
     <details class="mt-1"><summary class="text-[10px] text-slate-600 cursor-pointer hover:text-slate-400 select-none">Debug info</summary>
-      <div class="text-[10px] text-slate-500 font-mono mt-1 break-words">damage events: ${(result.damage || []).length} · heals: ${(result.heals || []).length} · buff events on player: ${(result.buffs || []).length} · enemy debuff events: ${(result.debuffs || []).length}<br>damage event fields: ${escapeHTML(Object.keys((result.damage || [])[0] || {}).join(', ') || 'none')}</div></details>
+      <div class="text-[10px] text-slate-500 font-mono mt-1 break-words">damage events: ${(result.damage || []).length} · heals: ${(result.heals || []).length} · buff events on player: ${(result.buffs || []).length} · enemy debuff events: ${(result.debuffs || []).length} · resource events: ${(result.resources || []).length}<br>damage event fields: ${escapeHTML(Object.keys((result.damage || [])[0] || {}).join(', ') || 'none')}<br>resource event fields: ${escapeHTML(Object.keys((result.resources || [])[0] || {}).join(', ') || 'none')}</div></details>
   </div>`;
 
   body.innerHTML = html;
