@@ -2224,7 +2224,7 @@ function getPlanningClassJobs() {
 }
 
 function resetPlanningClassVisibility() {
-  const rosterJobs = new Set(getReportPlayers().map(actor => jobCodeForSubType(actor.subType)).filter(Boolean));
+  const rosterJobs = new Set(getPlayersInCurrentPull().map(actor => jobCodeForSubType(actor.subType)).filter(Boolean));
   hiddenPlanningClasses = new Set([...getPlanningClassJobs()].filter(job => !rosterJobs.has(job)));
 }
 
