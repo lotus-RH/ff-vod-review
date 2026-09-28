@@ -208,7 +208,7 @@
       </div>
 
       <div id="tab-content-deaths" class="bottom-tab-content hidden flex-1 p-3 overflow-y-auto">
-        <div id="deaths-list-container" class="flex flex-wrap gap-1.5"></div>
+        <div id="deaths-list-container" class="flex flex-col items-center gap-1.5"></div>
       </div>
 
       <div id="tab-content-notes" class="bottom-tab-content hidden flex-1 p-3 overflow-y-auto flex flex-col gap-2">
@@ -1379,6 +1379,7 @@ async function loadReport(code) {
     selectedPhaseFilter = '';
     document.getElementById('phase-filter').value = '';
     loadReportLocalData();
+    ensureReportPlayersArePOVs();
     document.getElementById('active-log-title').textContent = `${r.title} — ${report.zoneName}`;
     document.getElementById('active-log-title').classList.remove('hidden');
     activeFightId = report.fights.length ? report.fights[0].id : null;
@@ -1397,16 +1398,34 @@ async function loadReport(code) {
   }
 }
 
+function getReportPlayers() {
+  return report.actors.filter(actor => {
+    const name = String(actor.name || '').trim().toLocaleLowerCase();
+    const subtype = String(actor.subType || '').replace(/[\s_-]/g, '').toLocaleLowerCase();
+    return name && name !== 'multiple players' && name !== 'limit break' && subtype !== 'multipleplayers' && subtype !== 'limitbreak';
+  });
+}
+
+function ensureReportPlayersArePOVs() {
+  const existingNames = new Set(povs.map(pov => String(pov.player || '').trim().toLocaleLowerCase()).filter(Boolean));
+  let addedPOV = false;
+  getReportPlayers().forEach(actor => {
+    const player = String(actor.name || '').trim();
+    const playerKey = player.toLocaleLowerCase();
+    if (existingNames.has(playerKey)) return;
+    povs.push({ id: uid('pov'), player, job: String(actor.subType || '').toUpperCase(), segments: [] });
+    existingNames.add(playerKey);
+    addedPOV = true;
+  });
+  if (addedPOV) persistPOVs();
+}
+
 function renderLogPlayerChips() {
   const c = document.getElementById('log-players-chip-container');
   c.innerHTML = '';
   if (!report) return;
   const fight = getActiveFight();
-  const players = report.actors.filter(actor => {
-    const name = String(actor.name || '').trim().toLocaleLowerCase();
-    const subtype = String(actor.subType || '').replace(/[\s_-]/g, '').toLocaleLowerCase();
-    return name !== 'multiple players' && name !== 'limit break' && subtype !== 'multipleplayers' && subtype !== 'limitbreak';
-  });
+  const players = getReportPlayers();
   const roster = fight && Array.isArray(fight.friendlyPlayers)
     ? players.filter(a => fight.friendlyPlayers.includes(a.id))
     : players;
