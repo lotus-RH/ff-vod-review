@@ -433,6 +433,19 @@ const JOB_COLORS = {
   RPR:'#965a90', BRD:'#91ba40', MCH:'#6ee1d6', DNC:'#e2b0af',
   BLM:'#a579d6', SMN:'#2d9b78', RDM:'#e28fb0', PCT:'#e8a5c4'
 };
+const JOB_CODES_BY_NAME = {
+  paladin: 'PLD', warrior: 'WAR', darkknight: 'DRK', gunbreaker: 'GNB',
+  whitemage: 'WHM', scholar: 'SCH', astrologian: 'AST', sage: 'SGE',
+  monk: 'MNK', dragoon: 'DRG', ninja: 'NIN', samurai: 'SAM', reaper: 'RPR', viper: 'VPR',
+  bard: 'BRD', machinist: 'MCH', dancer: 'DNC', blackmage: 'BLM', summoner: 'SMN',
+  redmage: 'RDM', pictomancer: 'PCT'
+};
+function jobCodeForSubType(subType) {
+  const normalized = String(subType || '').trim().toLocaleLowerCase().replace(/[\s_-]/g, '');
+  if (Object.prototype.hasOwnProperty.call(JOB_CODES_BY_NAME, normalized)) return JOB_CODES_BY_NAME[normalized];
+  const code = String(subType || '').trim().toUpperCase();
+  return Object.prototype.hasOwnProperty.call(JOB_COLORS, code) ? code : '';
+}
 const PLANNING_CLASS_GROUPS = [
   { name: 'Tanks', jobs: ['PLD', 'WAR', 'DRK', 'GNB'] },
   { name: 'Healer', jobs: ['WHM', 'AST', 'SCH', 'SGE'] },
@@ -1379,10 +1392,10 @@ async function loadReport(code) {
     selectedPhaseFilter = '';
     document.getElementById('phase-filter').value = '';
     loadReportLocalData();
-    ensureReportPlayersArePOVs();
     document.getElementById('active-log-title').textContent = `${r.title} — ${report.zoneName}`;
     document.getElementById('active-log-title').classList.remove('hidden');
     activeFightId = report.fights.length ? report.fights[0].id : null;
+    ensureReportPlayersArePOVs();
     renderPlanningControls();
     if (!activePovId && povs.length) activePovId = povs[0].id;
     populatePhaseFilter();
@@ -1406,15 +1419,33 @@ function getReportPlayers() {
   });
 }
 
+function getPlayersInCurrentPull() {
+  if (!report) return [];
+  const players = getReportPlayers();
+  const fight = getActiveFight();
+  return fight && Array.isArray(fight.friendlyPlayers)
+    ? players.filter(actor => fight.friendlyPlayers.includes(actor.id))
+    : players;
+}
+
 function ensureReportPlayersArePOVs() {
-  const existingNames = new Set(povs.map(pov => String(pov.player || '').trim().toLocaleLowerCase()).filter(Boolean));
+  const existingByName = new Map(povs.map(pov => [String(pov.player || '').trim().toLocaleLowerCase(), pov]).filter(([name]) => name));
   let addedPOV = false;
-  getReportPlayers().forEach(actor => {
+  getPlayersInCurrentPull().forEach(actor => {
     const player = String(actor.name || '').trim();
     const playerKey = player.toLocaleLowerCase();
-    if (existingNames.has(playerKey)) return;
-    povs.push({ id: uid('pov'), player, job: String(actor.subType || '').toUpperCase(), segments: [] });
-    existingNames.add(playerKey);
+    const job = jobCodeForSubType(actor.subType);
+    const existingPOV = existingByName.get(playerKey);
+    if (existingPOV) {
+      if (job && !Object.prototype.hasOwnProperty.call(JOB_COLORS, String(existingPOV.job || '').toUpperCase())) {
+        existingPOV.job = job;
+        addedPOV = true;
+      }
+      return;
+    }
+    const pov = { id: uid('pov'), player, job, segments: [] };
+    povs.push(pov);
+    existingByName.set(playerKey, pov);
     addedPOV = true;
   });
   if (addedPOV) persistPOVs();
@@ -1425,10 +1456,7 @@ function renderLogPlayerChips() {
   c.innerHTML = '';
   if (!report) return;
   const fight = getActiveFight();
-  const players = getReportPlayers();
-  const roster = fight && Array.isArray(fight.friendlyPlayers)
-    ? players.filter(a => fight.friendlyPlayers.includes(a.id))
-    : players;
+  const roster = getPlayersInCurrentPull();
   const label = document.getElementById('log-players-label');
   if (label) label.textContent = fight ? `Players in this pull` : 'Players in log';
   if (fight && !roster.length) {
@@ -1436,7 +1464,7 @@ function renderLogPlayerChips() {
     return;
   }
   roster.forEach(a => {
-    const job = (a.subType || '').toUpperCase();
+    const job = jobCodeForSubType(a.subType);
     const color = JOB_COLORS[job] || '#64748b';
     const chip = document.createElement('button');
     chip.className = 'job-chip hover:opacity-80 transition';
@@ -2070,7 +2098,6 @@ function renderDeathDetail(result, death, fight) {
   const killerName = death.ability && death.ability !== 'Unknown cause'
     ? death.ability
     : (killingBlow ? resolveAbilityName(killingBlow.abilityGameID) : 'Unknown cause');
-  const killFx = killRow && killRow.effects ? killRow.effects : { allBuffs: [], allDebuffs: [], mitBuffs: [], mitDebuffs: [] };
   const killMit = killingBlow ? eventMitigationPct(killingBlow) : null;
   const hpBeforeKill = (() => {
     const idx = rows.indexOf(killRow);
@@ -2098,16 +2125,6 @@ function renderDeathDetail(result, death, fight) {
       ${Number(killingBlow.absorbed) > 0 ? `<span class="text-sky-300">${Number(killingBlow.absorbed).toLocaleString()} absorbed</span>` : ''}
       ${hpBeforeKill ? `<span>HP before: <span class="text-slate-200 font-mono">${Math.round(hpBeforeKill.hp / hpBeforeKill.max * 100)}%</span> <span class="text-slate-500">(${fmtHp(hpBeforeKill.hp)} / ${fmtHp(hpBeforeKill.max)})</span></span>` : ''}
     </div>` : ''}
-  </div>`;
-
-  const nothingActive = !killFx.mitBuffs.length && !killFx.mitDebuffs.length;
-  html += `<div class="bg-slate-950 border border-slate-800 rounded-lg p-3">
-    <div class="text-[10px] uppercase text-slate-500 font-bold mb-1.5">Mitigation active on the killing blow</div>
-    ${nothingActive
-      ? `<div class="text-slate-500 italic text-[11px]">${killingBlow ? 'No recognized mitigation or shields found. Check the full effect list below and click anything that should count.' : 'No damage events found to read mitigation from.'}</div>`
-      : `<div class="flex flex-wrap gap-1">${effectChips(killFx.mitBuffs, 'buff')}${effectChips(killFx.mitDebuffs, 'debuff')}</div>`}
-    ${(killFx.allBuffs.length || killFx.allDebuffs.length) ? `<details class="mt-2"><summary class="text-[10px] text-slate-500 cursor-pointer hover:text-slate-300 select-none">All effects at that moment (click to mark/unmark as mitigation)</summary>
-      <div class="flex flex-wrap gap-1 mt-1.5">${killFx.allBuffs.map(n => effectToggle(n, 'buff')).join('')}${killFx.allDebuffs.map(n => effectToggle(n, 'debuff')).join('')}</div></details>` : ''}
   </div>`;
 
   html += `<div class="bg-slate-950 border border-slate-800 rounded-lg p-3">
