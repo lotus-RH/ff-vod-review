@@ -2475,14 +2475,14 @@ function buildPlannedChip(encounterId, name, job, usage, opts) {
   if (cooldownSeconds > 0) {
     const bar = document.createElement('div');
     bar.className = 'absolute rounded-r pointer-events-none';
-    bar.style.cssText = `left:${chipSize}px; top:${chipSize / 2 - 3}px; height:6px; width:${cooldownSeconds * pxPerSecond}px; background:linear-gradient(to right, ${color}aa, ${color}22);`;
+    bar.style.cssText = `left:${chipSize}px; top:${chipSize / 2 - 3}px; height:6px; width:${cooldownSeconds * pxPerSecond}px; background:${color};`;
     wrap.appendChild(bar);
   }
   if (abilityDurationSeconds > 0) {
     const bar = document.createElement('div');
     const visibleDuration = Math.min(abilityDurationSeconds, Math.max(0, durationSeconds - usage.time));
     bar.className = 'absolute rounded-r pointer-events-none';
-    bar.style.cssText = `left:${chipSize}px; top:${chipSize / 2 + 3}px; height:4px; width:${visibleDuration * pxPerSecond}px; background:linear-gradient(to right, #34d399aa, #34d39922);`;
+    bar.style.cssText = `left:${chipSize}px; top:${chipSize / 2 + 3}px; height:4px; width:${visibleDuration * pxPerSecond}px; background:#34d399;`;
     bar.title = `${name} duration: ${abilityDurationSeconds}s`;
     wrap.appendChild(bar);
   }
