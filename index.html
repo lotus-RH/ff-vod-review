@@ -261,21 +261,11 @@
         <datalist id="planning-encounter-options"></datalist>
         <button onclick="loadPlanningEncounter()" class="text-xs bg-ffpurple-600 hover:bg-ffpurple-500 text-white px-2.5 py-1.5 rounded"><i class="fa-solid fa-arrow-right-to-bracket"></i> Load</button>
       </div>
-      <label for="planning-fight-select" class="text-[11px] text-slate-400">Pull</label>
-      <select id="planning-fight-select" class="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-200 min-w-40" onchange="if (this.value) selectPull(Number(this.value))">
-        <option value="">No report loaded</option>
-      </select>
-      <label for="planning-player-filter" class="sr-only">Filter by player</label>
-      <select id="planning-player-filter" class="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-200" onchange="renderTimeline()">
-        <option value="">All players</option>
-      </select>
       <label for="planning-ability-filter" class="sr-only">Filter abilities</label>
       <div class="flex items-center gap-1.5 bg-slate-950 border border-slate-700 rounded px-2 py-1.5">
         <i class="fa-solid fa-magnifying-glass text-slate-500 text-[10px]"></i>
         <input id="planning-ability-filter" type="search" placeholder="Filter abilities" class="bg-transparent text-xs text-slate-200 w-32" oninput="renderTimeline()">
       </div>
-      <button onclick="openMechanicsModal()" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-2.5 py-1.5 text-slate-300"><i class="fa-solid fa-burst mr-1"></i> Mechanics</button>
-      <button onclick="openAbilityModal()" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-2.5 py-1.5 text-slate-300"><i class="fa-solid fa-list mr-1"></i> Tracked abilities</button>
     </div>
   </div>
   <div class="flex items-center justify-between gap-3 px-4 py-2 border-b border-slate-800/80 text-[11px] shrink-0">
@@ -1623,8 +1613,6 @@ function updateStatsHeader() {
    ========================================================================= */
 function selectPull(fightId) {
   activeFightId = fightId;
-  const planningFightSelect = document.getElementById('planning-fight-select');
-  if (planningFightSelect) planningFightSelect.value = String(fightId);
   renderPullList();
   const fight = getActiveFight();
   if (!fight) return;
@@ -2216,7 +2204,6 @@ function loadPlanningEncounter() {
   }
   activePlanningEncounterId = String(Number(encounterId));
   input.value = activePlanningEncounterId;
-  document.getElementById('planning-player-filter').value = '';
   renderTimeline();
 }
 
@@ -2604,51 +2591,22 @@ function buildPlannedChip(encounterId, name, job, usage, opts) {
 }
 
 function renderPlanningControls() {
-  const fightSelect = document.getElementById('planning-fight-select');
-  const playerSelect = document.getElementById('planning-player-filter');
-  if (!fightSelect || !playerSelect) return;
   renderPlanningClassFilters();
-  const selectedPlayer = playerSelect.value;
-  fightSelect.innerHTML = '';
-  playerSelect.innerHTML = '<option value="">All players</option>';
   const encounterOptions = document.getElementById('planning-encounter-options');
-  if (encounterOptions) {
-    encounterOptions.innerHTML = '';
-    Object.values(loadEncounterMechanicsDataset()).sort((a, b) => String(a.name).localeCompare(String(b.name))).forEach(encounter => {
-      const option = document.createElement('option');
-      option.value = String(encounter.encounterID);
-      option.label = encounter.name || `Encounter ${encounter.encounterID}`;
-      encounterOptions.appendChild(option);
-    });
-  }
-  if (!report || !report.fights.length) {
-    fightSelect.innerHTML = '<option value="">No report loaded</option>';
-    playerSelect.disabled = true;
-    return;
-  }
-  report.fights.forEach((fight, index) => {
+  if (!encounterOptions) return;
+  encounterOptions.innerHTML = '';
+  Object.values(loadEncounterMechanicsDataset()).sort((a, b) => String(a.name).localeCompare(String(b.name))).forEach(encounter => {
     const option = document.createElement('option');
-    option.value = String(fight.id);
-    const result = fight.kill ? 'Kill' : (fight.fightPercentage != null ? `${fight.fightPercentage.toFixed(1)}%` : 'Wipe');
-    option.textContent = `${String(index + 1).padStart(2, '0')} · ${fight.name} · ${result}`;
-    fightSelect.appendChild(option);
+    option.value = String(encounter.encounterID);
+    option.label = encounter.name || `Encounter ${encounter.encounterID}`;
+    encounterOptions.appendChild(option);
   });
-  fightSelect.value = String(activeFightId || report.fights[0].id);
-  report.actors.forEach(actor => {
-    const option = document.createElement('option');
-    option.value = String(actor.id);
-    option.textContent = actor.name;
-    playerSelect.appendChild(option);
-  });
-  if ([...playerSelect.options].some(option => option.value === selectedPlayer)) playerSelect.value = selectedPlayer;
-  playerSelect.disabled = !report;
 }
 
 function getPlanningAbilityRows(events, fight) {
   const actors = new Map(report.actors.map(actor => [String(actor.id), actor]));
   const povJobs = new Map(povs.map(pov => [pov.player.toLocaleLowerCase(), pov.job]));
   const casts = (events.casts || []).filter(event => String(event.type).toLowerCase() === 'cast');
-  const playerFilter = document.getElementById('planning-player-filter').value;
   const search = document.getElementById('planning-ability-filter').value.trim().toLocaleLowerCase();
   const jobs = new Map();
   trackedAbilityNames.forEach(abilityName => {
@@ -2664,7 +2622,7 @@ function getPlanningAbilityRows(events, fight) {
         const actorJob = (povJobs.get(actor.name.toLocaleLowerCase()) || actor.subType || '').toUpperCase();
         const matchesJob = jobKey === 'Unassigned' || actorJob === jobKey;
         return matchesJob && eventAbilityName(event).toLocaleLowerCase() === abilityName.toLocaleLowerCase();
-      }).filter(event => !playerFilter || String(event.sourceID) === playerFilter);
+      });
       const matchingActors = new Set(abilityCasts.map(event => String(event.sourceID)));
       const rowActors = [...matchingActors].map(id => actors.get(id)).filter(Boolean);
       const actorNames = rowActors.map(actor => actor.name);
