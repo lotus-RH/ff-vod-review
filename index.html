@@ -31,6 +31,7 @@
   .toast { animation: toastIn .18s ease-out; }
   @keyframes toastIn { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: translateY(0); } }
   .pull-item.active { border-color:#8b5cf6 !important; background-color: rgba(139,92,246,0.08) !important; }
+  .page-switch.active { background:#334155; color:#fff; border-color:#64748b; }
   #player-container iframe, #yt-player-el { width: 100% !important; height: 100% !important; }
   input, select, textarea { outline: none; }
   input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 2px rgba(139,92,246,0.5); }
@@ -47,6 +48,15 @@
       </div>
       <h1 class="font-bold text-sm tracking-wide hidden sm:block">Lotus <span class="text-transparent bg-clip-text bg-gradient-to-r from-ffpurple-400 to-ffcyan-400">Review & Planning</span></h1>
     </div>
+
+    <nav class="flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-950 p-1 shrink-0" aria-label="Workspace page">
+      <button id="page-btn-review" onclick="switchPage('review')" class="page-switch active text-xs text-slate-400 border border-transparent px-3 py-1.5 rounded-md transition" aria-pressed="true">
+        <i class="fa-solid fa-magnifying-glass-chart mr-1"></i> Review
+      </button>
+      <button id="page-btn-planning" onclick="switchPage('planning')" class="page-switch text-xs text-slate-400 border border-transparent px-3 py-1.5 rounded-md transition" aria-pressed="false">
+        <i class="fa-solid fa-calendar-days mr-1"></i> Planning
+      </button>
+    </nav>
 
     <div class="flex items-center gap-1.5 min-w-0 bg-slate-950/80 px-2 py-1.5 rounded-lg border border-slate-800">
       <input id="input-fflogs-url" type="text" placeholder="Paste FFLogs report URL or code..."
@@ -237,6 +247,40 @@
   </div>
 </main>
 
+<main id="planning-workspace" class="hidden flex-1 min-h-0 flex-col overflow-hidden bg-slate-950">
+  <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-slate-800 bg-slate-900/70 shrink-0">
+    <div class="min-w-0">
+      <h2 class="text-sm font-semibold text-slate-100 flex items-center gap-2"><i class="fa-solid fa-calendar-days text-ffcyan-400"></i> Ability plan</h2>
+      <p id="planning-pull-summary" class="text-[11px] text-slate-500 mt-0.5">Load a report and select a pull to see player abilities.</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <label for="planning-fight-select" class="text-[11px] text-slate-400">Pull</label>
+      <select id="planning-fight-select" class="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-200 min-w-40" onchange="if (this.value) selectPull(Number(this.value))">
+        <option value="">No report loaded</option>
+      </select>
+      <label for="planning-player-filter" class="sr-only">Filter by player</label>
+      <select id="planning-player-filter" class="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-200" onchange="renderTimeline()">
+        <option value="">All players</option>
+      </select>
+      <label for="planning-ability-filter" class="sr-only">Filter abilities</label>
+      <div class="flex items-center gap-1.5 bg-slate-950 border border-slate-700 rounded px-2 py-1.5">
+        <i class="fa-solid fa-magnifying-glass text-slate-500 text-[10px]"></i>
+        <input id="planning-ability-filter" type="search" placeholder="Filter abilities" class="bg-transparent text-xs text-slate-200 w-32" oninput="renderTimeline()">
+      </div>
+      <button onclick="openAbilityModal()" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-2.5 py-1.5 text-slate-300"><i class="fa-solid fa-list mr-1"></i> Tracked abilities</button>
+    </div>
+  </div>
+  <div class="flex items-center justify-between gap-3 px-4 py-2 border-b border-slate-800/80 text-[11px] shrink-0">
+    <span id="planning-ability-summary" class="text-slate-500">Abilities are grouped by player.</span>
+    <div class="flex items-center gap-2 font-mono shrink-0">
+      <span id="planning-time-display" class="text-ffcyan-400">00:00</span>
+      <input id="planning-seek-input" type="range" min="0" max="1" step="0.1" value="0" aria-label="Seek within the planned pull" class="w-32 h-1 accent-ffcyan-400 cursor-pointer disabled:opacity-40">
+      <span id="planning-duration-display" class="text-slate-500">00:00</span>
+    </div>
+  </div>
+  <div id="planning-timeline-visualization" class="flex-1 min-h-0 overflow-auto bg-slate-950 px-2" style="scrollbar-gutter:stable;"></div>
+</main>
+
 <!-- SETTINGS MODAL -->
 <div id="settings-modal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4">
   <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl">
@@ -376,7 +420,7 @@ const JOB_COLORS = {
   RPR:'#965a90', BRD:'#91ba40', MCH:'#6ee1d6', DNC:'#e2b0af',
   BLM:'#a579d6', SMN:'#2d9b78', RDM:'#e28fb0', PCT:'#e8a5c4'
 };
-const DEFAULT_AUTO_SYNC_NUDGE_SECONDS = -7;
+const DEFAULT_AUTO_SYNC_NUDGE_SECONDS = -8;
 
 /* =========================================================================
    STATE
@@ -443,6 +487,11 @@ window.addEventListener('DOMContentLoaded', async () => {
   });
   document.getElementById('wipe-threshold-input').addEventListener('input', updateWipeThreshold);
   document.getElementById('timeline-seek-input').addEventListener('input', event => {
+    const offsetMs = Number(event.target.value) * 1000;
+    updateTimelinePlayhead(offsetMs);
+    seekToSpecificOffsetMs(offsetMs);
+  });
+  document.getElementById('planning-seek-input').addEventListener('input', event => {
     const offsetMs = Number(event.target.value) * 1000;
     updateTimelinePlayhead(offsetMs);
     seekToSpecificOffsetMs(offsetMs);
@@ -1133,6 +1182,7 @@ async function loadReport(code) {
     document.getElementById('active-log-title').textContent = `${r.title} — ${report.zoneName}`;
     document.getElementById('active-log-title').classList.remove('hidden');
     activeFightId = report.fights.length ? report.fights[0].id : null;
+    renderPlanningControls();
     if (!activePovId && povs.length) activePovId = povs[0].id;
     populatePhaseFilter();
     renderPullList();
@@ -1316,9 +1366,13 @@ function updateStatsHeader() {
    ========================================================================= */
 function selectPull(fightId) {
   activeFightId = fightId;
+  const planningFightSelect = document.getElementById('planning-fight-select');
+  if (planningFightSelect) planningFightSelect.value = String(fightId);
   renderPullList();
   const fight = getActiveFight();
   if (!fight) return;
+  const planningSummary = document.getElementById('planning-pull-summary');
+  if (planningSummary) planningSummary.textContent = `${fight.name} · ${fight.kill ? 'Kill' : 'Wipe'} · ${formatSecondsToMMSS(Math.round((fight.endTime - fight.startTime) / 1000))}`;
   document.getElementById('timeline-pull-title').textContent =
     `${fight.name} — ${fight.kill ? 'Kill' : (fight.fightPercentage != null ? fight.fightPercentage.toFixed(1) + '% remaining' : 'Wipe')} (${formatSecondsToMMSS(Math.round((fight.endTime - fight.startTime) / 1000))})`;
   jumpToCurrentPullStart();
@@ -1396,12 +1450,22 @@ function updateTimelinePlayhead(offsetMs) {
   const clampedMs = Math.max(0, Math.min(durationMs, Number(offsetMs) || 0));
   const currentX = document.getElementById('timeline-seek-current');
   if (currentX) currentX.textContent = formatSecondsToMMSS(clampedMs / 1000);
+  const planningCurrent = document.getElementById('planning-time-display');
+  if (planningCurrent) planningCurrent.textContent = formatSecondsToMMSS(clampedMs / 1000);
   slider.value = String(clampedMs / 1000);
+  const planningSlider = document.getElementById('planning-seek-input');
+  if (planningSlider) {
+    planningSlider.value = String(clampedMs / 1000);
+    planningSlider.max = String(durationMs / 1000);
+    planningSlider.disabled = slider.disabled;
+  }
   const hasVideo = !!(getActivePOV() && getActivePOV().segments.some(segment => segment.videoId && segment.startAbsMs != null));
   slider.disabled = !hasVideo;
-  const position = document.querySelectorAll('#timeline-visualization [data-timeline-playhead]');
+  if (planningSlider) planningSlider.disabled = !hasVideo;
+  const position = document.querySelectorAll('#timeline-visualization [data-timeline-playhead], #planning-timeline-visualization [data-timeline-playhead]');
   position.forEach(line => {
-    const x = 110 + (Math.max(1, timelineWidth(line.ownerSVGElement.parentElement)) - 125) * (clampedMs / durationMs);
+    const left = Number(line.ownerSVGElement.getAttribute('data-left')) || 110;
+    const x = left + (Math.max(1, timelineWidth(line.ownerSVGElement.parentElement)) - left - 15) * (clampedMs / durationMs);
     line.setAttribute('x1', x);
     line.setAttribute('x2', x);
   });
@@ -1858,9 +1922,103 @@ function renderDeathDetail(result, death, fight) {
 function renderTimeline() {
   const fight = getActiveFight();
   const visualization = document.getElementById('timeline-visualization');
+  const planningVisualization = document.getElementById('planning-timeline-visualization');
   visualization.innerHTML = '';
-  if (!fight) return;
+  planningVisualization.innerHTML = '';
+  renderPlanningControls();
+  if (!fight) {
+    planningVisualization.innerHTML = '<div class="text-xs text-slate-500 italic p-5">Load a report and select a pull to build an ability plan.</div>';
+    return;
+  }
   renderCombatTimeline(fight, visualization);
+  renderCombatTimeline(fight, planningVisualization, true);
+}
+
+function renderPlanningControls() {
+  const fightSelect = document.getElementById('planning-fight-select');
+  const playerSelect = document.getElementById('planning-player-filter');
+  if (!fightSelect || !playerSelect) return;
+  const selectedPlayer = playerSelect.value;
+  fightSelect.innerHTML = '';
+  if (!report || !report.fights.length) {
+    fightSelect.innerHTML = '<option value="">No report loaded</option>';
+    playerSelect.innerHTML = '<option value="">All players</option>';
+    return;
+  }
+  report.fights.forEach((fight, index) => {
+    const option = document.createElement('option');
+    option.value = String(fight.id);
+    const result = fight.kill ? 'Kill' : (fight.fightPercentage != null ? `${fight.fightPercentage.toFixed(1)}%` : 'Wipe');
+    option.textContent = `${String(index + 1).padStart(2, '0')} · ${fight.name} · ${result}`;
+    fightSelect.appendChild(option);
+  });
+  fightSelect.value = String(activeFightId || report.fights[0].id);
+  playerSelect.innerHTML = '<option value="">All players</option>';
+  report.actors.forEach(actor => {
+    const option = document.createElement('option');
+    option.value = String(actor.id);
+    option.textContent = actor.name;
+    playerSelect.appendChild(option);
+  });
+  if ([...playerSelect.options].some(option => option.value === selectedPlayer)) playerSelect.value = selectedPlayer;
+}
+
+function getPlanningAbilityRows(events, fight) {
+  const actors = new Map(report.actors.map(actor => [String(actor.id), actor]));
+  const povJobs = new Map(povs.map(pov => [pov.player.toLocaleLowerCase(), pov.job]));
+  const groups = new Map();
+  (events.casts || []).filter(event => String(event.type).toLowerCase() === 'cast').forEach(event => {
+    const sourceID = String(event.sourceID);
+    const actor = actors.get(sourceID);
+    if (!actor) return;
+    const abilityName = eventAbilityName(event);
+    const abilityId = eventAbilityId(event);
+    const key = `${sourceID}:${abilityId || abilityName.toLocaleLowerCase()}`;
+    if (!groups.has(key)) {
+      const job = povJobs.get(actor.name.toLocaleLowerCase()) || actor.subType || '';
+      groups.set(key, {
+        sourceID,
+        actorName: actor.name,
+        job,
+        abilityName,
+        abilityId,
+        color: JOB_COLORS[job] || '#38bdf8',
+        casts: [],
+        spans: []
+      });
+    }
+    groups.get(key).casts.push(event);
+  });
+  const playerFilter = document.getElementById('planning-player-filter').value;
+  const search = document.getElementById('planning-ability-filter').value.trim().toLocaleLowerCase();
+  const rows = [...groups.values()].filter(row => {
+    return (!playerFilter || row.sourceID === playerFilter) &&
+      (!search || row.abilityName.toLocaleLowerCase().includes(search) || row.actorName.toLocaleLowerCase().includes(search));
+  });
+  rows.forEach(row => {
+    const activeByTarget = new Map();
+    (events.buffs || []).filter(event => String(event.sourceID) === row.sourceID &&
+      (eventAbilityId(event) === row.abilityId || eventAbilityName(event).toLocaleLowerCase() === row.abilityName.toLocaleLowerCase()))
+      .sort((a, b) => a.timestamp - b.timestamp).forEach(event => {
+        const buffId = eventAbilityId(event) || eventAbilityName(event);
+        const key = `${event.targetID}:${buffId}`;
+        if (/^(applybuff|applybuffstack|refreshbuff)$/.test(event.type)) {
+          const previous = activeByTarget.get(key);
+          if (previous) previous.end = event.timestamp;
+          const span = { start: event.timestamp, end: fight.endTime, targetID: event.targetID, name: eventAbilityName(event) };
+          row.spans.push(span);
+          activeByTarget.set(key, span);
+        } else if (/^(removebuff|removebuffstack)$/.test(event.type)) {
+          const active = activeByTarget.get(key);
+          if (active) {
+            active.end = event.timestamp;
+            activeByTarget.delete(key);
+          }
+        }
+      });
+  });
+  rows.sort((a, b) => a.actorName.localeCompare(b.actorName) || a.abilityName.localeCompare(b.abilityName));
+  return rows;
 }
 
 function timelineWidth(container) {
@@ -1895,13 +2053,13 @@ function renderAbilityNameSuggestions(events) {
     options.appendChild(option);
   });
 }
-function renderCombatTimeline(fight, container) {
+function renderCombatTimeline(fight, container, planningMode = false) {
   const events = timelineEventsCache[fight.id] || { buffs: [], casts: [] };
   const isLoading = !timelineEventsCache[fight.id];
   const actorNames = new Map(report.actors.map(actor => [String(actor.id), actor.name]));
   const playerIds = new Set(report.actors.map(player => String(player.id)));
-  const mechanicRows = getMechanicRows(fight).filter(row => !hiddenMechanicNames.includes(row.name));
-  const abilityRows = getTimelineAbilityNames().map(abilityName => {
+  const mechanicRows = planningMode ? [] : getMechanicRows(fight).filter(row => !hiddenMechanicNames.includes(row.name));
+  const abilityRows = planningMode ? getPlanningAbilityRows(events, fight) : getTimelineAbilityNames().map(abilityName => {
     const searchName = abilityName.toLocaleLowerCase();
     const casts = events.casts.filter(event => String(event.type).toLowerCase() === 'cast' && playerIds.has(String(event.sourceID)) && eventAbilityName(event).toLocaleLowerCase() === searchName);
     const castIds = new Set(casts.map(eventAbilityId).filter(Boolean));
@@ -1933,7 +2091,7 @@ function renderCombatTimeline(fight, container) {
     });
     return { abilityName, casts, spans };
   });
-  const fightNotes = notes.filter(note => note.fightId === fight.id);
+  const fightNotes = planningMode ? [] : notes.filter(note => note.fightId === fight.id);
   const mechanicLanes = [];
   const uncategorized = mechanicRows.filter(row => !getMechanicCategory(row.name));
   if (uncategorized.length) mechanicLanes.push({ label: 'Mechanics', color: '#fbbf24', rows: uncategorized });
@@ -1941,12 +2099,12 @@ function renderCombatTimeline(fight, container) {
     mechanicLanes.push({ label: category, color: categoryColor(category), rows: mechanicRows.filter(row => getMechanicCategory(row.name) === category) });
   });
   const rowCount = mechanicLanes.length + (fightNotes.length ? 1 : 0) + abilityRows.length;
-  const rowHeight = 32;
+  const rowHeight = planningMode ? 34 : 32;
   const height = Math.max(40, 8 + rowCount * rowHeight);
   const svgNS = 'http://www.w3.org/2000/svg';
   const W = timelineWidth(container);
   const start = fight.startTime, duration = Math.max(1, fight.endTime - start);
-  const left = 110, right = W - 15, width = right - left;
+  const left = planningMode ? 205 : 110, right = W - 15, width = right - left;
   const xAt = timestamp => left + Math.max(0, Math.min(1, (timestamp - start) / duration)) * width;
   const seekInput = document.getElementById('timeline-seek-input');
   const durationLabel = document.getElementById('timeline-seek-duration');
@@ -1961,6 +2119,7 @@ function renderCombatTimeline(fight, container) {
     el.setAttribute('width', W);
     el.setAttribute('height', h);
     el.setAttribute('class', 'block');
+    el.setAttribute('data-left', left);
     return el;
   };
   // Sticky time axis stays visible while the lanes scroll underneath.
@@ -2024,19 +2183,26 @@ function renderCombatTimeline(fight, container) {
     const y = 4 + rowIndex++ * rowHeight;
     const centerY = y + rowHeight / 2;
     const { abilityName, casts, spans } = row;
-    add('text', { x: 4, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, abilityName.length > 17 ? abilityName.slice(0, 16) + '…' : abilityName);
+    if (planningMode) {
+      const playerLabel = row.actorName.length > 12 ? row.actorName.slice(0, 11) + '…' : row.actorName;
+      const abilityLabel = abilityName.length > 17 ? abilityName.slice(0, 16) + '…' : abilityName;
+      add('text', { x: 4, y: centerY + 3, fill: row.color, 'font-size': 10 }, playerLabel).appendChild(document.createElementNS(svgNS, 'title')).textContent = `${row.actorName}${row.job ? ` · ${row.job}` : ''}`;
+      add('text', { x: 92, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, abilityLabel).appendChild(document.createElementNS(svgNS, 'title')).textContent = abilityName;
+    } else {
+      add('text', { x: 4, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, abilityName.length > 17 ? abilityName.slice(0, 16) + '…' : abilityName);
+    }
     add('line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b', 'stroke-width': 1 });
     spans.forEach(span => {
       const x = xAt(span.start);
       const endX = xAt(span.end);
-      const rect = add('rect', { x, y: centerY + 1, width: Math.max(2, endX - x), height: 10, rx: 2, fill: '#34d399', opacity: 0.8, class: 'cursor-pointer' });
+      const rect = add('rect', { x, y: centerY + 1, width: Math.max(2, endX - x), height: 10, rx: 2, fill: planningMode ? row.color : '#34d399', opacity: 0.72, class: 'cursor-pointer' });
       const seconds = Math.max(0, (span.end - span.start) / 1000);
       rect.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${span.name} on ${actorNames.get(span.targetID) || 'target'} for ${seconds.toFixed(1)}s`;
       rect.addEventListener('click', () => jumpToSpecificOffsetMs(span.start - fight.startTime));
     });
     casts.forEach(event => {
       const x = xAt(event.timestamp);
-      const marker = add('path', { d: `M ${x} ${centerY - 7} l 5 6 l -5 6 l -5 -6 Z`, fill: '#38bdf8', stroke: '#0f172a', 'stroke-width': 1, class: 'cursor-pointer' });
+      const marker = add('path', { d: `M ${x} ${centerY - 7} l 5 6 l -5 6 l -5 -6 Z`, fill: planningMode ? row.color : '#38bdf8', stroke: '#0f172a', 'stroke-width': 1, class: 'cursor-pointer' });
       marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${eventAbilityName(event)} pressed by ${actorNames.get(String(event.sourceID)) || 'player'} at ${formatSecondsToMMSS((event.timestamp - start) / 1000)}`;
       marker.addEventListener('click', () => jumpToSpecificOffsetMs(event.timestamp - start));
     });
@@ -2055,8 +2221,14 @@ function renderCombatTimeline(fight, container) {
   if (!abilityRows.length) {
     const hint = document.createElement('div');
     hint.className = 'text-[10px] text-slate-600 py-1';
-    hint.textContent = 'Assign an ability a class that is represented by a POV to show it here.';
+    hint.textContent = planningMode ? (isLoading ? 'Loading player abilities...' : 'No player abilities found for this pull.') : 'Assign an ability a class that is represented by a POV to show it here.';
     container.appendChild(hint);
+  }
+  if (planningMode) {
+    const summary = document.getElementById('planning-ability-summary');
+    if (summary) summary.textContent = `${abilityRows.length} player ability lanes · click any event to seek the POV video`;
+    const durationElement = document.getElementById('planning-duration-display');
+    if (durationElement) durationElement.textContent = formatSecondsToMMSS(duration / 1000);
   }
 }
 
@@ -2388,6 +2560,20 @@ function importNotesFile(evt) {
 /* =========================================================================
    BOTTOM TABS
    ========================================================================= */
+function switchPage(page) {
+  const planning = page === 'planning';
+  document.getElementById('main-workspace').classList.toggle('hidden', planning);
+  document.getElementById('planning-workspace').classList.toggle('hidden', !planning);
+  document.getElementById('page-btn-review').classList.toggle('active', !planning);
+  document.getElementById('page-btn-planning').classList.toggle('active', planning);
+  document.getElementById('page-btn-review').setAttribute('aria-pressed', String(!planning));
+  document.getElementById('page-btn-planning').setAttribute('aria-pressed', String(planning));
+  if (planning) {
+    if (activeFightId && !timelineEventsCache[activeFightId]) loadTimelineEventsForFight(activeFightId);
+    renderTimeline();
+  }
+}
+
 function switchBottomTab(key) {
   document.querySelectorAll('.bottom-tab-btn').forEach(b => { b.classList.remove('border-ffpurple-500', 'text-ffpurple-400'); b.classList.add('border-transparent', 'text-slate-400'); });
   document.querySelectorAll('.bottom-tab-content').forEach(c => c.classList.add('hidden'));
