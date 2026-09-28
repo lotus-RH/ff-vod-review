@@ -342,6 +342,9 @@
             <p class="text-slate-400 leading-relaxed">
               Add a free YouTube Data API key to auto-detect sync offsets from a VOD's actual live broadcast start time —
               no manual timestamp entry needed, as long as the video was streamed live on YouTube (not just uploaded).
+              If the broadcast has ended, it also auto-detects any constant drift rate (the video running very slightly
+              faster or slower than real time over a long VOD) by comparing YouTube's own video length to the real
+              broadcast duration — fully automatic, with no second timestamp to find or type in.
               Get one free at <span class="text-ffcyan-400 mono-font">console.cloud.google.com</span> → enable
               "YouTube Data API v3" → Credentials → Create API Key. <b>You don't need this</b> — manual calibration
               (typing in one timestamp per video) works fine without it.
@@ -1255,11 +1258,11 @@ function saveYouTubeKey() {
 }
 
 /* =========================================================================
-   YOUTUBE AUTO-SYNC (live broadcast start time)
+   YOUTUBE AUTO-SYNC (live broadcast start time + auto-detected drift rate)
    ========================================================================= */
-async function fetchYouTubeLiveStart(videoId) {
+async function fetchYouTubeLiveTiming(videoId) {
   if (!settings.youtubeApiKey) throw new Error('Add a YouTube Data API key in Settings first.');
-  const url = `https://www.googleapis.com/youtube/v3/videos?part=liveStreamingDetails&id=${encodeURIComponent(videoId)}&key=${encodeURIComponent(settings.youtubeApiKey)}`;
+  const url = `https://www.googleapis.com/youtube/v3/videos?part=liveStreamingDetails,contentDetails&id=${encodeURIComponent(videoId)}&key=${encodeURIComponent(settings.youtubeApiKey)}`;
   const res = await fetch(url);
   const data = await res.json();
   if (data.error) throw new Error(data.error.message || 'YouTube API error.');
@@ -1269,7 +1272,20 @@ async function fetchYouTubeLiveStart(videoId) {
   if (!details || !details.actualStartTime) {
     throw new Error('No live-broadcast start time on this video — it may have been uploaded/edited rather than streamed live. Use manual calibration below instead.');
   }
-  return Date.parse(details.actualStartTime);
+  const startAbsMs = Date.parse(details.actualStartTime);
+  // If the broadcast has ended, YouTube's own duration vs its real elapsed broadcast time reveals the drift rate — no manual pull needed.
+  let rate = 1;
+  if (details.actualEndTime && item.contentDetails && item.contentDetails.duration) {
+    const realElapsedSeconds = (Date.parse(details.actualEndTime) - startAbsMs) / 1000;
+    const videoDurationSeconds = parseISO8601Duration(item.contentDetails.duration);
+    if (realElapsedSeconds > 0 && videoDurationSeconds > 0) rate = videoDurationSeconds / realElapsedSeconds;
+  }
+  return { startAbsMs, rate };
+}
+function parseISO8601Duration(iso) {
+  const m = String(iso || '').match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?$/);
+  if (!m) return 0;
+  return Number(m[1] || 0) * 3600 + Number(m[2] || 0) * 60 + Number(m[3] || 0);
 }
 
 /* =========================================================================
@@ -2900,13 +2916,15 @@ async function tryAutoSyncSegment(pov, seg, row) {
   statusEl.className = 'text-[10px] text-slate-500 seg-status';
   statusEl.textContent = 'Checking YouTube for live broadcast start time...';
   try {
-    const startAbsMs = await fetchYouTubeLiveStart(vid);
+    const timing = await fetchYouTubeLiveTiming(vid);
     if (seg.syncAttemptId !== attemptId) return;
-    seg.startAbsMs = startAbsMs + nudgeSeconds * 1000;
+    seg.startAbsMs = timing.startAbsMs + nudgeSeconds * 1000;
+    seg.rate = timing.rate;
     seg.autoSynced = true;
     seg.syncNudgeSeconds = nudgeSeconds;
     persistPOVs();
-    showToast(`Auto-synced from YouTube with a ${nudgeSeconds}s nudge.`, 'success');
+    const rateText = timing.rate !== 1 ? ` and auto-detected a ${(timing.rate * 100).toFixed(3)}% playback rate (drift-corrected across the whole VOD)` : '';
+    showToast(`Auto-synced from YouTube with a ${nudgeSeconds}s nudge${rateText}.`, 'success');
     renderPOVModalBody();
     if (getActivePOV() && getActivePOV().id === pov.id) jumpToCurrentPullStart();
   } catch (e) {
