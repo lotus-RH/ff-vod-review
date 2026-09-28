@@ -10,7 +10,1999 @@
     darkMode: 'class',
     theme: { extend: { colors: {
       slate: { 850: '#111827', 900: '#0f172a', 950: '#080d1a' },
+      ffpurple: { 400: '#a78bfa', 500: '#8b5cf6', 600: '#7c3aed', 900: '#2e1065' },<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FFLogs VOD Sync Review</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: { extend: { colors: {
+      slate: { 850: '#111827', 900: '#0f172a', 950: '#080d1a' },
       ffpurple: { 400: '#a78bfa', 500: '#8b5cf6', 600: '#7c3aed', 900: '#2e1065' },
+      ffcyan: { 400: '#38bdf8', 500: '#06b6d4', 600: '#0891b2' }
+    } } }
+  };
+</script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Inter', sans-serif; background-color: #080d1a; color: #e2e8f0; }
+  .mono-font { font-family: 'JetBrains Mono', monospace; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #0f172a; }
+  ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #475569; }
+  .glow-purple { box-shadow: 0 0 15px rgba(139,92,246,0.25); }
+  .job-chip { display:inline-flex; align-items:center; justify-content:center; border-radius:4px; font-weight:700; font-size:10px; padding:1px 5px; color:#0b0f1a; }
+  .filter-btn.active { background-color:#1e293b !important; color:#fff !important; border-color:#475569 !important; }
+  .modal-backdrop { background: rgba(3,7,18,0.75); backdrop-filter: blur(2px); }
+  .toast { animation: toastIn .18s ease-out; }
+  @keyframes toastIn { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: translateY(0); } }
+  .pull-item.active { border-color:#8b5cf6 !important; background-color: rgba(139,92,246,0.08) !important; }
+  input, select, textarea { outline: none; }
+  input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 2px rgba(139,92,246,0.5); }
+</style>
+</head>
+<body class="h-screen flex flex-col bg-slate-950 text-slate-100 overflow-hidden">
+
+<!-- HEADER -->
+<header class="h-14 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-3 z-30 shrink-0">
+  <div class="flex items-center gap-3 min-w-0">
+    <div class="flex items-center gap-2 shrink-0">
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-ffpurple-600 to-ffcyan-500 flex items-center justify-center font-bold text-white glow-purple">
+        <i class="fa-solid fa-play-circle text-lg"></i>
+      </div>
+      <h1 class="font-bold text-sm tracking-wide hidden sm:block">FFLogs <span class="text-transparent bg-clip-text bg-gradient-to-r from-ffpurple-400 to-ffcyan-400">VOD Sync</span></h1>
+    </div>
+
+    <div class="flex items-center gap-1.5 min-w-0 bg-slate-950/80 px-2 py-1.5 rounded-lg border border-slate-800">
+      <input id="input-fflogs-url" type="text" placeholder="Paste FFLogs report URL or code..."
+        class="bg-transparent text-xs w-48 md:w-72 placeholder-slate-500 text-slate-200">
+      <button onclick="loadReportFromInput()" class="text-xs bg-ffpurple-600 hover:bg-ffpurple-500 text-white font-medium px-2.5 py-1 rounded shrink-0 transition">
+        <i class="fa-solid fa-download"></i> Load
+      </button>
+    </div>
+
+    <div id="active-log-title" class="text-xs text-slate-400 truncate hidden md:block max-w-[240px]">No report loaded</div>
+  </div>
+
+  <div class="flex items-center gap-2 shrink-0">
+    <button onclick="openPOVModal()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1.5 rounded-md border border-slate-700 transition">
+      <i class="fa-solid fa-video"></i> <span class="hidden lg:inline">POVs</span>
+    </button>
+    <button onclick="openAbilityModal()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1.5 rounded-md border border-slate-700 transition">
+      <i class="fa-solid fa-wand-magic-sparkles"></i> <span class="hidden lg:inline">Abilities</span> <span id="ability-count" class="font-mono text-[10px] text-ffcyan-400">0</span>
+    </button>
+    <button onclick="openMechanicsModal()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1.5 rounded-md border border-slate-700 transition">
+      <i class="fa-solid fa-burst"></i> <span class="hidden lg:inline">Mechanics</span> <span id="mechanic-count" class="font-mono text-[10px] text-amber-400">0</span>
+    </button>
+  </div>
+</header>
+
+<button id="settings-fab" onclick="openSettingsModal()" title="Connection settings"
+  class="fixed bottom-3 left-3 z-20 w-7 h-7 rounded-full bg-slate-900/70 border border-slate-800 text-slate-600 hover:text-slate-300 hover:bg-slate-800 flex items-center justify-center opacity-40 hover:opacity-100 transition">
+  <i class="fa-solid fa-gear text-[11px]"></i>
+</button>
+
+<!-- MAIN -->
+<main id="main-workspace" class="flex-1 flex overflow-hidden">
+
+  <!-- SIDEBAR -->
+  <aside class="w-80 bg-slate-900/90 border-r border-slate-800 flex flex-col shrink-0 z-10">
+    <div class="p-3 border-b border-slate-800 bg-slate-900/50">
+      <div class="flex justify-between items-center mb-2">
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+          <i class="fa-solid fa-list-check text-ffpurple-400"></i> Pull History
+        </span>
+        <span id="pull-count-badge" class="text-[11px] font-mono bg-ffpurple-900/60 text-ffpurple-300 px-2 py-0.5 rounded-full border border-ffpurple-600/40">0 pulls</span>
+      </div>
+
+      <div class="grid grid-cols-3 gap-1.5 bg-slate-950 p-2 rounded-lg border border-slate-800 text-center">
+        <div><div class="text-[10px] text-slate-500 uppercase">Kills</div><div id="stat-kills" class="text-sm font-bold text-emerald-400 font-mono">-</div></div>
+        <div><div class="text-[10px] text-slate-500 uppercase">Best Pull</div><div id="stat-best" class="text-sm font-bold text-ffcyan-400 font-mono">-</div></div>
+        <div><div class="text-[10px] text-slate-500 uppercase">Raid Time</div><div id="stat-time" class="text-sm font-bold text-slate-300 font-mono">-</div></div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2 mt-2.5 pb-1 text-[11px]">
+        <button onclick="filterPulls('all')" id="filter-btn-all" class="filter-btn active bg-slate-800 text-white px-2.5 py-1 rounded font-medium border border-slate-700 shrink-0">All</button>
+        <label for="phase-filter" class="text-slate-400">Deepest phase</label>
+        <select id="phase-filter" class="bg-slate-950 border border-slate-800 rounded px-2 py-1 text-slate-200 max-w-36">
+          <option value="">Any phase</option>
+        </select>
+        <label for="wipe-threshold-input" class="text-slate-400">Wipes at or under</label>
+        <div class="flex items-center gap-1 bg-slate-950 border border-slate-800 rounded px-2 py-1">
+          <input id="wipe-threshold-input" type="number" min="0" max="100" step="0.1" value="20" class="bg-transparent text-amber-300 font-mono w-12 text-right" aria-label="Wipe boss health threshold percentage">
+          <span class="text-slate-500">%</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="pull-list-container" class="flex-1 overflow-y-auto p-2 space-y-1.5">
+      <div class="text-xs text-slate-500 italic text-center p-6">Connect to FFLogs and load a report to see pulls here.</div>
+    </div>
+
+    <div class="p-2 border-t border-slate-800">
+      <div class="text-[10px] font-bold uppercase text-slate-500 mb-1.5 px-1" id="log-players-label">Players in log</div>
+      <div id="log-players-chip-container" class="flex flex-wrap gap-1 px-1 max-h-20 overflow-y-auto"></div>
+    </div>
+  </aside>
+
+  <!-- CENTER -->
+  <div class="flex-1 flex flex-col overflow-hidden bg-slate-950">
+
+    <div class="flex-1 flex flex-col bg-slate-900/30 border-b border-slate-800 p-3 overflow-y-auto">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-2 pb-2 border-b border-slate-800/80">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-xs font-semibold text-slate-400 flex items-center gap-1"><i class="fa-solid fa-video text-ffcyan-400"></i> POV:</span>
+          <div id="pov-tabs-container" class="flex flex-wrap items-center gap-1.5"></div>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="bg-slate-900 border border-slate-700/80 px-2.5 py-1 rounded flex items-center gap-2 font-mono text-xs">
+            <span class="text-slate-500">Log:</span><span id="log-time-display" class="text-emerald-400 font-bold">00:00</span>
+            <span class="text-slate-700">|</span>
+            <span class="text-slate-500">Video:</span><span id="video-time-display" class="text-ffcyan-400 font-bold">00:00</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="relative w-full flex-1 min-h-[300px] max-h-[620px] bg-black rounded-lg overflow-hidden border border-slate-800 shadow-2xl flex items-center justify-center group">
+        <div id="player-container" class="w-full h-full flex items-center justify-center">
+          <div id="yt-player-el" class="w-full h-full"></div>
+          <div id="no-video-placeholder" class="absolute inset-0 flex flex-col items-center justify-center text-slate-600 gap-2 pointer-events-none">
+            <i class="fa-solid fa-clapperboard text-4xl"></i>
+            <span class="text-xs">No POV / video selected yet</span>
+          </div>
+        </div>
+
+        <div class="absolute bottom-3 left-1/2 transform -translate-x-1/2 bg-slate-900/90 backdrop-blur border border-slate-700/80 rounded-full px-4 py-1.5 flex items-center gap-2 opacity-90 hover:opacity-100 transition shadow-2xl z-10">
+          <button onclick="seekVideoRelative(-10)" class="text-xs text-slate-300 hover:text-white px-2 py-1 rounded hover:bg-slate-800 transition"><i class="fa-solid fa-rotate-left"></i> -10s</button>
+          <button onclick="seekVideoRelative(-3)" class="text-xs text-slate-300 hover:text-white px-2 py-1 rounded hover:bg-slate-800 transition"><i class="fa-solid fa-backward-step"></i> -3s</button>
+          <button onclick="jumpToCurrentPullStart()" class="text-xs bg-ffpurple-600 hover:bg-ffpurple-500 text-white font-semibold px-3 py-1 rounded-full shadow transition flex items-center gap-1"><i class="fa-solid fa-play text-[10px]"></i> Pull Start</button>
+          <button onclick="jumpToDeathTime()" class="text-xs bg-rose-600/80 hover:bg-rose-500 text-white font-semibold px-3 py-1 rounded-full shadow transition flex items-center gap-1"><i class="fa-solid fa-skull text-[10px]"></i> First Death</button>
+          <button onclick="seekVideoRelative(3)" class="text-xs text-slate-300 hover:text-white px-2 py-1 rounded hover:bg-slate-800 transition">+3s <i class="fa-solid fa-forward-step"></i></button>
+          <button onclick="seekVideoRelative(10)" class="text-xs text-slate-300 hover:text-white px-2 py-1 rounded hover:bg-slate-800 transition">+10s <i class="fa-solid fa-rotate-right"></i></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTTOM PANEL -->
+    <div class="h-64 border-t border-slate-800 bg-slate-900 flex flex-col shrink-0">
+      <div class="flex items-center justify-between px-4 bg-slate-950 border-b border-slate-800">
+        <div class="flex space-x-1">
+          <button onclick="switchBottomTab('timeline')" id="tab-btn-timeline" class="bottom-tab-btn active px-4 py-2 text-xs font-semibold border-b-2 border-ffpurple-500 text-ffpurple-400 flex items-center gap-1.5"><i class="fa-solid fa-chart-line"></i> Timeline</button>
+          <button onclick="switchBottomTab('deaths')" id="tab-btn-deaths" class="bottom-tab-btn px-4 py-2 text-xs font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-1.5"><i class="fa-solid fa-skull-crossbones"></i> Deaths (<span id="pull-death-count">0</span>)</button>
+          <button onclick="switchBottomTab('notes')" id="tab-btn-notes" class="bottom-tab-btn px-4 py-2 text-xs font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-1.5"><i class="fa-solid fa-bookmark"></i> Notes (<span id="notes-count">0</span>)</button>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="exportNotesJSON()" title="Export notes as JSON" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded border border-slate-700"><i class="fa-solid fa-file-export"></i></button>
+          <label title="Import notes JSON" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded border border-slate-700 cursor-pointer">
+            <i class="fa-solid fa-file-import"></i>
+            <input type="file" accept="application/json" class="hidden" onchange="importNotesFile(event)">
+          </label>
+        </div>
+      </div>
+
+      <div id="tab-content-timeline" class="bottom-tab-content flex-1 p-3 overflow-y-auto">
+        <div class="flex justify-between items-center mb-1 text-xs text-slate-400">
+          <span id="timeline-pull-title" class="font-medium">No pull selected</span>
+          <span class="text-[11px] text-slate-500">Boss mechanics · Amber: cooldown · Green: buff duration</span>
+        </div>
+        <div class="flex items-center justify-between gap-2 mb-2 text-[10px]">
+          <span id="tracked-ability-summary" class="text-slate-500">No abilities added</span>
+          <div class="flex items-center gap-1.5">
+            <button onclick="openMechanicsModal()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-2.5 py-1 text-slate-300"><i class="fa-solid fa-burst"></i> Mechanics</button>
+            <button onclick="openAbilityModal()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-2.5 py-1 text-slate-300"><i class="fa-solid fa-list"></i> Abilities</button>
+          </div>
+        </div>
+        <div id="timeline-visualization" class="w-full overflow-x-auto bg-slate-950 rounded-lg border border-slate-800 px-2 py-1"></div>
+        <div class="text-[11px] text-slate-500 mt-2" id="timeline-help">Enter one or more ability names to show their casts and buff durations in this pull.</div>
+      </div>
+
+      <div id="tab-content-deaths" class="bottom-tab-content hidden flex-1 p-3 overflow-y-auto">
+        <div id="deaths-timeline" class="w-full overflow-x-auto bg-slate-950 rounded-lg border border-slate-800 px-2 py-1 mb-2"></div>
+        <div id="deaths-list-container" class="space-y-1.5"></div>
+      </div>
+
+      <div id="tab-content-notes" class="bottom-tab-content hidden flex-1 p-3 overflow-y-auto flex flex-col gap-2">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] text-slate-500" id="notes-scope-label">Showing notes for this pull</span>
+          <label class="flex items-center gap-1.5 text-[11px] text-slate-400 cursor-pointer select-none">
+            <input type="checkbox" id="notes-scope-toggle" checked onchange="renderNotes()">
+            This pull only
+          </label>
+        </div>
+        <div class="flex items-end gap-2 bg-slate-950 p-2 rounded-lg border border-slate-800">
+          <div class="flex flex-col gap-0.5">
+            <label class="text-[10px] text-slate-500 uppercase">Log time (MM:SS)</label>
+            <input id="note-time-input" type="text" placeholder="03:15" class="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs w-20 font-mono">
+          </div>
+          <div class="flex flex-col gap-0.5">
+            <label class="text-[10px] text-slate-500 uppercase">Category</label>
+            <select id="note-category-input" class="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs">
+              <option value="mitigation">Mitigation</option>
+              <option value="positioning">Positioning</option>
+              <option value="mechanic">Mechanic</option>
+              <option value="cooldowns">Cooldowns</option>
+              <option value="general">General</option>
+            </select>
+          </div>
+          <div class="flex flex-col gap-0.5 flex-1">
+            <label class="text-[10px] text-slate-500 uppercase">Note</label>
+            <input id="note-text-input" type="text" placeholder="What happened here?" class="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs w-full">
+          </div>
+          <button onclick="useCurrentTimeForNote()" title="Use current video position" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-crosshairs"></i></button>
+          <button onclick="addNoteFromForm()" class="text-xs bg-ffpurple-600 hover:bg-ffpurple-500 text-white font-medium px-3 py-1.5 rounded"><i class="fa-solid fa-plus"></i> Add</button>
+        </div>
+        <div id="notes-list-container" class="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 content-start"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- SETTINGS MODAL -->
+<div id="settings-modal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4">
+  <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-lg shadow-2xl">
+    <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800">
+      <h2 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-plug text-ffpurple-400"></i> FFLogs Connection</h2>
+      <button onclick="closeSettingsModal()" class="text-slate-500 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="p-4 space-y-3 text-xs">
+      <p class="text-slate-400 leading-relaxed">
+        Create a free API client at <span class="text-ffcyan-400 mono-font">fflogs.com/api/clients</span>.
+        Set its <b>Redirect URI</b> to the URL below (must match exactly), then paste the Client ID here.
+        This uses the PKCE login flow — no client secret is ever needed or stored.
+      </p>
+      <div>
+        <label class="text-[10px] text-slate-500 uppercase block mb-1">Redirect URI to register on FFLogs</label>
+        <div class="flex gap-1.5">
+          <input id="redirect-uri-display" readonly class="flex-1 bg-slate-950 border border-slate-800 rounded px-2 py-1.5 font-mono text-[11px] text-slate-300">
+          <button onclick="copyRedirectUri()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-2"><i class="fa-solid fa-copy"></i></button>
+        </div>
+        <p id="redirect-uri-warning" class="text-amber-400 mt-1 hidden"><i class="fa-solid fa-triangle-exclamation"></i> This page must be served over https:// or http://localhost for login to work.</p>
+      </div>
+      <div>
+        <label class="text-[10px] text-slate-500 uppercase block mb-1">FFLogs Client ID</label>
+        <input id="client-id-input" type="text" placeholder="e.g. 3f8a1c2e-..." class="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1.5 font-mono text-[11px]">
+      </div>
+      <div class="flex items-center justify-between pt-2">
+        <span id="settings-conn-detail" class="text-[11px] text-slate-500">Not connected.</span>
+        <div class="flex gap-2">
+          <button onclick="disconnectFFLogs()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded border border-slate-700">Disconnect</button>
+          <button onclick="saveSettingsAndConnect()" class="bg-ffpurple-600 hover:bg-ffpurple-500 text-white font-medium px-3 py-1.5 rounded"><i class="fa-solid fa-right-to-bracket"></i> Save &amp; Connect</button>
+        </div>
+      </div>
+
+      <div class="border-t border-slate-800 pt-3 mt-1">
+        <details>
+          <summary class="font-bold text-sm flex items-center gap-2 cursor-pointer select-none text-slate-400 hover:text-slate-200"><i class="fa-brands fa-youtube text-rose-400"></i> Advanced: Auto-Sync from YouTube (optional — skip this)</summary>
+          <div class="mt-2">
+            <p class="text-slate-400 leading-relaxed">
+              Add a free YouTube Data API key to auto-detect sync offsets from a VOD's actual live broadcast start time —
+              no manual timestamp entry needed, as long as the video was streamed live on YouTube (not just uploaded).
+              Get one free at <span class="text-ffcyan-400 mono-font">console.cloud.google.com</span> → enable
+              "YouTube Data API v3" → Credentials → Create API Key. <b>You don't need this</b> — manual calibration
+              (typing in one timestamp per video) works fine without it.
+            </p>
+            <label class="text-[10px] text-slate-500 uppercase block mb-1 mt-2">YouTube Data API Key</label>
+            <input id="youtube-key-input" type="text" placeholder="AIza..." class="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1.5 font-mono text-[11px]">
+            <div class="flex justify-end mt-2">
+              <button onclick="saveYouTubeKey()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded border border-slate-700 text-[11px]"><i class="fa-solid fa-floppy-disk"></i> Save Key</button>
+            </div>
+          </div>
+        </details>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- POV MODAL -->
+<div id="pov-modal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4">
+  <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-3xl max-h-[85vh] flex flex-col shadow-2xl">
+    <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
+      <h2 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-users text-ffcyan-400"></i> POVs &amp; Video Sources</h2>
+      <button onclick="closePOVModal()" class="text-slate-500 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div id="pov-modal-body" class="p-4 space-y-3 overflow-y-auto text-xs"></div>
+    <div class="p-3 border-t border-slate-800 flex justify-between items-center shrink-0">
+      <button onclick="addPOV()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-plus"></i> Add POV</button>
+      <button onclick="closePOVModal()" class="text-xs bg-ffpurple-600 hover:bg-ffpurple-500 text-white font-medium px-4 py-1.5 rounded">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- ABILITY MODAL -->
+<div id="ability-modal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4">
+  <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl">
+    <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
+      <h2 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles text-ffcyan-400"></i> Timeline Abilities</h2>
+      <button onclick="closeAbilityModal()" class="text-slate-500 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="p-4 overflow-y-auto text-xs space-y-3">
+      <form id="ability-add-form" class="flex gap-2">
+        <input id="ability-name-input" type="text" list="ability-name-options" placeholder="Ability name" class="flex-1 bg-slate-950 border border-slate-800 rounded px-2 py-1.5 text-slate-200">
+        <datalist id="ability-name-options"></datalist>
+        <button type="submit" class="bg-ffpurple-600 hover:bg-ffpurple-500 text-white font-medium px-3 py-1.5 rounded"><i class="fa-solid fa-plus"></i> Add</button>
+      </form>
+      <div id="ability-list-container" class="space-y-1.5"></div>
+    </div>
+    <div class="p-3 border-t border-slate-800 flex justify-end shrink-0">
+      <button onclick="closeAbilityModal()" class="text-xs bg-ffpurple-600 hover:bg-ffpurple-500 text-white font-medium px-4 py-1.5 rounded">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- MECHANICS MODAL -->
+<div id="mechanics-modal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4">
+  <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-xl max-h-[85vh] flex flex-col shadow-2xl">
+    <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
+      <div>
+        <h2 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-burst text-amber-400"></i> Boss Mechanics</h2>
+        <p id="mechanics-pull-label" class="text-[10px] text-slate-500 mt-1">Select a pull to load its boss casts.</p>
+      </div>
+      <button onclick="closeMechanicsModal()" class="text-slate-500 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div id="mechanics-list-container" class="p-4 overflow-y-auto text-xs space-y-1.5"></div>
+    <div class="p-3 border-t border-slate-800 flex justify-end shrink-0">
+      <button onclick="closeMechanicsModal()" class="text-xs bg-ffpurple-600 hover:bg-ffpurple-500 text-white font-medium px-4 py-1.5 rounded">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOASTS -->
+<div id="toast-container" class="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 items-end"></div>
+
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+/* =========================================================================
+   CONFIG / CONSTANTS
+   ========================================================================= */
+const FFLOGS_AUTHORIZE_URL = 'https://www.fflogs.com/oauth/authorize';
+const FFLOGS_TOKEN_URL = 'https://www.fflogs.com/oauth/token';
+const FFLOGS_API_URL = 'https://www.fflogs.com/api/v2/user';
+
+const JOB_COLORS = {
+  PLD:'#a8d3e6', WAR:'#cf2621', DRK:'#d126cc', GNB:'#796834',
+  WHM:'#fff0dc', SCH:'#8657ff', AST:'#ffe74a', SGE:'#80a0f0',
+  MNK:'#d69c00', DRG:'#4164cd', NIN:'#af1964', SAM:'#e34848', VPR:'#89e1af',
+  RPR:'#965a90', BRD:'#91ba40', MCH:'#6ee1d6', DNC:'#e2b0af',
+  BLM:'#a579d6', SMN:'#2d9b78', RDM:'#e28fb0', PCT:'#e8a5c4'
+};
+
+/* =========================================================================
+   STATE
+   ========================================================================= */
+let settings = { clientId: '', redirectUri: '', youtubeApiKey: '' };
+let auth = { accessToken: null, refreshToken: null, expiresAt: 0 };
+
+let report = null;        // { code, title, zoneName, startTime, endTime, fights: [], actors: [] }
+let povs = [];             // [{ id, player, job, color, segments:[{id,videoId,label,startAbsMs}] }]
+let notes = [];            // [{ id, fightId, logSeconds, author, text, category }]
+let deathsCache = {};      // fightId -> [{time, player, ability}]
+let timelineEventsCache = {}; // fightId -> { buffs: [], damage: [], healing: [], casts: [] }
+let trackedAbilityNames = [];
+let trackedAbilityCooldowns = {};
+let hiddenMechanicNames = [];
+let mechanicRecastIgnoreSeconds = {};
+
+let activeFightId = null;
+let activePovId = null;
+let currentFilter = 'all';
+let wipeThreshold = 20;
+let selectedPhaseFilter = '';
+
+let ytPlayer = null;
+let ytReady = false;
+let ytPendingLoad = null;  // {videoId, seconds} queued if player not ready yet
+let currentLoadedVideoId = null;
+let pollTimer = null;
+
+/* =========================================================================
+   INIT
+   ========================================================================= */
+window.addEventListener('DOMContentLoaded', () => {
+  loadSettings();
+  document.getElementById('redirect-uri-display').value = settings.redirectUri;
+  if (!window.isSecureContext) {
+    document.getElementById('redirect-uri-warning').classList.remove('hidden');
+  }
+  handleOAuthRedirect();
+  renderConnStatus();
+  switchBottomTab('timeline');
+  renderPullList();
+  renderPOVTabs();
+  renderNotes();
+  renderAbilityCount();
+  document.getElementById('ability-add-form').addEventListener('submit', event => {
+    event.preventDefault();
+    addTrackedAbilityFromForm();
+  });
+  document.getElementById('wipe-threshold-input').addEventListener('input', updateWipeThreshold);
+  document.getElementById('phase-filter').addEventListener('change', event => {
+    selectedPhaseFilter = event.target.value;
+    renderPullList();
+  });
+});
+
+function onYouTubeIframeAPIReady() {
+  ytPlayer = new YT.Player('yt-player-el', {
+    height: '100%', width: '100%', videoId: '',
+    playerVars: { rel: 0, modestbranding: 1 },
+    events: {
+      onReady: () => {
+        ytReady = true;
+        if (ytPendingLoad) { doLoadAndSeek(ytPendingLoad.videoId, ytPendingLoad.seconds); ytPendingLoad = null; }
+      }
+    }
+  });
+}
+
+/* =========================================================================
+   SETTINGS / LOCAL STORAGE
+   ========================================================================= */
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem('fflogs_vod_settings');
+    if (raw) settings = { ...settings, ...JSON.parse(raw) };
+  } catch (e) {}
+  if (!settings.redirectUri) {
+    settings.redirectUri = window.location.origin + window.location.pathname;
+  }
+  try {
+    const rawAuth = localStorage.getItem('fflogs_vod_auth');
+    if (rawAuth) auth = { ...auth, ...JSON.parse(rawAuth) };
+  } catch (e) {}
+}
+function persistSettings() { localStorage.setItem('fflogs_vod_settings', JSON.stringify(settings)); }
+function persistAuth() { localStorage.setItem('fflogs_vod_auth', JSON.stringify(auth)); }
+
+function povsKey() { return `fflogs_vod_povs_${report ? report.code : 'none'}`; }
+function notesKey() { return `fflogs_vod_notes_${report ? report.code : 'none'}`; }
+function loadReportLocalData() {
+  try { povs = JSON.parse(localStorage.getItem(povsKey())) || []; } catch (e) { povs = []; }
+  try { notes = JSON.parse(localStorage.getItem(notesKey())) || []; } catch (e) { notes = []; }
+  try { trackedAbilityNames = JSON.parse(localStorage.getItem(abilityNamesKey())) || []; } catch (e) { trackedAbilityNames = []; }
+  try { trackedAbilityCooldowns = JSON.parse(localStorage.getItem(abilityCooldownsKey())) || {}; } catch (e) { trackedAbilityCooldowns = {}; }
+  try { hiddenMechanicNames = JSON.parse(localStorage.getItem(hiddenMechanicNamesKey())) || []; } catch (e) { hiddenMechanicNames = []; }
+  try { mechanicRecastIgnoreSeconds = JSON.parse(localStorage.getItem(mechanicRecastIgnoreKey())) || {}; } catch (e) { mechanicRecastIgnoreSeconds = {}; }
+  renderAbilityCount();
+}
+function persistPOVs() { localStorage.setItem(povsKey(), JSON.stringify(povs)); }
+function persistNotes() { localStorage.setItem(notesKey(), JSON.stringify(notes)); }
+function abilityNamesKey() { return `fflogs_vod_ability_names_${report ? report.code : 'none'}`; }
+function abilityCooldownsKey() { return `fflogs_vod_ability_cooldowns_${report ? report.code : 'none'}`; }
+function hiddenMechanicNamesKey() { return `fflogs_vod_hidden_mechanics_${report ? report.code : 'none'}`; }
+function mechanicRecastIgnoreKey() { return `fflogs_vod_mechanic_recast_ignore_${report ? report.code : 'none'}`; }
+function abilityCooldownKey(name) { return name.toLocaleLowerCase(); }
+function persistTrackedAbilityNames() {
+  localStorage.setItem(abilityNamesKey(), JSON.stringify(trackedAbilityNames));
+  localStorage.setItem(abilityCooldownsKey(), JSON.stringify(trackedAbilityCooldowns));
+  renderAbilityCount();
+  renderTimeline();
+}
+function renderAbilityCount() {
+  const count = trackedAbilityNames.length;
+  const countEl = document.getElementById('ability-count');
+  const summaryEl = document.getElementById('tracked-ability-summary');
+  if (countEl) countEl.textContent = count;
+  if (summaryEl) summaryEl.textContent = count ? `${count} ${count === 1 ? 'ability' : 'abilities'} shown` : 'No abilities added';
+}
+function openAbilityModal() {
+  renderAbilityList();
+  document.getElementById('ability-modal').classList.remove('hidden');
+  document.getElementById('ability-name-input').focus();
+}
+function closeAbilityModal() { document.getElementById('ability-modal').classList.add('hidden'); }
+function renderAbilityList() {
+  const container = document.getElementById('ability-list-container');
+  container.innerHTML = '';
+  if (!trackedAbilityNames.length) {
+    container.innerHTML = '<div class="text-slate-500 italic text-center py-5">No abilities added to the timeline yet.</div>';
+    return;
+  }
+  trackedAbilityNames.forEach((name, index) => {
+    const row = document.createElement('div');
+    row.className = 'grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2';
+    const label = document.createElement('span');
+    label.className = 'text-slate-200 truncate';
+    label.textContent = name;
+    const cooldownControl = document.createElement('label');
+    cooldownControl.className = 'flex items-center gap-1.5 text-[10px] text-slate-500';
+    cooldownControl.textContent = 'Cooldown';
+    const cooldownInput = document.createElement('input');
+    cooldownInput.type = 'number';
+    cooldownInput.min = '0';
+    cooldownInput.step = '1';
+    cooldownInput.inputMode = 'decimal';
+    cooldownInput.value = trackedAbilityCooldowns[abilityCooldownKey(name)] ?? '';
+    cooldownInput.placeholder = 'sec';
+    cooldownInput.title = `Cooldown for ${name}, in seconds`;
+    cooldownInput.className = 'w-20 bg-slate-900 border border-slate-800 rounded px-2 py-1 font-mono text-slate-200';
+    cooldownControl.appendChild(cooldownInput);
+    cooldownInput.addEventListener('change', () => {
+      const seconds = Number(cooldownInput.value);
+      if (cooldownInput.value === '' || !Number.isFinite(seconds) || seconds < 0) {
+        delete trackedAbilityCooldowns[abilityCooldownKey(name)];
+      } else {
+        trackedAbilityCooldowns[abilityCooldownKey(name)] = seconds;
+      }
+      persistTrackedAbilityNames();
+    });
+    const remove = document.createElement('button');
+    remove.className = 'text-rose-400 hover:text-rose-300 px-2 py-1 rounded hover:bg-slate-800';
+    remove.title = `Remove ${name}`;
+    remove.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
+    remove.addEventListener('click', () => removeTrackedAbility(index));
+    row.append(label, cooldownControl, remove);
+    container.appendChild(row);
+  });
+}
+function addTrackedAbilityFromForm() {
+  const input = document.getElementById('ability-name-input');
+  const name = input.value.trim();
+  if (!name) { showToast('Enter an ability name.', 'error'); return; }
+  if (trackedAbilityNames.some(existing => existing.toLocaleLowerCase() === name.toLocaleLowerCase())) {
+    showToast('That ability is already on the timeline.', 'info');
+    return;
+  }
+  trackedAbilityNames.push(name);
+  input.value = '';
+  persistTrackedAbilityNames();
+  renderAbilityList();
+  showToast(`${name} added to the timeline.`, 'success');
+}
+function removeTrackedAbility(index) {
+  const [name] = trackedAbilityNames.splice(index, 1);
+  delete trackedAbilityCooldowns[abilityCooldownKey(name)];
+  persistTrackedAbilityNames();
+  renderAbilityList();
+  showToast(`${name} removed from the timeline.`, 'success');
+}
+function openMechanicsModal() {
+  renderMechanicsList();
+  document.getElementById('mechanics-modal').classList.remove('hidden');
+}
+function closeMechanicsModal() { document.getElementById('mechanics-modal').classList.add('hidden'); }
+function getMechanicRows(fight) {
+  const events = fight && timelineEventsCache[fight.id];
+  if (!events || !report) return [];
+  const mechanicsByName = new Map();
+  (events.enemyCasts || []).filter(event => String(event.type).toLowerCase() === 'cast').forEach(event => {
+    const name = eventAbilityName(event);
+    if (!mechanicsByName.has(name)) mechanicsByName.set(name, []);
+    mechanicsByName.get(name).push(event);
+  });
+  return [...mechanicsByName.entries()]
+    .map(([name, casts]) => {
+      const visibleCasts = filterMechanicRecasts(name, casts);
+      return { name, casts: visibleCasts, firstSeen: visibleCasts[0].timestamp };
+    })
+    .sort((a, b) => a.firstSeen - b.firstSeen);
+}
+function filterMechanicRecasts(name, casts) {
+  const ignoreSeconds = Number(mechanicRecastIgnoreSeconds[name.toLocaleLowerCase()]) || 0;
+  if (ignoreSeconds <= 0) return casts.slice().sort((a, b) => a.timestamp - b.timestamp);
+  const lastAcceptedBySource = new Map();
+  return casts.slice().sort((a, b) => a.timestamp - b.timestamp).filter(event => {
+    const sourceId = event.sourceID == null ? 'unknown' : String(event.sourceID);
+    const lastAccepted = lastAcceptedBySource.get(sourceId);
+    if (lastAccepted != null && event.timestamp - lastAccepted <= ignoreSeconds * 1000) return false;
+    lastAcceptedBySource.set(sourceId, event.timestamp);
+    return true;
+  });
+}
+function renderMechanicsList() {
+  const container = document.getElementById('mechanics-list-container');
+  const fight = getActiveFight();
+  const rows = getMechanicRows(fight);
+  const count = document.getElementById('mechanic-count');
+  if (count) count.textContent = rows.length;
+  const pullLabel = document.getElementById('mechanics-pull-label');
+  if (pullLabel) pullLabel.textContent = fight ? `${fight.name} · ${rows.length} boss ${rows.length === 1 ? 'cast' : 'casts'}` : 'Select a pull to load its boss casts.';
+  container.innerHTML = '';
+  if (!fight || !timelineEventsCache[fight.id]) {
+    container.innerHTML = '<div class="text-slate-500 italic text-center py-5">Boss casts load automatically when a pull is selected.</div>';
+    return;
+  }
+  if (!rows.length) {
+    const events = timelineEventsCache[fight.id];
+    const enemyCasts = events.enemyCasts || [];
+    container.innerHTML = `<div class="text-slate-300 text-center py-4">No enemy casts found for this pull.</div>
+      <div class="text-slate-500 text-[10px] text-center">FFLogs returned ${enemyCasts.length} enemy cast events for this pull.</div>`;
+    return;
+  }
+  rows.forEach(row => {
+    const item = document.createElement('div');
+    item.className = 'grid grid-cols-[auto_minmax(0,1fr)_auto_auto_auto] items-center gap-2 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 hover:border-slate-700';
+    const toggle = document.createElement('input');
+    toggle.type = 'checkbox';
+    toggle.checked = !hiddenMechanicNames.includes(row.name);
+    toggle.className = 'accent-amber-400';
+    toggle.addEventListener('change', () => {
+      if (toggle.checked) hiddenMechanicNames = hiddenMechanicNames.filter(name => name !== row.name);
+      else if (!hiddenMechanicNames.includes(row.name)) hiddenMechanicNames.push(row.name);
+      localStorage.setItem(hiddenMechanicNamesKey(), JSON.stringify(hiddenMechanicNames));
+      renderTimeline();
+    });
+    const name = document.createElement('span');
+    name.className = 'text-slate-200 truncate';
+    name.textContent = row.name;
+    const castCount = document.createElement('span');
+    castCount.className = 'text-[10px] text-slate-500 font-mono';
+    castCount.textContent = `${row.casts.length} ${row.casts.length === 1 ? 'cast' : 'casts'}`;
+    const recastControl = document.createElement('label');
+    recastControl.className = 'flex items-center gap-1 text-[9px] text-slate-500 whitespace-nowrap';
+    recastControl.appendChild(document.createTextNode('Ignore (s)'));
+    const recastInput = document.createElement('input');
+    recastInput.type = 'number';
+    recastInput.min = '0';
+    recastInput.step = '0.1';
+    recastInput.inputMode = 'decimal';
+    recastInput.value = mechanicRecastIgnoreSeconds[row.name.toLocaleLowerCase()] ?? '';
+    recastInput.placeholder = '0';
+    recastInput.title = `Ignore same-caster ${row.name} recasts within this many seconds`;
+    recastInput.className = 'w-14 bg-slate-900 border border-slate-800 rounded px-1.5 py-1 font-mono text-slate-200';
+    recastInput.addEventListener('change', () => {
+      const key = row.name.toLocaleLowerCase();
+      const seconds = Number(recastInput.value);
+      if (recastInput.value === '' || !Number.isFinite(seconds) || seconds <= 0) {
+        delete mechanicRecastIgnoreSeconds[key];
+      } else {
+        mechanicRecastIgnoreSeconds[key] = seconds;
+      }
+      localStorage.setItem(mechanicRecastIgnoreKey(), JSON.stringify(mechanicRecastIgnoreSeconds));
+      renderTimeline();
+    });
+    recastControl.appendChild(recastInput);
+    const firstSeen = document.createElement('span');
+    firstSeen.className = 'text-[10px] text-amber-400 font-mono';
+    firstSeen.textContent = formatSecondsToMMSS((row.firstSeen - fight.startTime) / 1000);
+    firstSeen.title = 'First appearance in this pull';
+    item.append(toggle, name, castCount, recastControl, firstSeen);
+    container.appendChild(item);
+  });
+}
+
+/* =========================================================================
+   TOASTS
+   ========================================================================= */
+function showToast(msg, type) {
+  type = type || 'info';
+  const colors = { info: 'border-slate-700 text-slate-200', error: 'border-rose-600 text-rose-300', success: 'border-emerald-600 text-emerald-300' };
+  const el = document.createElement('div');
+  el.className = `toast bg-slate-900 border ${colors[type]} rounded-lg px-3 py-2 text-xs shadow-xl max-w-xs`;
+  el.textContent = msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; setTimeout(() => el.remove(), 320); }, 4200);
+}
+
+/* =========================================================================
+   OAUTH / PKCE
+   ========================================================================= */
+function base64UrlEncode(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let str = '';
+  for (let i = 0; i < bytes.byteLength; i++) str += String.fromCharCode(bytes[i]);
+  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function randomString(len) {
+  const arr = new Uint8Array(len);
+  crypto.getRandomValues(arr);
+  return base64UrlEncode(arr.buffer).slice(0, len);
+}
+async function sha256(text) {
+  const enc = new TextEncoder().encode(text);
+  return await crypto.subtle.digest('SHA-256', enc);
+}
+
+async function startFFLogsLogin() {
+  if (!settings.clientId) { showToast('Enter your FFLogs Client ID first.', 'error'); return; }
+  if (!window.isSecureContext) { showToast('Must be served over https:// or localhost to log in.', 'error'); return; }
+  const verifier = randomString(64);
+  const challenge = base64UrlEncode(await sha256(verifier));
+  const state = randomString(24);
+  sessionStorage.setItem('pkce_verifier', verifier);
+  sessionStorage.setItem('pkce_state', state);
+
+  const params = new URLSearchParams({
+    client_id: settings.clientId,
+    redirect_uri: settings.redirectUri,
+    response_type: 'code',
+    code_challenge: challenge,
+    code_challenge_method: 'S256',
+    state: state
+  });
+  window.location.href = `${FFLOGS_AUTHORIZE_URL}?${params.toString()}`;
+}
+
+async function handleOAuthRedirect() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('error')) {
+    showToast('FFLogs login was cancelled or denied.', 'error');
+    cleanUrlParams();
+    return;
+  }
+  const code = params.get('code');
+  const state = params.get('state');
+  if (!code) return;
+
+  const expectedState = sessionStorage.getItem('pkce_state');
+  const verifier = sessionStorage.getItem('pkce_verifier');
+  cleanUrlParams();
+  if (!verifier || state !== expectedState) {
+    showToast('Login state mismatch — please try connecting again.', 'error');
+    return;
+  }
+  try {
+    const body = new URLSearchParams({
+      grant_type: 'authorization_code',
+      client_id: settings.clientId,
+      redirect_uri: settings.redirectUri,
+      code: code,
+      code_verifier: verifier
+    });
+    const res = await fetch(FFLOGS_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString()
+    });
+    if (!res.ok) throw new Error('Token exchange failed (' + res.status + ')');
+    const data = await res.json();
+    auth.accessToken = data.access_token;
+    auth.refreshToken = data.refresh_token || null;
+    auth.expiresAt = Date.now() + (data.expires_in || 3600) * 1000;
+    persistAuth();
+    showToast('Connected to FFLogs.', 'success');
+    renderConnStatus();
+  } catch (e) {
+    console.error(e);
+    showToast('Could not complete FFLogs login: ' + e.message, 'error');
+  }
+}
+
+function cleanUrlParams() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete('code'); url.searchParams.delete('state'); url.searchParams.delete('error'); url.searchParams.delete('scope');
+  window.history.replaceState({}, document.title, url.pathname + (url.search ? url.search : '') + url.hash);
+}
+
+async function ensureValidToken() {
+  if (!auth.accessToken) throw new Error('Not connected to FFLogs. Open Settings to connect.');
+  if (Date.now() < auth.expiresAt - 60000) return auth.accessToken;
+  if (!auth.refreshToken) throw new Error('Session expired. Please reconnect in Settings.');
+  const body = new URLSearchParams({ grant_type: 'refresh_token', client_id: settings.clientId, refresh_token: auth.refreshToken });
+  const res = await fetch(FFLOGS_TOKEN_URL, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() });
+  if (!res.ok) { auth = { accessToken: null, refreshToken: null, expiresAt: 0 }; persistAuth(); throw new Error('Session expired. Please reconnect in Settings.'); }
+  const data = await res.json();
+  auth.accessToken = data.access_token;
+  auth.refreshToken = data.refresh_token || auth.refreshToken;
+  auth.expiresAt = Date.now() + (data.expires_in || 3600) * 1000;
+  persistAuth();
+  return auth.accessToken;
+}
+
+function disconnectFFLogs() {
+  auth = { accessToken: null, refreshToken: null, expiresAt: 0 };
+  persistAuth();
+  renderConnStatus();
+  showToast('Disconnected.', 'info');
+}
+
+function renderConnStatus() {
+  const el = document.getElementById('conn-status');
+  const detail = document.getElementById('settings-conn-detail');
+  const fab = document.getElementById('settings-fab');
+  const connected = auth.accessToken && Date.now() < auth.expiresAt;
+  if (el) {
+    if (connected) {
+      el.className = 'text-[11px] font-mono px-2 py-1 rounded border border-emerald-700 bg-emerald-950/40 text-emerald-400';
+      el.innerHTML = '<i class="fa-solid fa-circle text-[6px] mr-1"></i>Connected';
+    } else {
+      el.className = 'text-[11px] font-mono px-2 py-1 rounded border border-slate-800 bg-slate-950 text-slate-500';
+      el.innerHTML = '<i class="fa-solid fa-circle text-[6px] mr-1"></i>Not connected';
+    }
+  }
+  if (fab) fab.classList.toggle('border-emerald-700', !!connected);
+  if (detail) detail.textContent = connected ? 'Connected. Token refreshes automatically.' : (auth.refreshToken ? 'Session needs refresh.' : 'Not connected.');
+}
+
+/* =========================================================================
+   GRAPHQL
+   ========================================================================= */
+async function fflogsQuery(query, variables) {
+  const token = await ensureValidToken();
+  const res = await fetch(FFLOGS_API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+    body: JSON.stringify({ query, variables: variables || {} })
+  });
+  const json = await res.json();
+  if (json.errors && json.errors.length) throw new Error(json.errors.map(e => e.message).join('; '));
+  return json.data;
+}
+
+/* =========================================================================
+   SETTINGS MODAL
+   ========================================================================= */
+function openSettingsModal() {
+  document.getElementById('client-id-input').value = settings.clientId || '';
+  document.getElementById('redirect-uri-display').value = settings.redirectUri;
+  document.getElementById('youtube-key-input').value = settings.youtubeApiKey || '';
+  document.getElementById('settings-modal').classList.remove('hidden');
+  renderConnStatus();
+}
+function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
+function copyRedirectUri() {
+  const val = document.getElementById('redirect-uri-display').value;
+  navigator.clipboard.writeText(val).then(() => showToast('Redirect URI copied.', 'success'));
+}
+function saveSettingsAndConnect() {
+  settings.clientId = document.getElementById('client-id-input').value.trim();
+  persistSettings();
+  if (!settings.clientId) { showToast('Enter a Client ID.', 'error'); return; }
+  startFFLogsLogin();
+}
+function saveYouTubeKey() {
+  settings.youtubeApiKey = document.getElementById('youtube-key-input').value.trim();
+  persistSettings();
+  showToast(settings.youtubeApiKey ? 'YouTube API key saved.' : 'YouTube API key cleared.', 'success');
+}
+
+/* =========================================================================
+   YOUTUBE AUTO-SYNC (live broadcast start time)
+   ========================================================================= */
+async function fetchYouTubeLiveStart(videoId) {
+  if (!settings.youtubeApiKey) throw new Error('Add a YouTube Data API key in Settings first.');
+  const url = `https://www.googleapis.com/youtube/v3/videos?part=liveStreamingDetails&id=${encodeURIComponent(videoId)}&key=${encodeURIComponent(settings.youtubeApiKey)}`;
+  const res = await fetch(url);
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message || 'YouTube API error.');
+  const item = data.items && data.items[0];
+  if (!item) throw new Error('Video not found — check the URL/ID.');
+  const details = item.liveStreamingDetails;
+  if (!details || !details.actualStartTime) {
+    throw new Error('No live-broadcast start time on this video — it may have been uploaded/edited rather than streamed live. Use manual calibration below instead.');
+  }
+  return Date.parse(details.actualStartTime);
+}
+
+/* =========================================================================
+   REPORT LOADING
+   ========================================================================= */
+function extractReportCode(input) {
+  input = input.trim();
+  const m = input.match(/reports\/([a-zA-Z0-9:]+)/);
+  if (m) return m[1].split(':')[0];
+  if (/^[a-zA-Z0-9]{10,20}$/.test(input)) return input;
+  return null;
+}
+
+async function loadReportFromInput() {
+  const raw = document.getElementById('input-fflogs-url').value;
+  const code = extractReportCode(raw);
+  if (!code) { showToast('Could not find a report code in that input.', 'error'); return; }
+  await loadReport(code);
+}
+
+const REPORT_QUERY = `
+query ($code: String!) {
+  reportData {
+    report(code: $code) {
+      title
+      startTime
+      endTime
+      zone { name }
+      fights {
+        id name startTime endTime kill fightPercentage bossPercentage difficulty encounterID
+        lastPhase lastPhaseAsAbsoluteIndex
+        friendlyPlayers
+      }
+      phases { encounterID separatesWipes phases { id name isIntermission } }
+      masterData {
+        players: actors(type: "Player") { id name subType server }
+        abilities { gameID name }
+      }
+    }
+  }
+}`;
+
+async function loadReport(code) {
+  showToast('Loading report...', 'info');
+  try {
+    const data = await fflogsQuery(REPORT_QUERY, { code });
+    const r = data && data.reportData && data.reportData.report;
+    if (!r) throw new Error('Report not found.');
+    report = {
+      code,
+      title: r.title,
+      zoneName: r.zone ? r.zone.name : '',
+      startTime: r.startTime,
+      endTime: r.endTime,
+      fights: (r.fights || []).filter(f => f.encounterID && f.encounterID !== 0),
+      phases: r.phases || [],
+      actors: (r.masterData && r.masterData.players) || [],
+      abilityNames: new Map(((r.masterData && r.masterData.abilities) || []).map(ability => [Number(ability.gameID), ability.name]))
+    };
+    deathsCache = {};
+    timelineEventsCache = {};
+    deathDetailCache = {};
+    selectedPhaseFilter = '';
+    document.getElementById('phase-filter').value = '';
+    loadReportLocalData();
+    document.getElementById('active-log-title').textContent = `${r.title} — ${report.zoneName}`;
+    document.getElementById('active-log-title').classList.remove('hidden');
+    activeFightId = report.fights.length ? report.fights[0].id : null;
+    if (!activePovId && povs.length) activePovId = povs[0].id;
+    populatePhaseFilter();
+    renderPullList();
+    renderPOVTabs();
+    renderLogPlayerChips();
+    renderNotes();
+    if (activeFightId) selectPull(activeFightId);
+    showToast(`Loaded "${r.title}" (${report.fights.length} pulls).`, 'success');
+  } catch (e) {
+    console.error(e);
+    showToast('Failed to load report: ' + e.message, 'error');
+  }
+}
+
+function renderLogPlayerChips() {
+  const c = document.getElementById('log-players-chip-container');
+  c.innerHTML = '';
+  if (!report) return;
+  const fight = getActiveFight();
+  const roster = fight && Array.isArray(fight.friendlyPlayers)
+    ? report.actors.filter(a => fight.friendlyPlayers.includes(a.id))
+    : report.actors;
+  const label = document.getElementById('log-players-label');
+  if (label) label.textContent = fight ? `Players in this pull` : 'Players in log';
+  if (fight && !roster.length) {
+    c.innerHTML = '<span class="text-[10px] text-slate-600 italic">No player roster data for this pull.</span>';
+    return;
+  }
+  roster.forEach(a => {
+    const job = (a.subType || '').toUpperCase();
+    const color = JOB_COLORS[job] || '#64748b';
+    const chip = document.createElement('button');
+    chip.className = 'job-chip hover:opacity-80 transition';
+    chip.style.backgroundColor = color;
+    chip.title = `Add ${a.name} (${job}) as a POV`;
+    chip.textContent = `${a.name}`;
+    chip.onclick = () => addPOV(a.name, job);
+    c.appendChild(chip);
+  });
+}
+
+/* =========================================================================
+   PULL LIST
+   ========================================================================= */
+function filterPulls(type) {
+  currentFilter = type;
+  document.querySelectorAll('.filter-btn').forEach(button => button.classList.remove('active'));
+  if (type === 'all') document.getElementById('filter-btn-all').classList.add('active');
+  renderPullList();
+}
+
+function updateWipeThreshold(event) {
+  const input = event.target;
+  const value = Number(input.value);
+  if (input.value === '' || !Number.isFinite(value)) {
+    currentFilter = 'all';
+    document.querySelectorAll('.filter-btn').forEach(button => button.classList.remove('active'));
+    document.getElementById('filter-btn-all').classList.add('active');
+  } else {
+    wipeThreshold = Math.max(0, Math.min(100, value));
+    input.value = wipeThreshold;
+    currentFilter = 'threshold';
+    document.querySelectorAll('.filter-btn').forEach(button => button.classList.remove('active'));
+  }
+  renderPullList();
+}
+
+function getFilteredFights() {
+  if (!report) return [];
+  return report.fights.filter(f => {
+    if (currentFilter === 'threshold' && (f.kill || f.fightPercentage == null || f.fightPercentage > wipeThreshold)) return false;
+    if (selectedPhaseFilter) {
+      const [bossId, phaseId] = selectedPhaseFilter.split(':').map(Number);
+      if (Number(f.encounterID) !== bossId || getFightReachedPhaseId(f) !== phaseId) return false;
+    }
+    return true;
+  });
+}
+
+function populatePhaseFilter() {
+  const select = document.getElementById('phase-filter');
+  select.innerHTML = '<option value="">Any phase</option>';
+  if (!report) return;
+  const encounterIds = new Set(report.fights.map(fight => Number(fight.encounterID)));
+  (report.phases || []).filter(group => encounterIds.has(Number(group.encounterID))).forEach(group => {
+    const fight = report.fights.find(item => Number(item.encounterID) === Number(group.encounterID));
+    const optionGroup = document.createElement('optgroup');
+    optionGroup.label = fight ? fight.name : `Encounter ${group.encounterID}`;
+    (group.phases || []).forEach(phase => {
+      const phasePullCount = report.fights.filter(item => Number(item.encounterID) === Number(group.encounterID) && getFightReachedPhaseId(item) === Number(phase.id)).length;
+      const option = document.createElement('option');
+      option.value = `${group.encounterID}:${phase.id}`;
+      option.textContent = `${formatPhaseLabel(phase.id, phase.name)} (${phasePullCount})`;
+      optionGroup.appendChild(option);
+    });
+    if (optionGroup.children.length) select.appendChild(optionGroup);
+  });
+}
+
+function getFightReachedPhaseId(fight) {
+  // Prefer the absolute index (0-based, counts intermissions) mapped onto the encounter's phase list.
+  const group = report && (report.phases || []).find(g => Number(g.encounterID) === Number(fight.encounterID));
+  const list = group && group.phases;
+  const absIdx = Number(fight.lastPhaseAsAbsoluteIndex);
+  if (list && list.length && Number.isInteger(absIdx) && absIdx >= 0 && absIdx < list.length) {
+    return Number(list[absIdx].id);
+  }
+  const phaseId = Number(fight.lastPhase);
+  return Number.isInteger(phaseId) && phaseId > 0 ? phaseId : 1;
+}
+
+function formatPhaseLabel(phaseId, phaseName) {
+  const name = String(phaseName || '').replace(/^P\s*\d+\s*:\s*/i, '').trim();
+  return name ? `P${phaseId}: ${name}` : `P${phaseId}`;
+}
+
+function getFightReachedPhase(fight) {
+  const highestPhase = getFightReachedPhaseId(fight);
+  const phaseGroup = (report.phases || []).find(group => Number(group.encounterID) === Number(fight.encounterID));
+  const phase = phaseGroup && (phaseGroup.phases || []).find(item => Number(item.id) === highestPhase);
+  return formatPhaseLabel(highestPhase, phase && phase.name);
+}
+
+function renderPullList() {
+  const container = document.getElementById('pull-list-container');
+  container.innerHTML = '';
+  document.getElementById('pull-count-badge').textContent = report ? `${report.fights.length} pulls` : '0 pulls';
+  updateStatsHeader();
+
+  if (!report) {
+    container.innerHTML = '<div class="text-xs text-slate-500 italic text-center p-6">Connect to FFLogs and load a report to see pulls here.</div>';
+    return;
+  }
+  const fights = getFilteredFights();
+  if (!fights.length) {
+    container.innerHTML = '<div class="text-xs text-slate-500 italic text-center p-6">No pulls match this filter.</div>';
+    return;
+  }
+  fights.forEach((f, idx) => {
+    const pullNum = report.fights.indexOf(f) + 1;
+    const durSec = Math.round((f.endTime - f.startTime) / 1000);
+    const clockTime = new Date(report.startTime + f.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const reachedPhase = getFightReachedPhase(f);
+    const div = document.createElement('button');
+    div.className = 'pull-item w-full text-left bg-slate-950 hover:bg-slate-800/70 border border-slate-800 rounded-lg p-2 transition' + (f.id === activeFightId ? ' active' : '');
+    div.onclick = () => selectPull(f.id);
+    const statusBadge = f.kill
+      ? '<span class="text-[10px] font-bold text-emerald-400 bg-emerald-950/50 px-1.5 py-0.5 rounded border border-emerald-700/40">KILL</span>'
+      : `<span class="text-[10px] font-bold text-rose-400 bg-rose-950/50 px-1.5 py-0.5 rounded border border-rose-700/40">${f.fightPercentage != null ? f.fightPercentage.toFixed(1) + '%' : 'WIPE'}</span>`;
+    div.innerHTML = `
+      <div class="flex items-center justify-between mb-1">
+        <span class="text-xs font-bold text-slate-200">Pull ${pullNum} <span class="text-slate-500 font-normal">· ${escapeHTML(f.name)}</span></span>
+        ${statusBadge}
+      </div>
+      <div class="flex items-center justify-between text-[10px] text-slate-500 font-mono">
+        <span><i class="fa-solid fa-clock"></i> ${clockTime}</span>
+        <span class="flex items-center gap-2"><span class="text-ffcyan-400">${reachedPhase ? escapeHTML(reachedPhase) : ''}</span><span>${formatSecondsToMMSS(durSec)}</span></span>
+      </div>`;
+    container.appendChild(div);
+  });
+}
+
+function updateStatsHeader() {
+  if (!report) {
+    document.getElementById('stat-kills').textContent = '-';
+    document.getElementById('stat-best').textContent = '-';
+    document.getElementById('stat-time').textContent = '-';
+    return;
+  }
+  const kills = report.fights.filter(f => f.kill).length;
+  const wipes = report.fights.filter(f => !f.kill && f.fightPercentage != null);
+  const best = wipes.length ? Math.min(...wipes.map(f => f.fightPercentage)) : (kills ? 0 : null);
+  const totalMs = report.fights.length ? (report.fights[report.fights.length - 1].endTime) : 0;
+  document.getElementById('stat-kills').textContent = kills;
+  document.getElementById('stat-best').textContent = best != null ? best.toFixed(1) + '%' : '-';
+  document.getElementById('stat-time').textContent = formatMsToHM(totalMs);
+}
+
+/* =========================================================================
+   SELECT PULL / SYNC VIDEO
+   ========================================================================= */
+function selectPull(fightId) {
+  activeFightId = fightId;
+  renderPullList();
+  const fight = getActiveFight();
+  if (!fight) return;
+  document.getElementById('timeline-pull-title').textContent =
+    `${fight.name} — ${fight.kill ? 'Kill' : (fight.fightPercentage != null ? fight.fightPercentage.toFixed(1) + '% remaining' : 'Wipe')} (${formatSecondsToMMSS(Math.round((fight.endTime - fight.startTime) / 1000))})`;
+  jumpToCurrentPullStart();
+  loadDeathsForFight(fightId);
+  loadTimelineEventsForFight(fightId);
+  renderLogPlayerChips();
+  renderNotes();
+}
+function getActiveFight() {
+  return report ? report.fights.find(f => f.id === activeFightId) : null;
+}
+function getActivePOV() {
+  return povs.find(p => p.id === activePovId) || null;
+}
+function pullAbsStartMs(fight) { return report.startTime + fight.startTime; }
+
+function resolveSegmentForAbsTime(pov, absMs) {
+  if (!pov || !pov.segments || !pov.segments.length) return null;
+  const withCal = pov.segments.filter(s => s.videoId && s.startAbsMs != null);
+  if (!withCal.length) return null;
+  let best = withCal[0];
+  withCal.forEach(s => { if (s.startAbsMs <= absMs && s.startAbsMs > best.startAbsMs) best = s; });
+  if (best.startAbsMs > absMs) {
+    // no segment starts before this time; fall back to earliest segment
+    best = withCal.reduce((a, b) => a.startAbsMs < b.startAbsMs ? a : b);
+  }
+  return best;
+}
+
+function seekToAbsTime(absMs) {
+  const pov = getActivePOV();
+  if (!pov) { showToast('Select or add a POV first.', 'error'); return; }
+  const seg = resolveSegmentForAbsTime(pov, absMs);
+  if (!seg) { showToast('This POV has no calibrated video segment yet. Open POVs to set one.', 'error'); return; }
+  const videoSeconds = Math.max(0, (absMs - seg.startAbsMs) / 1000);
+  loadAndSeek(seg.videoId, videoSeconds);
+}
+
+function jumpToCurrentPullStart() {
+  const fight = getActiveFight();
+  if (!fight) return;
+  seekToAbsTime(pullAbsStartMs(fight));
+}
+function jumpToDeathTime() {
+  const fight = getActiveFight();
+  if (!fight) return;
+  const deaths = deathsCache[fight.id];
+  if (deaths && deaths.length) {
+    seekToAbsTime(pullAbsStartMs(fight) + deaths[0].timeMs);
+  } else {
+    showToast('No deaths recorded (or not loaded yet) for this pull.', 'info');
+    jumpToCurrentPullStart();
+  }
+}
+function jumpToSpecificOffsetMs(offsetMs) {
+  const fight = getActiveFight();
+  if (!fight) return;
+  seekToAbsTime(pullAbsStartMs(fight) + offsetMs);
+}
+function seekVideoRelative(deltaSeconds) {
+  if (!ytReady || !ytPlayer || !ytPlayer.getCurrentTime) { showToast('No video loaded.', 'error'); return; }
+  const t = ytPlayer.getCurrentTime() + deltaSeconds;
+  ytPlayer.seekTo(Math.max(0, t), true);
+}
+
+/* =========================================================================
+   YOUTUBE PLAYER CONTROL
+   ========================================================================= */
+function loadAndSeek(videoId, seconds) {
+  if (!ytReady || !ytPlayer) { ytPendingLoad = { videoId, seconds }; return; }
+  doLoadAndSeek(videoId, seconds);
+}
+function doLoadAndSeek(videoId, seconds) {
+  document.getElementById('no-video-placeholder').classList.add('hidden');
+  if (currentLoadedVideoId !== videoId) {
+    ytPlayer.loadVideoById({ videoId, startSeconds: seconds });
+    currentLoadedVideoId = videoId;
+  } else {
+    ytPlayer.seekTo(seconds, true);
+  }
+  ensurePolling();
+}
+function ensurePolling() {
+  if (pollTimer) return;
+  pollTimer = setInterval(() => {
+    if (!ytReady || !ytPlayer || !ytPlayer.getCurrentTime) return;
+    let vSec = 0;
+    try { vSec = ytPlayer.getCurrentTime(); } catch (e) { return; }
+    document.getElementById('video-time-display').textContent = formatSecondsToMMSS(Math.floor(vSec));
+    const pov = getActivePOV();
+    const fight = getActiveFight();
+    if (pov && fight) {
+      const seg = resolveSegmentForAbsTime(pov, report.startTime + fight.startTime);
+      const segForCurrent = pov.segments.find(s => s.videoId === currentLoadedVideoId) || seg;
+      if (segForCurrent && segForCurrent.startAbsMs != null) {
+        const absNow = segForCurrent.startAbsMs + vSec * 1000;
+        const logOffsetSec = Math.floor((absNow - pullAbsStartMs(fight)) / 1000);
+        document.getElementById('log-time-display').textContent = formatSecondsToMMSS(logOffsetSec);
+      }
+    }
+  }, 500);
+}
+
+/* =========================================================================
+   DEATHS
+   ========================================================================= */
+const DEATHS_QUERY = `
+query ($code: String!, $fightID: Int!) {
+  reportData {
+    report(code: $code) {
+      events(fightIDs: [$fightID], dataType: Deaths, startTime: 0, endTime: 999999999) { data }
+    }
+  }
+}`;
+
+const TIMELINE_EVENTS_QUERY = `
+query ($code: String!, $fightID: Int!) {
+  reportData {
+    report(code: $code) {
+      buffs: events(fightIDs: [$fightID], dataType: Buffs, startTime: 0, endTime: 999999999) { data }
+      casts: events(fightIDs: [$fightID], dataType: Casts, startTime: 0, endTime: 999999999) { data }
+      enemyCasts: events(fightIDs: [$fightID], dataType: Casts, hostilityType: Enemies, startTime: 0, endTime: 999999999) { data }
+    }
+  }
+}`;
+
+async function loadTimelineEventsForFight(fightId) {
+  if (!report || timelineEventsCache[fightId]) { renderTimeline(); return; }
+  try {
+    const data = await fflogsQuery(TIMELINE_EVENTS_QUERY, { code: report.code, fightID: fightId });
+    const events = data.reportData.report;
+    const buffEvents = events.buffs && events.buffs.data || [];
+    const castEvents = events.casts && events.casts.data || [];
+    const enemyCastEvents = events.enemyCasts && events.enemyCasts.data || [];
+    timelineEventsCache[fightId] = {
+      buffs: buffEvents,
+      casts: castEvents,
+      enemyCasts: enemyCastEvents
+    };
+    renderAbilityNameSuggestions([...buffEvents, ...castEvents]);
+  } catch (e) {
+    console.error(e);
+    timelineEventsCache[fightId] = { buffs: [], casts: [] };
+    showToast('Could not load combat timeline: ' + e.message, 'error');
+  }
+  if (fightId === activeFightId) renderTimeline();
+}
+
+async function loadDeathsForFight(fightId) {
+  document.getElementById('deaths-list-container').innerHTML = '<div class="text-xs text-slate-500 italic p-3">Loading...</div>';
+  if (deathsCache[fightId]) { renderDeathRecap(fightId); renderTimeline(); return; }
+  try {
+    const fight = report.fights.find(f => f.id === fightId);
+    const data = await fflogsQuery(DEATHS_QUERY, { code: report.code, fightID: fightId });
+    const events = (data.reportData.report.events && data.reportData.report.events.data) || [];
+    const actorMap = {};
+    report.actors.forEach(a => actorMap[a.id] = a.name);
+    const deaths = events.map(ev => ({
+      timeMs: ev.timestamp - fight.startTime,
+      targetID: ev.targetID,
+      player: actorMap[ev.targetID] || 'Unknown',
+      ability: ev.killingAbilityGameID ? (report.abilityNames.get(Number(ev.killingAbilityGameID)) || ('Ability #' + ev.killingAbilityGameID)) : 'Unknown cause'
+    })).sort((a, b) => a.timeMs - b.timeMs);
+    deathsCache[fightId] = deaths;
+  } catch (e) {
+    console.error(e);
+    deathsCache[fightId] = [];
+    showToast('Could not load death events: ' + e.message, 'error');
+  }
+  renderDeathRecap(fightId);
+  renderTimeline();
+}
+
+function renderDeathRecap(fightId) {
+  const container = document.getElementById('deaths-list-container');
+  const deaths = deathsCache[fightId] || [];
+  renderDeathsTimeline(fightId);
+  document.getElementById('pull-death-count').textContent = deaths.length;
+  container.innerHTML = '';
+  if (!deaths.length) {
+    container.innerHTML = '<div class="text-xs text-slate-500 italic p-3 text-center">No deaths recorded for this pull.</div>';
+    return;
+  }
+  deaths.forEach((d, idx) => {
+    const div = document.createElement('div');
+    div.className = 'flex items-center justify-between bg-slate-950 p-2 rounded-lg border border-slate-800 text-xs';
+    div.innerHTML = `
+      <div class="flex items-center gap-2">
+        <span class="w-6 h-6 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center text-xs font-bold"><i class="fa-solid fa-skull"></i></span>
+        <div><span class="font-bold text-slate-200">${escapeHTML(d.player)}</span> <span class="text-slate-400">died —</span> <span class="text-amber-400">${escapeHTML(d.ability)}</span></div>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <button class="death-detail-btn bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded flex items-center gap-1 transition" title="Last moments"><i class="fa-solid fa-magnifying-glass text-[9px]"></i> Last moments</button>
+        <button class="bg-slate-800 hover:bg-slate-700 text-ffcyan-400 px-2.5 py-1 rounded font-mono font-bold flex items-center gap-1 transition"><i class="fa-solid fa-play text-[9px]"></i> ${formatSecondsToMMSS(Math.round(d.timeMs / 1000))}</button>
+      </div>`;
+    div.querySelector('.death-detail-btn').onclick = () => openDeathDetailModal(fightId, d);
+    div.querySelectorAll('button')[1].onclick = () => jumpToSpecificOffsetMs(d.timeMs);
+    container.appendChild(div);
+  });
+}
+
+function renderDeathsTimeline(fightId) {
+  const container = document.getElementById('deaths-timeline');
+  container.innerHTML = '';
+  const fight = report && report.fights.find(item => item.id === fightId);
+  if (!fight) return;
+  const deaths = deathsCache[fight.id] || [];
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const height = 76;
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('viewBox', `0 0 1000 ${height}`);
+  svg.setAttribute('width', '100%');
+  svg.setAttribute('class', 'block w-full min-w-full');
+  svg.setAttribute('height', height);
+  const start = fight.startTime;
+  const duration = Math.max(1, fight.endTime - fight.startTime);
+  const left = 110, right = 985, width = right - left;
+  const xAt = timestamp => left + Math.max(0, Math.min(1, (timestamp - start) / duration)) * width;
+  const add = (tag, attrs, text) => {
+    const el = document.createElementNS(svgNS, tag);
+    Object.entries(attrs || {}).forEach(([name, value]) => el.setAttribute(name, value));
+    if (text != null) el.textContent = text;
+    svg.appendChild(el);
+    return el;
+  };
+  for (let tick = 0; tick <= 4; tick++) {
+    const x = left + width * tick / 4;
+    add('line', { x1: x, y1: 18, x2: x, y2: height - 4, stroke: '#1e293b', 'stroke-width': 1 });
+    add('text', { x, y: 12, fill: '#64748b', 'font-size': 10, 'text-anchor': tick === 0 ? 'start' : tick === 4 ? 'end' : 'middle' }, formatSecondsToMMSS(duration / 1000 * tick / 4));
+  }
+  const centerY = 47;
+  add('text', { x: 4, y: centerY + 3, fill: '#fb7185', 'font-size': 10 }, 'Deaths');
+  add('line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b', 'stroke-width': 1 });
+  deaths.forEach(death => {
+    const x = xAt(start + death.timeMs);
+    const marker = add('path', { d: `M ${x - 4} ${centerY - 4} L ${x + 4} ${centerY + 4} M ${x + 4} ${centerY - 4} L ${x - 4} ${centerY + 4}`, fill: 'none', stroke: '#fb7185', 'stroke-width': 2.5, class: 'cursor-pointer' });
+    marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${death.player} died to ${death.ability} at ${formatSecondsToMMSS(death.timeMs / 1000)}`;
+    marker.addEventListener('click', () => jumpToSpecificOffsetMs(death.timeMs));
+  });
+  container.appendChild(svg);
+}
+
+/* =========================================================================
+   DEATH DETAIL ("Last Moments") — recent damage taken + active mitigations
+   ========================================================================= */
+const DEATH_DETAIL_QUERY = `
+query ($code: String!, $fightID: Int!, $targetID: Int!, $dmgStart: Float!, $dmgEnd: Float!, $buffEnd: Float!) {
+  reportData {
+    report(code: $code) {
+      damage: events(fightIDs: [$fightID], dataType: DamageTaken, targetID: $targetID, startTime: $dmgStart, endTime: $dmgEnd) { data }
+      buffs: events(fightIDs: [$fightID], dataType: Buffs, targetID: $targetID, startTime: 0, endTime: $buffEnd) { data }
+    }
+  }
+}`;
+
+let deathDetailCache = {};
+
+async function openDeathDetailModal(fightId, death) {
+  const fight = report.fights.find(f => f.id === fightId);
+  if (!fight) return;
+  document.getElementById('death-detail-title').textContent = `${death.player} — Last Moments`;
+  document.getElementById('death-detail-modal').classList.remove('hidden');
+  const body = document.getElementById('death-detail-body');
+  body.innerHTML = '<div class="text-slate-500 italic text-center py-6"><i class="fa-solid fa-spinner fa-spin"></i> Loading last moments...</div>';
+
+  const cacheKey = `${fightId}_${death.targetID}_${death.timeMs}`;
+  if (deathDetailCache[cacheKey]) { renderDeathDetail(deathDetailCache[cacheKey], death, fight); return; }
+
+  if (death.targetID == null) { body.innerHTML = '<div class="text-rose-400 text-center py-6">Could not identify this player\'s actor ID for lookup.</div>'; return; }
+
+  try {
+    const deathAbsTime = fight.startTime + death.timeMs;
+    const variables = {
+      code: report.code,
+      fightID: fightId,
+      targetID: death.targetID,
+      dmgStart: Math.max(0, deathAbsTime - 15000),
+      dmgEnd: deathAbsTime + 200,
+      buffEnd: deathAbsTime
+    };
+    const data = await fflogsQuery(DEATH_DETAIL_QUERY, variables);
+    const result = {
+      damage: (data.reportData.report.damage && data.reportData.report.damage.data) || [],
+      buffs: (data.reportData.report.buffs && data.reportData.report.buffs.data) || []
+    };
+    deathDetailCache[cacheKey] = result;
+    renderDeathDetail(result, death, fight);
+  } catch (e) {
+    console.error(e);
+    body.innerHTML = `<div class="text-rose-400 text-center py-6">Could not load details: ${escapeHTML(e.message)}</div>`;
+  }
+}
+function closeDeathDetailModal() { document.getElementById('death-detail-modal').classList.add('hidden'); }
+
+function resolveAbilityName(abilityGameID) {
+  if (abilityGameID == null) return 'Unknown';
+  const name = report.abilityNames && report.abilityNames.get(Number(abilityGameID));
+  return name || ('Ability #' + abilityGameID);
+}
+
+function renderDeathDetail(result, death, fight) {
+  const body = document.getElementById('death-detail-body');
+  const deathAbsTime = fight.startTime + death.timeMs;
+
+  // Active buffs/mitigations at time of death: walk apply/remove events, keep what's still up.
+  const active = new Map();
+  (result.buffs || []).slice().sort((a, b) => a.timestamp - b.timestamp).forEach(ev => {
+    const key = `${ev.abilityGameID}_${ev.sourceID || ''}`;
+    if (ev.type === 'applybuff' || ev.type === 'refreshbuff') active.set(key, ev.abilityGameID);
+    else if (ev.type === 'removebuff') active.delete(key);
+  });
+  const activeNames = [...new Set([...active.values()].map(resolveAbilityName))].sort();
+
+  // Damage taken in the last ~15s, chronological, with running / reported HP%.
+  const dmgEvents = (result.damage || []).slice().sort((a, b) => a.timestamp - b.timestamp);
+  const dmgRows = dmgEvents.map(ev => {
+    const relMs = ev.timestamp - fight.startTime;
+    const hpPct = (ev.hitPoints != null && ev.maxHitPoints) ? Math.max(0, (ev.hitPoints / ev.maxHitPoints) * 100) : null;
+    const isKillingBlow = Math.abs(ev.timestamp - deathAbsTime) < 250;
+    return { relMs, ability: resolveAbilityName(ev.abilityGameID), amount: ev.amount || 0, hpPct, isKillingBlow };
+  });
+
+  let html = '';
+  html += `<div class="bg-slate-950 border border-slate-800 rounded-lg p-3">
+    <div class="text-[10px] uppercase text-slate-500 font-bold mb-1.5">Killed by</div>
+    <div class="text-rose-400 font-semibold">${escapeHTML(death.ability)}</div>
+    <div class="text-slate-500 text-[11px] mt-0.5">at ${formatSecondsToMMSS(Math.round(death.timeMs / 1000))} into the pull</div>
+  </div>`;
+
+  html += `<div class="bg-slate-950 border border-slate-800 rounded-lg p-3">
+    <div class="text-[10px] uppercase text-slate-500 font-bold mb-1.5">Active mitigations at death</div>
+    ${activeNames.length
+      ? `<div class="flex flex-wrap gap-1">${activeNames.map(n => `<span class="bg-emerald-950/50 text-emerald-300 border border-emerald-700/40 rounded px-1.5 py-0.5 text-[10px]">${escapeHTML(n)}</span>`).join('')}</div>`
+      : `<div class="text-slate-600 italic text-[11px]">No tracked buffs were active — went in raw, or mitigations had already fallen off.</div>`}
+  </div>`;
+
+  html += `<div class="bg-slate-950 border border-slate-800 rounded-lg p-3">
+    <div class="text-[10px] uppercase text-slate-500 font-bold mb-1.5">Last ~15 seconds of damage taken</div>
+    ${dmgRows.length ? `<div class="space-y-1 max-h-56 overflow-y-auto pr-1">${dmgRows.map(r => `
+      <button class="w-full flex items-center justify-between text-left px-2 py-1 rounded ${r.isKillingBlow ? 'bg-rose-950/50 border border-rose-700/50' : 'hover:bg-slate-900 border border-transparent'} transition dmg-row" data-ms="${r.relMs}">
+        <span class="flex items-center gap-2">
+          <span class="font-mono text-slate-500 text-[10px]">${formatSecondsToMMSS(Math.round(r.relMs / 1000))}</span>
+          <span class="${r.isKillingBlow ? 'text-rose-300 font-bold' : 'text-slate-300'}">${escapeHTML(r.ability)}${r.isKillingBlow ? ' (killing blow)' : ''}</span>
+        </span>
+        <span class="flex items-center gap-2 font-mono text-[10px]">
+          <span class="text-amber-400">${r.amount.toLocaleString()} dmg</span>
+          ${r.hpPct != null ? `<span class="text-slate-500">${r.hpPct.toFixed(0)}% hp</span>` : ''}
+        </span>
+      </button>`).join('')}</div>` : `<div class="text-slate-600 italic text-[11px]">No damage-taken data available in this window.</div>`}
+  </div>`;
+
+  body.innerHTML = html;
+  body.querySelectorAll('.dmg-row').forEach(row => {
+    row.addEventListener('click', () => jumpToSpecificOffsetMs(Number(row.getAttribute('data-ms'))));
+  });
+}
+
+function renderTimeline() {
+  const fight = getActiveFight();
+  const visualization = document.getElementById('timeline-visualization');
+  visualization.innerHTML = '';
+  if (!fight) return;
+  renderCombatTimeline(fight, visualization);
+}
+
+function eventAbilityId(event) {
+  return Number(event.abilityGameID || (event.ability && (event.ability.gameID || event.ability.guid || event.ability.id)) || 0);
+}
+function eventAbilityName(event) {
+  const eventName = event.ability && event.ability.name || event.abilityName;
+  const abilityId = eventAbilityId(event);
+  return eventName || (report && report.abilityNames && report.abilityNames.get(abilityId)) || `Ability ${abilityId}`;
+}
+function renderAbilityNameSuggestions(events) {
+  const options = document.getElementById('ability-name-options');
+  const names = [...new Set(events.map(eventAbilityName).filter(name => name && !/^Ability \d+$/.test(name)))];
+  options.innerHTML = '';
+  names.forEach(name => {
+    const option = document.createElement('option');
+    option.value = name;
+    options.appendChild(option);
+  });
+}
+function renderCombatTimeline(fight, container) {
+  const events = timelineEventsCache[fight.id] || { buffs: [], casts: [] };
+  const isLoading = !timelineEventsCache[fight.id];
+  const actorNames = new Map(report.actors.map(actor => [String(actor.id), actor.name]));
+  const playerIds = new Set(report.actors.map(player => String(player.id)));
+  const mechanicRows = getMechanicRows(fight).filter(row => !hiddenMechanicNames.includes(row.name));
+  const abilityRows = trackedAbilityNames.map(abilityName => {
+    const searchName = abilityName.toLocaleLowerCase();
+    const casts = events.casts.filter(event => String(event.type).toLowerCase() === 'cast' && playerIds.has(String(event.sourceID)) && eventAbilityName(event).toLocaleLowerCase() === searchName);
+    const castIds = new Set(casts.map(eventAbilityId).filter(Boolean));
+    const buffEvents = events.buffs.filter(event => {
+      const sameName = eventAbilityName(event).toLocaleLowerCase() === searchName;
+      const sameCast = castIds.has(eventAbilityId(event)) && casts.some(cast => String(cast.sourceID) === String(event.sourceID) && eventAbilityId(cast) === eventAbilityId(event));
+      return sameName || sameCast;
+    });
+    const activeByTarget = new Map();
+    const spans = [];
+    buffEvents.sort((a, b) => a.timestamp - b.timestamp).forEach(event => {
+      const buffId = eventAbilityId(event) || eventAbilityName(event);
+      const key = `${event.targetID}:${buffId}`;
+      const isApply = /^(applybuff|applybuffstack|refreshbuff)$/.test(event.type);
+      const isRemove = /^(removebuff|removebuffstack)$/.test(event.type);
+      if (isApply) {
+        const previous = activeByTarget.get(key);
+        if (previous) previous.end = event.timestamp;
+        const span = { start: event.timestamp, end: fight.endTime, targetID: event.targetID, name: eventAbilityName(event) };
+        spans.push(span);
+        activeByTarget.set(key, span);
+      } else if (isRemove) {
+        const active = activeByTarget.get(key);
+        if (active) {
+          active.end = event.timestamp;
+          activeByTarget.delete(key);
+        }
+      }
+    });
+    return { abilityName, cooldownSeconds: Number(trackedAbilityCooldowns[abilityCooldownKey(abilityName)]) || 0, casts, spans };
+  });
+  const fightNotes = notes.filter(note => note.fightId === fight.id);
+  const rowCount = (mechanicRows.length ? 1 : 0) + (fightNotes.length ? 1 : 0) + abilityRows.length;
+  const height = Math.max(56, 34 + rowCount * 32);
+  const rowHeight = 32;
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('viewBox', `0 0 1000 ${height}`);
+  svg.setAttribute('width', '100%');
+  svg.setAttribute('class', 'block w-full min-w-full');
+  svg.setAttribute('height', height);
+  const start = fight.startTime, duration = Math.max(1, fight.endTime - start);
+  const left = 110, right = 985, width = right - left;
+  const xAt = timestamp => left + Math.max(0, Math.min(1, (timestamp - start) / duration)) * width;
+  const add = (tag, attrs, text) => {
+    const el = document.createElementNS(svgNS, tag);
+    Object.entries(attrs || {}).forEach(([name, value]) => el.setAttribute(name, value));
+    if (text != null) el.textContent = text;
+    svg.appendChild(el);
+    return el;
+  };
+  for (let tick = 0; tick <= 4; tick++) {
+    const x = left + width * tick / 4;
+    add('line', { x1: x, y1: 18, x2: x, y2: height - 6, stroke: '#1e293b', 'stroke-width': 1 });
+    add('text', { x, y: 12, fill: '#64748b', 'font-size': 10, 'text-anchor': tick === 0 ? 'start' : tick === 4 ? 'end' : 'middle' }, formatSecondsToMMSS(duration / 1000 * tick / 4));
+  }
+  let rowIndex = 0;
+  if (mechanicRows.length) {
+    const y = 27 + rowIndex++ * rowHeight;
+    const centerY = y + rowHeight / 2;
+    add('text', { x: 4, y: centerY + 3, fill: '#fbbf24', 'font-size': 10 }, 'Mechanics');
+    add('line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b', 'stroke-width': 1 });
+    mechanicRows.flatMap(row => row.casts.map(event => ({ ...event, mechanicName: row.name })))
+      .sort((a, b) => a.timestamp - b.timestamp)
+      .forEach(event => {
+      const x = xAt(event.timestamp);
+      const marker = add('path', { d: `M ${x} ${centerY - 6} l 4 6 l -4 6 l -4 -6 Z`, fill: '#fbbf24', stroke: '#451a03', 'stroke-width': 1, class: 'cursor-pointer' });
+      const sourceName = event.sourceName || actorNames.get(String(event.sourceID)) || 'Enemy';
+      marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${event.mechanicName} cast by ${sourceName} at ${formatSecondsToMMSS((event.timestamp - start) / 1000)}`;
+      marker.addEventListener('click', () => jumpToSpecificOffsetMs(event.timestamp - start));
+    });
+  }
+  if (fightNotes.length) {
+    const notesY = 27 + rowIndex++ * rowHeight;
+    const centerY = notesY + rowHeight / 2;
+    add('text', { x: 4, y: centerY + 3, fill: '#22d3ee', 'font-size': 10 }, 'Notes');
+    add('line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b', 'stroke-width': 1 });
+    fightNotes.forEach(note => {
+      const noteMs = note.logSeconds * 1000;
+      const marker = add('circle', { cx: xAt(start + noteMs), cy: centerY, r: 4, fill: '#22d3ee', stroke: '#0f172a', 'stroke-width': 1, class: 'cursor-pointer' });
+      marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `Note at ${formatSecondsToMMSS(note.logSeconds)}: ${note.text}`;
+      marker.addEventListener('click', () => jumpToSpecificOffsetMs(noteMs));
+    });
+  }
+  abilityRows.forEach(row => {
+    const y = 27 + rowIndex++ * rowHeight;
+    const centerY = y + rowHeight / 2;
+    const { abilityName, cooldownSeconds, casts, spans } = row;
+    add('text', { x: 4, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, abilityName.length > 17 ? abilityName.slice(0, 16) + '…' : abilityName);
+    add('line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b', 'stroke-width': 1 });
+    if (cooldownSeconds > 0) {
+      casts.forEach(event => {
+        const endTimestamp = Math.min(event.timestamp + cooldownSeconds * 1000, fight.endTime);
+        const x = xAt(event.timestamp);
+        const endX = xAt(endTimestamp);
+        const rect = add('rect', { x, y: centerY - 10, width: Math.max(2, endX - x), height: 6, rx: 2, fill: '#f59e0b', opacity: 0.8 });
+        rect.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${abilityName} cooldown: ${cooldownSeconds}s remaining after press`;
+      });
+    }
+    spans.forEach(span => {
+      const x = xAt(span.start);
+      const endX = xAt(span.end);
+      const rect = add('rect', { x, y: centerY + 1, width: Math.max(2, endX - x), height: 10, rx: 2, fill: '#34d399', opacity: 0.8, class: 'cursor-pointer' });
+      const seconds = Math.max(0, (span.end - span.start) / 1000);
+      rect.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${span.name} on ${actorNames.get(span.targetID) || 'target'} for ${seconds.toFixed(1)}s`;
+      rect.addEventListener('click', () => jumpToSpecificOffsetMs(span.start - fight.startTime));
+    });
+    casts.forEach(event => {
+      const x = xAt(event.timestamp);
+      const marker = add('path', { d: `M ${x} ${centerY - 7} l 5 6 l -5 6 l -5 -6 Z`, fill: '#38bdf8', stroke: '#0f172a', 'stroke-width': 1, class: 'cursor-pointer' });
+      marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${eventAbilityName(event)} pressed by ${actorNames.get(String(event.sourceID)) || 'player'} at ${formatSecondsToMMSS((event.timestamp - start) / 1000)}`;
+      marker.addEventListener('click', () => jumpToSpecificOffsetMs(event.timestamp - start));
+    });
+  });
+  container.appendChild(svg);
+  renderMechanicsList();
+  if (isLoading) {
+    const status = document.createElement('div');
+    status.className = 'text-[10px] text-slate-600 py-1';
+    status.textContent = 'Loading ability events...';
+    container.appendChild(status);
+  }
+  if (!abilityRows.length) {
+    const hint = document.createElement('div');
+    hint.className = 'text-[10px] text-slate-600 py-1';
+    hint.textContent = 'Enter one or more ability names to show their casts and buff durations.';
+    container.appendChild(hint);
+  }
+}
+
+/* =========================================================================
+   POVs / VIDEO SOURCES
+   ========================================================================= */
+function uid(prefix) { return prefix + '_' + Date.now() + '_' + Math.floor(Math.random() * 1000); }
+
+function addPOV(playerName, job) {
+  const p = { id: uid('pov'), player: playerName || 'New Player', job: (job || 'WAR').toUpperCase(), segments: [] };
+  povs.push(p);
+  if (!activePovId) activePovId = p.id;
+  persistPOVs();
+  renderPOVTabs();
+  renderPOVModalBody();
+  openPOVModal();
+}
+function removePOV(id) {
+  povs = povs.filter(p => p.id !== id);
+  if (activePovId === id) activePovId = povs.length ? povs[0].id : null;
+  persistPOVs();
+  renderPOVTabs();
+  renderPOVModalBody();
+}
+function selectPOV(id) {
+  activePovId = id;
+  renderPOVTabs();
+  jumpToCurrentPullStart();
+}
+function addSegment(povId) {
+  const pov = povs.find(p => p.id === povId);
+  if (!pov) return;
+  pov.segments.push({ id: uid('seg'), videoId: '', label: 'Segment ' + (pov.segments.length + 1), startAbsMs: null });
+  persistPOVs();
+  renderPOVModalBody();
+}
+function removeSegment(povId, segId) {
+  const pov = povs.find(p => p.id === povId);
+  if (!pov) return;
+  pov.segments = pov.segments.filter(s => s.id !== segId);
+  persistPOVs();
+  renderPOVModalBody();
+}
+
+function extractYouTubeId(input) {
+  input = (input || '').trim();
+  let m = input.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|live\/))([a-zA-Z0-9_-]{11})/);
+  if (m) return m[1];
+  if (/^[a-zA-Z0-9_-]{11}$/.test(input)) return input;
+  return '';
+}
+function parseMMSSorHHMMSS(str) {
+  const parts = (str || '').trim().split(':').map(x => parseInt(x, 10));
+  if (parts.some(isNaN)) return null;
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  if (parts.length === 1) return parts[0];
+  return null;
+}
+
+async function tryAutoSyncSegment(pov, seg, row) {
+  const vid = extractYouTubeId(row.querySelector('.seg-video').value);
+  if (!vid) return;
+  const attemptId = (seg.syncAttemptId || 0) + 1;
+  seg.syncAttemptId = attemptId;
+  seg.videoId = vid;
+  persistPOVs();
+  const statusEl = row.querySelector('.seg-status');
+  const btn = row.querySelector('.seg-autosync');
+  const originalLabel = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Checking...';
+  statusEl.className = 'text-[10px] text-slate-500 seg-status';
+  statusEl.textContent = 'Checking YouTube for live broadcast start time...';
+  try {
+    const startAbsMs = await fetchYouTubeLiveStart(vid);
+    if (seg.syncAttemptId !== attemptId) return;
+    seg.startAbsMs = startAbsMs;
+    seg.autoSynced = true;
+    persistPOVs();
+    showToast('Auto-synced from YouTube live start time.', 'success');
+    renderPOVModalBody();
+    if (getActivePOV() && getActivePOV().id === pov.id) jumpToCurrentPullStart();
+  } catch (e) {
+    if (seg.syncAttemptId !== attemptId) return;
+    statusEl.className = 'text-[10px] text-rose-400 seg-status';
+    statusEl.textContent = `${e.message} Manual calibration is still available.`;
+    btn.disabled = false;
+    btn.innerHTML = originalLabel;
+  }
+}
+
+function renderPOVTabs() {
+  const c = document.getElementById('pov-tabs-container');
+  c.innerHTML = '';
+  if (!povs.length) {
+    c.innerHTML = '<span class="text-[11px] text-slate-600 italic">No POVs yet — click POVs above to add one.</span>';
+    return;
+  }
+  povs.forEach(p => {
+    const color = JOB_COLORS[p.job] || '#64748b';
+    const btn = document.createElement('button');
+    btn.onclick = () => selectPOV(p.id);
+    const isActive = p.id === activePovId;
+    btn.className = 'text-xs px-2.5 py-1 rounded-md border flex items-center gap-1.5 transition ' + (isActive ? 'bg-slate-800 border-ffpurple-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-600');
+    btn.innerHTML = `<span class="w-2 h-2 rounded-full" style="background:${color}"></span>${escapeHTML(p.player)}`;
+    c.appendChild(btn);
+  });
+}
+
+function openPOVModal() { renderPOVModalBody(); document.getElementById('pov-modal').classList.remove('hidden'); }
+function closePOVModal() { document.getElementById('pov-modal').classList.add('hidden'); renderPOVTabs(); }
+
+function renderPOVModalBody() {
+  const body = document.getElementById('pov-modal-body');
+  body.innerHTML = '';
+  if (!povs.length) {
+    body.innerHTML = '<div class="text-slate-500 italic text-center py-6">No POVs yet. Add one, or click a player chip in the sidebar after loading a report.</div>';
+    return;
+  }
+  povs.forEach(pov => {
+    const wrap = document.createElement('div');
+    wrap.className = 'bg-slate-950 border border-slate-800 rounded-lg p-3';
+    const jobOptions = Object.keys(JOB_COLORS).map(j => `<option value="${j}" ${pov.job === j ? 'selected' : ''}>${j}</option>`).join('');
+
+    let segmentsHtml = pov.segments.map(seg => {
+      const statusText = seg.startAbsMs != null
+        ? `${seg.autoSynced ? 'Auto-synced' : 'Synced'} — video 00:00 = ${new Date(seg.startAbsMs).toLocaleString()}`
+        : 'Not synced yet — paste a video below and set its start time';
+      const statusColor = seg.startAbsMs != null ? 'text-emerald-400' : 'text-slate-500';
+      return `
+      <div class="bg-slate-900 p-2 rounded border border-slate-800 space-y-1.5" data-seg="${seg.id}">
+        <div class="grid grid-cols-12 gap-1.5 items-center">
+          <input class="col-span-11 seg-video bg-slate-950 border border-slate-800 rounded px-2 py-1 font-mono text-[11px]" placeholder="YouTube URL or ID" value="${escapeHTML(seg.videoId || '')}">
+          <button class="col-span-1 seg-del bg-rose-900/60 hover:bg-rose-800 rounded px-1 py-1 text-[10px]"><i class="fa-solid fa-trash-can"></i></button>
+        </div>
+        <div class="grid grid-cols-12 gap-1.5 items-center">
+          <select class="col-span-4 seg-pull bg-slate-950 border border-slate-800 rounded px-1 py-1 text-[11px]">
+            <option value="">This video starts at pull...</option>
+            ${report ? report.fights.map((f, i) => `<option value="${f.id}">Pull ${i + 1} — ${escapeHTML(f.name)}</option>`).join('') : ''}
+          </select>
+          <input class="col-span-3 seg-time bg-slate-950 border border-slate-800 rounded px-2 py-1 font-mono text-[11px]" placeholder="MM:SS in video">
+          <button class="col-span-2 seg-grab bg-slate-800 hover:bg-slate-700 rounded px-1 py-1 text-[10px]" title="Use current player position">grab</button>
+          <button class="col-span-3 seg-apply bg-ffpurple-600 hover:bg-ffpurple-500 rounded px-1 py-1 text-[10px] font-bold">Set sync point</button>
+        </div>
+        <div class="text-[10px] ${statusColor} seg-status">${statusText}</div>
+
+        <details>
+          <summary class="text-[10px] text-slate-500 cursor-pointer hover:text-slate-300 select-none">Advanced: try auto-sync / nudge (optional)</summary>
+          <div class="grid grid-cols-12 gap-1.5 items-center mt-1.5">
+            <button class="col-span-7 seg-autosync bg-slate-800 hover:bg-slate-700 rounded px-2 py-1 text-[10px]"><i class="fa-brands fa-youtube"></i> Try auto-sync from YouTube</button>
+            <span class="col-span-5 text-[9px] text-slate-600">needs a YouTube API key in Settings</span>
+          </div>
+          <div class="grid grid-cols-12 gap-1.5 items-center mt-1.5">
+            <span class="col-span-4 text-[10px] text-slate-500">Nudge sync (seconds):</span>
+            <input class="col-span-3 seg-nudge-input bg-slate-950 border border-slate-800 rounded px-2 py-1 font-mono text-[11px]" placeholder="e.g. 2 or -1.5" type="number" step="0.1">
+            <button class="col-span-5 seg-nudge-apply bg-slate-800 hover:bg-slate-700 rounded px-1 py-1 text-[10px]">Apply nudge</button>
+          </div>
+        </details>
+      </div>`;
+    }).join('');
+
+    wrap.innerHTML = `
+      <div class="flex items-center gap-2 mb-2">
+        <input class="pov-name bg-slate-900 border border-slate-800 rounded px-2 py-1.5 text-xs flex-1" value="${escapeHTML(pov.player)}" placeholder="Player name">
+        <select class="pov-job bg-slate-900 border border-slate-800 rounded px-2 py-1.5 text-xs font-mono">${jobOptions}</select>
+        <button class="pov-del bg-rose-900/60 hover:bg-rose-800 text-rose-300 px-2 py-1.5 rounded text-xs"><i class="fa-solid fa-trash-can"></i> Remove</button>
+      </div>
+      <div class="space-y-1.5">${segmentsHtml || '<div class="text-slate-600 italic text-[11px] px-1">No video segments yet.</div>'}</div>
+      <button class="pov-add-seg mt-2 text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded border border-slate-700"><i class="fa-solid fa-plus"></i> Add video segment</button>
+    `;
+    body.appendChild(wrap);
+
+    wrap.querySelector('.pov-name').addEventListener('change', e => { pov.player = e.target.value; persistPOVs(); renderPOVTabs(); renderLogPlayerChips(); });
+    wrap.querySelector('.pov-job').addEventListener('change', e => { pov.job = e.target.value; persistPOVs(); renderPOVTabs(); });
+    wrap.querySelector('.pov-del').addEventListener('click', () => removePOV(pov.id));
+    wrap.querySelector('.pov-add-seg').addEventListener('click', () => addSegment(pov.id));
+
+    wrap.querySelectorAll('[data-seg]').forEach(row => {
+      const segId = row.getAttribute('data-seg');
+      const seg = pov.segments.find(s => s.id === segId);
+      row.querySelector('.seg-video').addEventListener('change', e => {
+        seg.videoId = extractYouTubeId(e.target.value);
+        persistPOVs();
+        if (seg.videoId) tryAutoSyncSegment(pov, seg, row);
+      });
+      row.querySelector('.seg-del').addEventListener('click', () => removeSegment(pov.id, segId));
+
+      row.querySelector('.seg-autosync').addEventListener('click', () => {
+        if (!extractYouTubeId(row.querySelector('.seg-video').value)) { showToast('Enter a YouTube URL or video ID first.', 'error'); return; }
+        tryAutoSyncSegment(pov, seg, row);
+      });
+
+      row.querySelector('.seg-grab').addEventListener('click', () => {
+        if (!ytReady || !ytPlayer || currentLoadedVideoId !== seg.videoId) { showToast('Load this segment video in the main player first, then grab.', 'error'); return; }
+        row.querySelector('.seg-time').value = formatSecondsToMMSS(Math.floor(ytPlayer.getCurrentTime()));
+      });
+      row.querySelector('.seg-apply').addEventListener('click', () => {
+        const fightId = row.querySelector('.seg-pull').value;
+        const timeStr = row.querySelector('.seg-time').value;
+        const vid = extractYouTubeId(row.querySelector('.seg-video').value);
+        if (!vid) { showToast('Enter a YouTube URL or video ID first.', 'error'); return; }
+        if (!fightId) { showToast('Choose which pull this timestamp corresponds to.', 'error'); return; }
+        const secs = parseMMSSorHHMMSS(timeStr);
+        if (secs == null) { showToast('Enter a valid time like 3:15 or 1:02:30.', 'error'); return; }
+        const fight = report.fights.find(f => String(f.id) === String(fightId));
+        seg.syncAttemptId = (seg.syncAttemptId || 0) + 1;
+        seg.videoId = vid;
+        seg.startAbsMs = pullAbsStartMs(fight) - secs * 1000;
+        seg.autoSynced = false;
+        persistPOVs();
+        showToast('Segment calibrated.', 'success');
+        renderPOVModalBody();
+        if (getActivePOV() && getActivePOV().id === pov.id) jumpToCurrentPullStart();
+      });
+      row.querySelector('.seg-nudge-apply').addEventListener('click', () => {
+        if (seg.startAbsMs == null) { showToast('Sync this segment first (auto or manual) before nudging.', 'error'); return; }
+        const n = parseFloat(row.querySelector('.seg-nudge-input').value);
+        if (isNaN(n)) { showToast('Enter a number of seconds to nudge.', 'error'); return; }
+        seg.syncAttemptId = (seg.syncAttemptId || 0) + 1;
+        seg.startAbsMs += n * 1000;
+        persistPOVs();
+        showToast(`Nudged by ${n}s.`, 'success');
+        renderPOVModalBody();
+        if (getActivePOV() && getActivePOV().id === pov.id) jumpToCurrentPullStart();
+      });
+    });
+  });
+}
+
+/* =========================================================================
+   NOTES
+   ========================================================================= */
+function useCurrentTimeForNote() {
+  const el = document.getElementById('log-time-display');
+  document.getElementById('note-time-input').value = el.textContent;
+}
+function addNoteFromForm() {
+  const fight = getActiveFight();
+  if (!fight) { showToast('Select a pull first.', 'error'); return; }
+  const timeStr = document.getElementById('note-time-input').value;
+  const text = document.getElementById('note-text-input').value.trim();
+  const category = document.getElementById('note-category-input').value;
+  const secs = parseMMSSorHHMMSS(timeStr);
+  if (secs == null) { showToast('Enter a valid log time (MM:SS).', 'error'); return; }
+  if (!text) { showToast('Write a note.', 'error'); return; }
+  notes.push({ id: Date.now(), fightId: fight.id, logSeconds: secs, author: 'Reviewer', text, category });
+  persistNotes();
+  document.getElementById('note-text-input').value = '';
+  renderNotes();
+  renderTimeline();
+}
+function deleteNote(id) {
+  notes = notes.filter(n => n.id !== id);
+  persistNotes();
+  renderNotes();
+  renderTimeline();
+}
+function renderNotes() {
+  const container = document.getElementById('notes-list-container');
+  const scopeToggle = document.getElementById('notes-scope-toggle');
+  const scopeLabel = document.getElementById('notes-scope-label');
+  const thisPullOnly = scopeToggle ? scopeToggle.checked : false;
+  const fight = getActiveFight();
+  const visibleNotes = (thisPullOnly && fight) ? notes.filter(n => n.fightId === fight.id) : notes;
+  container.innerHTML = '';
+  document.getElementById('notes-count').textContent = notes.length;
+  if (scopeLabel) {
+    scopeLabel.textContent = thisPullOnly
+      ? (fight ? `Showing notes for ${fight.name} (Pull ${report.fights.indexOf(fight) + 1})` : 'Select a pull to see its notes')
+      : `Showing all ${notes.length} notes across every pull`;
+  }
+  if (!visibleNotes.length) {
+    container.innerHTML = `<div class="text-xs text-slate-500 italic col-span-full text-center py-4">${thisPullOnly ? 'No notes for this pull yet.' : 'No notes yet.'}</div>`;
+    return;
+  }
+  visibleNotes.slice().sort((a, b) => b.id - a.id).forEach(n => {
+    const noteFight = report ? report.fights.find(f => f.id === n.fightId) : null;
+    const card = document.createElement('div');
+    card.className = 'bg-slate-950 p-2.5 rounded-lg border border-slate-800 flex flex-col justify-between text-xs space-y-1.5';
+    card.innerHTML = `
+      <div>
+        <div class="flex justify-between items-center mb-1">
+          <span class="font-bold font-mono text-ffcyan-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800 cursor-pointer"><i class="fa-solid fa-clock text-[10px]"></i> ${formatSecondsToMMSS(n.logSeconds)}</span>
+          <span class="text-[10px] text-slate-500 uppercase font-semibold">${escapeHTML(n.category)}</span>
+        </div>
+        <p class="text-slate-300">${escapeHTML(n.text)}</p>
+        <p class="text-[10px] text-slate-600 mt-1">${noteFight ? escapeHTML(noteFight.name) : 'Unknown pull'}</p>
+      </div>
+      <div class="flex justify-between items-center pt-1 border-t border-slate-900 text-[10px] text-slate-500">
+        <span>By: ${escapeHTML(n.author)}</span>
+        <button class="note-del text-rose-400 hover:text-rose-300"><i class="fa-solid fa-trash-can"></i></button>
+      </div>`;
+    card.querySelector('.font-mono').addEventListener('click', () => { if (n.fightId !== activeFightId) selectPull(n.fightId); jumpToSpecificOffsetMs(n.logSeconds * 1000); });
+    card.querySelector('.note-del').addEventListener('click', () => deleteNote(n.id));
+    container.appendChild(card);
+  });
+}
+function exportNotesJSON() {
+  const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(notes, null, 2));
+  const a = document.createElement('a');
+  a.setAttribute('href', dataStr);
+  a.setAttribute('download', `VOD_Review_Notes_${report ? report.code : 'export'}.json`);
+  document.body.appendChild(a); a.click(); a.remove();
+}
+function importNotesFile(evt) {
+  const file = evt.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      if (Array.isArray(parsed)) { notes = parsed; persistNotes(); renderNotes(); renderTimeline(); showToast('Notes imported.', 'success'); }
+      else showToast('Invalid notes file.', 'error');
+    } catch (err) { showToast('Invalid JSON file.', 'error'); }
+  };
+  reader.readAsText(file);
+  evt.target.value = '';
+}
+
+/* =========================================================================
+   BOTTOM TABS
+   ========================================================================= */
+function switchBottomTab(key) {
+  document.querySelectorAll('.bottom-tab-btn').forEach(b => { b.classList.remove('border-ffpurple-500', 'text-ffpurple-400'); b.classList.add('border-transparent', 'text-slate-400'); });
+  document.querySelectorAll('.bottom-tab-content').forEach(c => c.classList.add('hidden'));
+  document.getElementById('tab-btn-' + key).classList.remove('border-transparent', 'text-slate-400');
+  document.getElementById('tab-btn-' + key).classList.add('border-ffpurple-500', 'text-ffpurple-400');
+  document.getElementById('tab-content-' + key).classList.remove('hidden');
+  if (key === 'timeline') renderTimeline();
+  if (key === 'deaths' && getActiveFight()) renderDeathRecap(activeFightId);
+}
+
+/* =========================================================================
+   UTILS
+   ========================================================================= */
+function formatSecondsToMMSS(seconds) {
+  seconds = Math.max(0, Math.floor(seconds || 0));
+  const h = Math.floor(seconds / 3600), m = Math.floor((seconds % 3600) / 60), s = seconds % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+function formatMsToHM(ms) {
+  const totalMin = Math.round(ms / 60000);
+  const h = Math.floor(totalMin / 60), m = totalMin % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+function escapeHTML(str) {
+  return String(str == null ? '' : str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+</script>
+<!-- DEATH DETAIL MODAL -->
+<div id="death-detail-modal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4">
+  <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-xl max-h-[85vh] flex flex-col shadow-2xl">
+    <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
+      <h2 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-skull text-rose-400"></i> <span id="death-detail-title">Last Moments</span></h2>
+      <button onclick="closeDeathDetailModal()" class="text-slate-500 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div id="death-detail-body" class="p-4 space-y-3 overflow-y-auto text-xs"></div>
+  </div>
+</div>
+
+</body>
+</html>
+
       ffcyan: { 400: '#38bdf8', 500: '#06b6d4', 600: '#0891b2' }
     } } }
   };
