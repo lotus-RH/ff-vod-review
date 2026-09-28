@@ -1933,16 +1933,6 @@ function effectChips(names, kind) {
     : 'bg-emerald-950/50 text-emerald-300 border-emerald-700/40';
   return names.map(n => `<span class="${cls} border rounded px-1.5 py-0.5 text-[10px]">${escapeHTML(n)}${kind === 'debuff' ? ' <span class="opacity-60">(on boss)</span>' : ''}</span>`).join('');
 }
-function partyMitigationChips(effects, actorNames, targetId) {
-  const otherRecipients = (effects || []).filter(effect => String(effect.targetID) !== String(targetId));
-  if (!otherRecipients.length) return '';
-  const chips = otherRecipients.map(effect => {
-    const recipient = actorNames.get(String(effect.targetID)) || 'party member';
-    return `${effect.name} (on ${recipient})`;
-  });
-  return `<div class="flex flex-wrap items-center gap-1 mt-1"><span class="text-[9px] text-slate-500">Other party members</span>${effectChips(chips, 'buff')}</div>`;
-}
-
 // Which effects were on the player (and which debuffs on the attacker) at a given moment.
 function makeEffectTracker(result) {
   const isApply = t => /^(applybuff|applybuffstack|refreshbuff|applydebuff|applydebuffstack|refreshdebuff)$/.test(t);
@@ -1964,7 +1954,7 @@ function makeEffectTracker(result) {
   };
   const buffActive = new Map(), debuffActive = new Map();
   let bi = 0, di = 0;
-  return function at(ts, targetId, attackerId, buffString, friendlyIds) {
+  return function at(ts, targetId, attackerId, buffString) {
     while (bi < buffs.length && buffs[bi].timestamp <= ts) {
       const ev = buffs[bi++], t = String(ev.type).toLowerCase(), key = `${ev.targetID}:${abilityKey(ev)}:${ev.sourceID}`;
       if (isApply(t)) buffActive.set(key, { name: eventAbilityName(ev), targetID: ev.targetID }); else if (isRemove(t)) buffActive.delete(key);
@@ -1984,15 +1974,6 @@ function makeEffectTracker(result) {
         targetBuffNames.add(resolveEffectName(buff));
       }
     });
-    const partyBuffsByTarget = new Map();
-    [...buffActive.values()].forEach(buff => {
-      const recipientId = String(buff.targetID);
-      if (!friendlyIds.has(recipientId) || !isMitigationName(buff.name)) return;
-      partyBuffsByTarget.set(`${recipientId}:${buff.name.toLocaleLowerCase()}`, buff);
-    });
-    [...targetBuffNames].filter(isMitigationName).forEach(name => {
-      partyBuffsByTarget.set(`${String(targetId)}:${name.toLocaleLowerCase()}`, { name, targetID: targetId });
-    });
     const debuffNames = new Set();
     debuffActive.forEach(({ event, name }) => { if (attackerId == null || String(event.targetID) === String(attackerId)) debuffNames.add(name); });
     const allBuffs = [...targetBuffNames].sort(), allDebuffs = [...debuffNames].sort();
@@ -2000,8 +1981,7 @@ function makeEffectTracker(result) {
       allBuffs,
       allDebuffs,
       mitBuffs: allBuffs.filter(isMitigationName),
-      mitDebuffs: allDebuffs.filter(isMitigationName),
-      partyMitBuffs: [...partyBuffsByTarget.values()]
+      mitDebuffs: allDebuffs.filter(isMitigationName)
     };
   };
 }
@@ -2038,12 +2018,11 @@ function renderDeathDetail(result, death, fight) {
 
   // Effects at each hit + HP after each event (real snapshot when FFLogs gives one, otherwise estimated).
   const effectsAt = makeEffectTracker(result);
-  const friendlyIds = new Set((fight.friendlyPlayers || report.actors.map(actor => actor.id)).map(String));
   let curHp = null, maxHp = null, anyRealHp = false;
   let resourceIndex = 0, latestResource = null, appliedResourceTimestamp = null;
   rows.forEach(row => {
     const ev = row.ev;
-    if (row.kind === 'dmg') row.effects = effectsAt(ev.timestamp, ev.targetID ?? death.targetID, ev.sourceID, ev.buffs, friendlyIds);
+    if (row.kind === 'dmg') row.effects = effectsAt(ev.timestamp, ev.targetID ?? death.targetID, ev.sourceID, ev.buffs);
     while (resourceIndex < resourceSnapshots.length && resourceSnapshots[resourceIndex].timestamp <= ev.timestamp) {
       latestResource = resourceSnapshots[resourceIndex++];
     }
@@ -2102,13 +2081,12 @@ function renderDeathDetail(result, death, fight) {
     </div>` : ''}
   </div>`;
 
-  const partyKillChips = killingBlow ? partyMitigationChips(killFx.partyMitBuffs, actorNames, death.targetID) : '';
-  const nothingActive = !killFx.mitBuffs.length && !killFx.mitDebuffs.length && !partyKillChips;
+  const nothingActive = !killFx.mitBuffs.length && !killFx.mitDebuffs.length;
   html += `<div class="bg-slate-950 border border-slate-800 rounded-lg p-3">
     <div class="text-[10px] uppercase text-slate-500 font-bold mb-1.5">Mitigation active on the killing blow</div>
     ${nothingActive
       ? `<div class="text-slate-500 italic text-[11px]">${killingBlow ? 'No recognized mitigation or shields found. Check the full effect list below and click anything that should count.' : 'No damage events found to read mitigation from.'}</div>`
-      : `${killFx.mitBuffs.length || killFx.mitDebuffs.length ? `<div class="flex flex-wrap gap-1">${effectChips(killFx.mitBuffs, 'buff')}${effectChips(killFx.mitDebuffs, 'debuff')}</div>` : '<div class="text-slate-500 italic text-[11px]">No recognized mitigation was active on this player.</div>'}${partyKillChips}`}
+      : `<div class="flex flex-wrap gap-1">${effectChips(killFx.mitBuffs, 'buff')}${effectChips(killFx.mitDebuffs, 'debuff')}</div>`}
     ${(killFx.allBuffs.length || killFx.allDebuffs.length) ? `<details class="mt-2"><summary class="text-[10px] text-slate-500 cursor-pointer hover:text-slate-300 select-none">All effects at that moment (click to mark/unmark as mitigation)</summary>
       <div class="flex flex-wrap gap-1 mt-1.5">${killFx.allBuffs.map(n => effectToggle(n, 'buff')).join('')}${killFx.allDebuffs.map(n => effectToggle(n, 'debuff')).join('')}</div></details>` : ''}
   </div>`;
@@ -2149,7 +2127,6 @@ function renderDeathDetail(result, death, fight) {
           </span>
         </div>
         ${(fx.mitBuffs.length || fx.mitDebuffs.length) ? `<div class="flex flex-wrap gap-1 mt-1 pl-9">${effectChips(fx.mitBuffs, 'buff')}${effectChips(fx.mitDebuffs, 'debuff')}</div>` : ''}
-        ${partyMitigationChips(fx.partyMitBuffs, actorNames, ev.targetID ?? death.targetID)}
       </div>`;
     }).join('')}</div>` : `<div class="text-slate-500 italic text-[11px]">No damage or healing data found in this window.</div>`}
     <div class="text-[10px] text-slate-600 mt-2">Mitigation % is FFLogs' own damage math. Green chips are defensives/shields on the player; blue chips are debuffs on the attacker (Reprisal, Addle, Feint). ${anyRealHp ? '' : 'FFLogs did not include HP snapshots here, so HP could not be shown.'}</div>
