@@ -98,6 +98,11 @@ async function handleConfig(request, env) {
     if (!env.VOD_CONFIG) {
       return json({ error: 'Server is missing the VOD_CONFIG KV binding. See README.md for one-time setup.' }, 500);
     }
+    // Optional shared password gate: set CONFIG_SAVE_PASSWORD to require it.
+    if (env.CONFIG_SAVE_PASSWORD) {
+      const provided = request.headers.get('X-Save-Password') || '';
+      if (provided !== env.CONFIG_SAVE_PASSWORD) return json({ error: 'Incorrect password.' }, 401);
+    }
     let body;
     try { body = await request.json(); } catch (e) { return json({ error: 'Invalid JSON body.' }, 400); }
     if (!body || typeof body !== 'object' || !body.storage || typeof body.storage !== 'object') {

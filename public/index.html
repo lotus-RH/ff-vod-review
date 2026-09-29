@@ -516,7 +516,8 @@ function initPanelResizer() {
 const SHARED_CONFIG_URL = 'vod-review-config.json';
 const SHARED_CONFIG_API_URL = '/api/config';
 const ENCOUNTER_MECHANICS_KEY = 'fflogs_vod_encounter_mechanics';
-const CONFIG_EXCLUDE = new Set(['fflogs_vod_auth', 'fflogs_vod_config_applied', 'fflogs_vod_bottom_panel_h']);
+const SAVE_PASSWORD_KEY = 'fflogs_vod_save_password';
+const CONFIG_EXCLUDE = new Set(['fflogs_vod_auth', 'fflogs_vod_config_applied', 'fflogs_vod_bottom_panel_h', SAVE_PASSWORD_KEY]);
 
 async function applySharedConfig() {
   try {
@@ -636,14 +637,23 @@ function collectSharedSetupStorage(includeReports) {
 async function saveSharedSetup() {
   const includeReports = document.getElementById('share-include-reports').checked;
   const storage = collectSharedSetupStorage(includeReports);
+  let password = localStorage.getItem(SAVE_PASSWORD_KEY) || '';
+  if (!password) {
+    password = window.prompt('Enter the save password for this site:') || '';
+    if (!password) return;
+  }
   try {
     const res = await fetch(SHARED_CONFIG_API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Save-Password': password },
       body: JSON.stringify({ storage })
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || `Save failed (${res.status}).`);
+    if (!res.ok) {
+      if (res.status === 401) localStorage.removeItem(SAVE_PASSWORD_KEY);
+      throw new Error(data.error || `Save failed (${res.status}).`);
+    }
+    localStorage.setItem(SAVE_PASSWORD_KEY, password);
     localStorage.setItem('fflogs_vod_config_applied', data.updatedAt);
     showToast('Saved — everyone opening the site now gets this setup.', 'success');
   } catch (e) {

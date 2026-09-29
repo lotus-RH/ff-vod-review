@@ -55,6 +55,18 @@ package.json
 That's it — anyone opening your `.workers.dev` URL can paste an FFLogs
 report link and go, no login and no keys on their end.
 
+### Optional: require a password to save shared setup changes
+
+By default, anyone who opens the site can click **Save for everyone** and
+overwrite the shared setup. To require a password first, add one more
+variable under **Settings** → **Variables and secrets**:
+- `CONFIG_SAVE_PASSWORD` (type: Secret) — any value you choose
+
+Share that password only with people you trust to edit the shared setup.
+The first time someone clicks **Save for everyone** they'll be prompted for
+it; their browser remembers it after that. Leaving this variable unset
+keeps saving open to anyone, like it is today.
+
 ## Checking it worked
 
 Open the site, load a report, and open your browser's DevTools (F12) →
