@@ -253,10 +253,11 @@
       <div id="planning-class-filters" class="flex flex-wrap items-center gap-1.5 mt-2" aria-label="Show ability tracks by class"></div>
     </div>
     <div class="flex flex-wrap items-center gap-2">
-      <label for="planning-encounter-id" class="text-[11px] text-slate-400">Encounter ID</label>
+      <label for="planning-encounter-id" class="text-[11px] text-slate-400">Encounter</label>
       <div class="flex items-center gap-1.5">
-        <input id="planning-encounter-id" type="number" min="1" step="1" list="planning-encounter-options" placeholder="e.g. 1234" aria-label="Encounter ID" onkeydown="if (event.key === 'Enter') loadPlanningEncounter()" class="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-200 w-28">
-        <datalist id="planning-encounter-options"></datalist>
+        <select id="planning-encounter-id" aria-label="Choose a configured encounter" class="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-200 max-w-56">
+          <option value="">Choose a fight</option>
+        </select>
         <button onclick="loadPlanningEncounter()" class="text-xs bg-ffpurple-600 hover:bg-ffpurple-500 text-white px-2.5 py-1.5 rounded"><i class="fa-solid fa-arrow-right-to-bracket"></i> Load</button>
       </div>
       <label for="planning-mechanic-category-filter" class="sr-only">Filter mechanics by category</label>
@@ -2214,9 +2215,9 @@ function renderTimeline() {
 
 function loadPlanningEncounter() {
   const input = document.getElementById('planning-encounter-id');
-  const encounterId = input.value.trim();
+  const encounterId = input.value;
   if (!/^\d+$/.test(encounterId) || Number(encounterId) <= 0) {
-    showToast('Enter a numeric encounter ID.', 'error');
+    showToast('Choose a configured fight first.', 'error');
     return;
   }
   activePlanningEncounterId = String(Number(encounterId));
@@ -2846,15 +2847,14 @@ function buildPlannedChip(encounterId, name, job, usage, opts) {
 
 function renderPlanningControls() {
   renderPlanningClassFilters();
-  const encounterOptions = document.getElementById('planning-encounter-options');
-  if (!encounterOptions) return;
-  encounterOptions.innerHTML = '';
+  const encounterSelect = document.getElementById('planning-encounter-id');
+  if (!encounterSelect) return;
+  encounterSelect.replaceChildren(new Option('Choose a fight', ''));
   Object.values(loadEncounterMechanicsDataset()).sort((a, b) => String(a.name).localeCompare(String(b.name))).forEach(encounter => {
-    const option = document.createElement('option');
-    option.value = String(encounter.encounterID);
-    option.label = encounter.name || `Encounter ${encounter.encounterID}`;
-    encounterOptions.appendChild(option);
+    const encounterId = String(encounter.encounterID);
+    encounterSelect.appendChild(new Option(encounter.name || `Encounter ${encounterId}`, encounterId));
   });
+  encounterSelect.value = activePlanningEncounterId;
 }
 
 function getPlanningAbilityRows(events, fight) {
