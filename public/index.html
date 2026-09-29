@@ -2311,7 +2311,7 @@ function renderCuratedPlanningTimeline(encounter, container) {
   });
   const mechTrack = document.createElement('div');
   mechTrack.className = 'relative';
-  mechTrack.style.cssText = `width:${trackWidth}px;height:${MECHANIC_ROW_H}px;overflow:hidden;background:rgba(251,191,36,0.06);background-image:${gridBg};`;
+  mechTrack.style.cssText = `width:${trackWidth}px;height:${MECHANIC_ROW_H}px;overflow:hidden;background:#1c1206;background-image:${gridBg};`;
   filteredMechanics.forEach(mechanic => {
     const name = String(mechanic.name || `Ability ${mechanic.abilityId || ''}`);
     const category = getMechanicCategory(name) || 'Uncategorized';
