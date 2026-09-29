@@ -248,7 +248,7 @@
 <main id="planning-workspace" class="hidden flex-1 min-h-0 flex flex-col overflow-hidden bg-slate-950">
   <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-slate-800 bg-slate-900/70 shrink-0">
     <div class="min-w-0">
-      <h2 class="text-sm font-semibold text-slate-100 flex items-center gap-2"><i class="fa-solid fa-calendar-days text-ffcyan-400"></i> Ability plan</h2>
+      <h2 class="text-sm font-semibold text-slate-100 flex items-center gap-2"><i class="fa-solid fa-calendar-days text-ffcyan-400"></i> Ability plan <span id="planning-time-readout" class="text-[10px] font-mono font-normal text-slate-400 bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5">00:00 / --:--</span></h2>
       <p id="planning-pull-summary" class="text-[11px] text-slate-500 mt-0.5">Load a report and select a pull to see player abilities.</p>
       <div id="planning-class-filters" class="flex flex-wrap items-center gap-1.5 mt-2" aria-label="Show ability tracks by class"></div>
     </div>
@@ -417,6 +417,8 @@ let report = null;        // { code, title, zoneName, startTime, endTime, fights
 let povs = [];             // [{ id, player, job, color, segments:[{id,videoId,label,startAbsMs}] }]
 let notes = [];            // [{ id, fightId, logSeconds, author, text, category }]
 let deathsCache = {};      // fightId -> [{time, player, ability}]
+let reportDeathsByPlayer = null;
+let reportDeathsPromise = null;
 let timelineEventsCache = {}; // fightId -> { buffs: [], damage: [], healing: [], casts: [] }
 let trackedAbilityNames = [];
 let trackedAbilityClasses = {};
@@ -1362,6 +1364,8 @@ async function loadReport(code) {
       abilityNames: new Map(((r.masterData && r.masterData.abilities) || []).map(ability => [Number(ability.gameID), ability.name]))
     };
     deathsCache = {};
+    reportDeathsByPlayer = null;
+    reportDeathsPromise = null;
     timelineEventsCache = {};
     deathDetailCache = {};
     selectedPhaseFilter = '';
@@ -1771,10 +1775,10 @@ function ensurePolling() {
    DEATHS
    ========================================================================= */
 const DEATHS_QUERY = `
-query ($code: String!, $fightID: Int!) {
+query ($code: String!, $fightIDs: [Int!]!) {
   reportData {
     report(code: $code) {
-      events(fightIDs: [$fightID], dataType: Deaths, startTime: 0, endTime: 999999999) { data }
+      events(fightIDs: $fightIDs, dataType: Deaths, startTime: 0, endTime: 999999999) { data }
     }
   }
 }`;
@@ -1826,7 +1830,7 @@ async function loadDeathsForFight(fightId) {
   if (deathsCache[fightId]) { renderDeathRecap(fightId); renderTimeline(); return; }
   try {
     const fight = report.fights.find(f => f.id === fightId);
-    const data = await fflogsQuery(DEATHS_QUERY, { code: report.code, fightID: fightId });
+    const data = await fflogsQuery(DEATHS_QUERY, { code: report.code, fightIDs: [fightId] });
     const events = (data.reportData.report.events && data.reportData.report.events.data) || [];
     const actorMap = {};
     report.actors.forEach(a => actorMap[a.id] = a.name);
@@ -1844,6 +1848,41 @@ async function loadDeathsForFight(fightId) {
   }
   renderDeathRecap(fightId);
   renderTimeline();
+}
+
+async function loadReportDeathsByPlayer() {
+  if (reportDeathsByPlayer) return reportDeathsByPlayer;
+  if (reportDeathsPromise) return reportDeathsPromise;
+  if (!report) return new Map();
+  const reportSnapshot = report;
+  const request = (async () => {
+    const fightIDs = reportSnapshot.fights.map(fight => fight.id);
+    const data = await fflogsQuery(DEATHS_QUERY, { code: reportSnapshot.code, fightIDs });
+    const events = (data.reportData.report.events && data.reportData.report.events.data) || [];
+    const actorMap = new Map(reportSnapshot.actors.map(actor => [String(actor.id), actor.name]));
+    const byPlayer = new Map();
+    events.forEach(event => {
+      const fight = reportSnapshot.fights.find(item => event.timestamp >= item.startTime && event.timestamp <= item.endTime);
+      if (!fight || event.targetID == null) return;
+      const targetKey = String(event.targetID);
+      if (!byPlayer.has(targetKey)) byPlayer.set(targetKey, []);
+      byPlayer.get(targetKey).push({
+        fightId: fight.id,
+        timeMs: event.timestamp - fight.startTime,
+        targetID: event.targetID,
+        player: actorMap.get(targetKey) || 'Unknown',
+        ability: event.killingAbilityGameID ? (reportSnapshot.abilityNames.get(Number(event.killingAbilityGameID)) || `Ability #${event.killingAbilityGameID}`) : 'Unknown cause'
+      });
+    });
+    if (report === reportSnapshot) reportDeathsByPlayer = byPlayer;
+    return byPlayer;
+  })();
+  reportDeathsPromise = request;
+  try {
+    return await request;
+  } finally {
+    if (reportDeathsPromise === request) reportDeathsPromise = null;
+  }
 }
 
 function renderDeathRecap(fightId) {
@@ -1877,9 +1916,14 @@ function openDeathInTab(fightId, death, seekToDeath = false) {
   selectedDeathKey = `${fightId}_${death.targetID}_${death.timeMs}`;
   if (seekToDeath) {
     const playerName = String(death.player || '').trim().toLocaleLowerCase();
-    const deathPov = povs.find(pov => String(pov.player || '').trim().toLocaleLowerCase() === playerName);
-    if (deathPov && deathPov.id !== activePovId) {
-      activePovId = deathPov.id;
+    const fight = report && report.fights.find(item => String(item.id) === String(fightId));
+    const deathAbsMs = fight ? pullAbsStartMs(fight) + death.timeMs : null;
+    const isUsableAtDeath = pov => deathAbsMs != null && Boolean(resolveSegmentForAbsTime(pov, deathAbsMs));
+    const deathPov = povs.find(pov => String(pov.player || '').trim().toLocaleLowerCase() === playerName && isUsableAtDeath(pov));
+    const currentPov = povs.find(pov => pov.id === activePovId && isUsableAtDeath(pov));
+    const usablePov = deathPov || currentPov || povs.find(isUsableAtDeath);
+    if (usablePov && usablePov.id !== activePovId) {
+      activePovId = usablePov.id;
       renderPOVTabs();
     }
     jumpToSpecificOffsetMs(death.timeMs);
@@ -2130,7 +2174,8 @@ function renderDeathDetail(result, death, fight) {
     return `<button class="fx-toggle ${on ? 'bg-emerald-950/50 text-emerald-300 border-emerald-700/40' : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-600'} border rounded px-1.5 py-0.5 text-[10px]" data-name="${escapeHTML(name)}" title="${on ? 'Counted as mitigation — click to un-mark' : 'Click to count this as mitigation'}">${escapeHTML(name)}${kind === 'debuff' ? ' <span class="opacity-60">(boss)</span>' : ''}</button>`;
   };
 
-  let html = `<div class="bg-slate-950 border border-slate-800 rounded-lg p-3">
+  let html = `<div class="grid grid-cols-1 lg:grid-cols-[minmax(11rem,0.7fr)_minmax(18rem,1.15fr)_minmax(12rem,0.9fr)] items-start gap-3">
+  <div class="bg-slate-950 border border-slate-800 rounded-lg p-3">
     <div class="flex items-start justify-between gap-3">
       <div>
         <div class="text-[10px] uppercase text-slate-500 font-bold mb-1">Killed by</div>
@@ -2145,9 +2190,9 @@ function renderDeathDetail(result, death, fight) {
       ${Number(killingBlow.absorbed) > 0 ? `<span class="text-sky-300">${Number(killingBlow.absorbed).toLocaleString()} absorbed</span>` : ''}
       ${hpBeforeKill ? `<span>HP before: <span class="text-slate-200 font-mono">${Math.round(hpBeforeKill.hp / hpBeforeKill.max * 100)}%</span> <span class="text-slate-500">(${fmtHp(hpBeforeKill.hp)} / ${fmtHp(hpBeforeKill.max)})</span></span>` : ''}
     </div>` : ''}
-  </div>`;
+  </div>
 
-  html += `<div class="bg-slate-950 border border-slate-800 rounded-lg p-3">
+  <div class="bg-slate-950 border border-slate-800 rounded-lg p-3">
     <div class="text-[10px] uppercase text-slate-500 font-bold mb-1.5">Last 10 seconds</div>
     ${rows.length ? `<div class="space-y-1 max-h-80 overflow-y-auto pr-1">${rows.map(row => {
       const ev = row.ev;
@@ -2188,6 +2233,12 @@ function renderDeathDetail(result, death, fight) {
     <div class="text-[10px] text-slate-600 mt-2">Mitigation % is FFLogs' own damage math. Green chips are defensives/shields on the player; blue chips are debuffs on the attacker (Reprisal, Addle, Feint). ${anyRealHp ? '' : 'FFLogs did not include HP snapshots here, so HP could not be shown.'}</div>
     <details class="mt-1"><summary class="text-[10px] text-slate-600 cursor-pointer hover:text-slate-400 select-none">Debug info</summary>
       <div class="text-[10px] text-slate-500 font-mono mt-1 break-words">damage events: ${(result.damage || []).length} · heals: ${(result.heals || []).length} · buff events across targets: ${(result.buffs || []).length} · enemy debuff events: ${(result.debuffs || []).length} · resource events: ${(result.resources || []).length}<br>damage event fields: ${escapeHTML(Object.keys((result.damage || [])[0] || {}).join(', ') || 'none')}<br>resource event fields: ${escapeHTML(Object.keys((result.resources || [])[0] || {}).join(', ') || 'none')}</div></details>
+  </div>
+  <div class="bg-slate-950 border border-slate-800 rounded-lg p-3 min-w-0">
+    <div class="text-[10px] uppercase text-slate-500 font-bold mb-1">Deaths across report</div>
+    <div class="text-[10px] text-slate-600 mb-2">${escapeHTML(death.player)} · pull progress</div>
+    <div id="death-heatmap-container" class="text-[11px] text-slate-500 italic">Loading report deaths...</div>
+  </div>
   </div>`;
 
   body.innerHTML = html;
@@ -2198,6 +2249,57 @@ function renderDeathDetail(result, death, fight) {
   body.querySelectorAll('.fx-toggle').forEach(btn => {
     btn.addEventListener('click', () => toggleCustomMitigation(btn.getAttribute('data-name')));
   });
+  renderDeathHeatmap(death, fight);
+}
+
+async function renderDeathHeatmap(death, selectedFight) {
+  const container = document.getElementById('death-heatmap-container');
+  if (!container) return;
+  const selectionKey = `${selectedFight.id}_${death.targetID}_${death.timeMs}`;
+  container.innerHTML = '<div class="text-slate-500 italic py-3">Loading report deaths...</div>';
+  try {
+    const deathsByPlayer = await loadReportDeathsByPlayer();
+    if (selectedDeathKey !== selectionKey) return;
+    const playerDeaths = deathsByPlayer.get(String(death.targetID)) || [];
+    if (!playerDeaths.length) {
+      container.innerHTML = '<div class="text-slate-500 italic py-3">No deaths for this player in the report.</div>';
+      return;
+    }
+    const deathsByFight = new Map();
+    playerDeaths.forEach(item => {
+      const key = String(item.fightId);
+      if (!deathsByFight.has(key)) deathsByFight.set(key, []);
+      deathsByFight.get(key).push(item);
+    });
+    container.innerHTML = `<div class="max-h-80 overflow-y-auto space-y-1 pr-1">
+      <div class="grid grid-cols-[minmax(0,5rem)_minmax(0,1fr)_1.25rem] gap-1 items-center text-[8px] text-slate-600 uppercase px-1 pb-1">
+        <span>Pull</span><span class="flex justify-between"><span>Start</span><span>End</span></span><span class="text-right">#</span>
+      </div>
+      ${report.fights.map((pull, index) => {
+        const pullDeaths = deathsByFight.get(String(pull.id)) || [];
+        const durationMs = Math.max(1, pull.endTime - pull.startTime);
+        const bins = Array.from({ length: 12 }, () => []);
+        pullDeaths.forEach(item => {
+          const progress = Math.max(0, Math.min(0.9999, item.timeMs / durationMs));
+          bins[Math.floor(progress * bins.length)].push(item);
+        });
+        const cells = bins.map((bin, binIndex) => {
+          const color = !bin.length ? 'bg-slate-800' : bin.length === 1 ? 'bg-rose-900' : bin.length < 4 ? 'bg-rose-600' : 'bg-rose-400';
+          const title = bin.length
+            ? bin.map(item => `${formatSecondsToMMSS(item.timeMs / 1000)} · ${item.ability}`).join('\n')
+            : `${Math.round(binIndex / bins.length * 100)}–${Math.round((binIndex + 1) / bins.length * 100)}% · no death`;
+          return `<span class="h-4 min-w-0 rounded-[2px] ${color}" title="${escapeHTML(title)}"></span>`;
+        }).join('');
+        return `<div class="grid grid-cols-[minmax(0,5rem)_minmax(0,1fr)_1.25rem] gap-1 items-center px-1 py-0.5 rounded hover:bg-slate-900" title="Pull ${index + 1} · ${escapeHTML(pull.name)} · ${pullDeaths.length} death${pullDeaths.length === 1 ? '' : 's'}">
+          <span class="truncate text-[9px] text-slate-400">${index + 1}. ${escapeHTML(pull.name)}</span>
+          <div class="grid grid-cols-12 gap-px">${cells}</div>
+          <span class="text-right text-[9px] font-mono ${pullDeaths.length ? 'text-rose-300' : 'text-slate-600'}">${pullDeaths.length}</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+  } catch (e) {
+    if (selectedDeathKey === selectionKey) container.innerHTML = `<div class="text-rose-400 italic py-3">Could not load report deaths: ${escapeHTML(e.message)}</div>`;
+  }
 }
 
 function renderTimeline() {
@@ -2427,7 +2529,17 @@ function renderCuratedPlanningTimeline(encounter, container) {
     castOffsets: mechanic.castOffsets.sort((a, b) => a - b)
   }));
   const observedEnd = mechanics.reduce((latest, mechanic) => Math.max(latest, ...(mechanic.castOffsets || [0])), 0);
+  const storedMaxDurationSeconds = Math.max(0, Number(encounter.durationSeconds) || 0);
   const durationSeconds = Math.max(Number(encounter.durationSeconds) || 0, observedEnd + 15, 60);
+  const planningTimeReadout = document.getElementById('planning-time-readout');
+  const updatePlanningTimeReadout = seconds => {
+    if (!planningTimeReadout) return;
+    const currentTime = formatSecondsToMMSS(seconds);
+    const maxTime = storedMaxDurationSeconds ? formatSecondsToMMSS(storedMaxDurationSeconds) : '--:--';
+    planningTimeReadout.textContent = `${currentTime} / ${maxTime}`;
+    planningTimeReadout.title = `Selected time / stored maximum fight length (${maxTime})`;
+  };
+  updatePlanningTimeReadout(planningPlayheadSeconds == null ? 0 : Math.min(durationSeconds, planningPlayheadSeconds));
   const search = document.getElementById('planning-mechanic-category-filter').value.trim().toLocaleLowerCase();
   const categoryLabels = [...new Set(mechanics.map(mechanic => getMechanicCategory(String(mechanic.name || '')) || 'Uncategorized'))]
     .sort((a, b) => a.localeCompare(b));
@@ -2517,6 +2629,7 @@ function renderCuratedPlanningTimeline(encounter, container) {
   const playheadLines = [];
   const positionPlanningPlayhead = seconds => {
     planningPlayheadSeconds = secondsAt(seconds);
+    updatePlanningTimeReadout(planningPlayheadSeconds);
     playheadLines.forEach(line => {
       line.style.left = `${xAt(planningPlayheadSeconds)}px`;
       line.classList.remove('hidden');
@@ -2590,7 +2703,7 @@ function renderCuratedPlanningTimeline(encounter, container) {
       const markerCenterY = MECHANIC_HEADER_HEIGHT + lane * MECHANIC_LANE_HEIGHT + MECHANIC_LANE_HEIGHT / 2;
       const chip = document.createElement('div');
       chip.className = 'absolute flex items-center justify-center overflow-hidden whitespace-nowrap rounded-[4px] border border-slate-950/70 px-1 text-[9px] font-bold text-slate-950 shadow';
-      chip.style.cssText = `left:${x - MECHANIC_CHIP_WIDTH / 2}px; top:${markerCenterY - MECHANIC_CHIP_HEIGHT / 2}px; width:${MECHANIC_CHIP_WIDTH}px; height:${MECHANIC_CHIP_HEIGHT}px; background:${color};`;
+      chip.style.cssText = `left:${x}px; top:${markerCenterY - MECHANIC_CHIP_HEIGHT / 2}px; width:${MECHANIC_CHIP_WIDTH}px; height:${MECHANIC_CHIP_HEIGHT}px; background:${color};`;
       chip.textContent = name.length > 12 ? `${name.slice(0, 11)}…` : name;
       chip.title = `${name} observed at ${formatSecondsToMMSS(seconds)}`;
       mechTrack.appendChild(chip);
@@ -3071,8 +3184,8 @@ function renderCombatTimeline(fight, container, planningMode = false) {
         const marker = createSvgElement(track, 'g', { class: 'cursor-pointer' });
         const sourceName = event.sourceName || actorNames.get(String(event.sourceID)) || 'Enemy';
         marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${event.mechanicName} · ${category} · cast by ${sourceName} at ${formatSecondsToMMSS((event.timestamp - start) / 1000)}`;
-        createSvgElement(marker, 'rect', { x: x - 44, y: 2, width: 88, height: 20, rx: 4, fill: color, stroke: '#0f172a', 'stroke-width': 1 });
-        createSvgElement(marker, 'text', { x, y: 15, fill: '#0f172a', 'font-size': 8, 'font-weight': 700, 'text-anchor': 'middle', 'pointer-events': 'none' }, event.mechanicName.length > 13 ? `${event.mechanicName.slice(0, 12)}…` : event.mechanicName);
+        createSvgElement(marker, 'rect', { x, y: 2, width: 88, height: 20, rx: 4, fill: color, stroke: '#0f172a', 'stroke-width': 1 });
+        createSvgElement(marker, 'text', { x: x + 44, y: 15, fill: '#0f172a', 'font-size': 8, 'font-weight': 700, 'text-anchor': 'middle', 'pointer-events': 'none' }, event.mechanicName.length > 13 ? `${event.mechanicName.slice(0, 12)}…` : event.mechanicName);
         marker.addEventListener('click', () => jumpToSpecificOffsetMs(event.timestamp - start));
       });
     });
