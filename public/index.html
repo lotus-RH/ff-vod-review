@@ -2850,7 +2850,7 @@ function renderPlanningControls() {
   const encounterSelect = document.getElementById('planning-encounter-id');
   if (!encounterSelect) return;
   encounterSelect.replaceChildren(new Option('Choose a fight', ''));
-  Object.values(loadEncounterMechanicsDataset()).sort((a, b) => String(a.name).localeCompare(String(b.name))).forEach(encounter => {
+  Object.values(loadEncounterMechanicsDataset()).sort((a, b) => Number(a.encounterID) - Number(b.encounterID)).forEach(encounter => {
     const encounterId = String(encounter.encounterID);
     encounterSelect.appendChild(new Option(encounter.name || `Encounter ${encounterId}`, encounterId));
   });
