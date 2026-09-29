@@ -1878,7 +1878,10 @@ function openDeathInTab(fightId, death, seekToDeath = false) {
   if (seekToDeath) {
     const playerName = String(death.player || '').trim().toLocaleLowerCase();
     const deathPov = povs.find(pov => String(pov.player || '').trim().toLocaleLowerCase() === playerName);
-    if (deathPov && deathPov.id !== activePovId) selectPOV(deathPov.id);
+    if (deathPov && deathPov.id !== activePovId) {
+      activePovId = deathPov.id;
+      renderPOVTabs();
+    }
     jumpToSpecificOffsetMs(death.timeMs);
   }
   switchBottomTab('deaths');
