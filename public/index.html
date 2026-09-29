@@ -198,11 +198,6 @@
             <button onclick="openAbilityModal()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-2.5 py-1 text-slate-300"><i class="fa-solid fa-list"></i> Abilities</button>
           </div>
         </div>
-        <div class="flex items-center gap-2 mb-2 shrink-0" title="Scrub the active POV video to this point in the pull">
-          <span id="timeline-seek-current" class="font-mono text-[10px] text-ffcyan-400 w-10 text-right">00:00</span>
-          <input id="timeline-seek-input" type="range" min="0" max="1" step="0.1" value="0" aria-label="Seek within the current fight" class="flex-1 h-1 accent-ffcyan-400 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40">
-          <span id="timeline-seek-duration" class="font-mono text-[10px] text-slate-500 w-10">00:00</span>
-        </div>
         <div id="timeline-visualization" class="w-full flex-1 min-h-0 overflow-hidden bg-slate-950 rounded-lg border border-slate-800 px-2 flex flex-col"></div>
         <div class="text-[11px] text-slate-500 mt-1.5 shrink-0" id="timeline-help">Enter one or more ability names to show their casts and buff durations in this pull.</div>
       </div>
@@ -359,7 +354,8 @@
       <button onclick="closeMechanicsModal()" class="text-slate-500 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div id="mechanics-list-container" class="p-4 overflow-y-auto text-xs space-y-1.5"></div>
-    <div class="p-3 border-t border-slate-800 flex justify-end shrink-0">
+    <div class="p-3 border-t border-slate-800 flex justify-between shrink-0">
+      <button id="reload-mechanics-button" onclick="reloadMechanicsFromActivePull()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded border border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed" title="Replace this encounter's saved cast list with fresh casts from the selected pull; mechanic settings are kept"><i class="fa-solid fa-rotate"></i> Reload from pull</button>
       <button onclick="closeMechanicsModal()" class="text-xs bg-ffpurple-600 hover:bg-ffpurple-500 text-white font-medium px-4 py-1.5 rounded">Done</button>
     </div>
   </div>
@@ -420,6 +416,7 @@ let trackedAbilityImages = {};
 let plannedUsages = {}; // encounterId -> abilityKey -> [{ id, time }]
 let planningZoom = 1;
 let planningPlayheadSeconds = null;
+let timelinePlayheadOffsetMs = 0;
 let hiddenMechanicNames = [];
 let mechanicCategories = {};
 let customMitigationNames = [];
@@ -471,11 +468,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   });
   document.getElementById('wipe-threshold-input').addEventListener('input', updateWipeThreshold);
   document.getElementById('wipe-threshold-range').addEventListener('input', updateWipeThreshold);
-  document.getElementById('timeline-seek-input').addEventListener('input', event => {
-    const offsetMs = Number(event.target.value) * 1000;
-    updateTimelinePlayhead(offsetMs);
-    seekToSpecificOffsetMs(offsetMs);
-  });
   document.getElementById('phase-filter').addEventListener('change', event => {
     selectedPhaseFilter = event.target.value;
     renderPullList();
@@ -622,6 +614,60 @@ function saveObservedEncounterMechanics(fight, enemyCasts) {
   localStorage.setItem(ENCOUNTER_MECHANICS_KEY, JSON.stringify(merged));
   renderPlanningControls();
   return true;
+}
+
+function replaceObservedEncounterMechanics(fight, enemyCasts) {
+  if (!fight || !fight.encounterID) return [];
+  const encounterId = String(fight.encounterID);
+  const dataset = loadEncounterMechanicsDataset();
+  const existingEncounter = dataset[encounterId] || {};
+  const grouped = new Map();
+  (enemyCasts || []).filter(event => String(event.type).toLowerCase() === 'cast').forEach(event => {
+    const abilityId = eventAbilityId(event);
+    const name = eventAbilityName(event).trim();
+    if (!abilityId && !name) return;
+    const key = abilityId ? `id:${abilityId}` : `name:${name.toLocaleLowerCase()}`;
+    if (!grouped.has(key)) grouped.set(key, { abilityId, names: new Map(), castOffsets: [] });
+    const mechanic = grouped.get(key);
+    if (name) mechanic.names.set(name, (mechanic.names.get(name) || 0) + 1);
+    const offset = Math.max(0, Math.round((event.timestamp - fight.startTime) / 1000));
+    if (!mechanic.castOffsets.includes(offset)) mechanic.castOffsets.push(offset);
+  });
+  const mechanics = [...grouped.values()].map(mechanic => {
+    const names = [...mechanic.names.keys()];
+    const named = [...mechanic.names.entries()].filter(([name]) => !/^Ability \d+$/.test(name));
+    const name = (named.length ? named : [...mechanic.names.entries()])
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] || `Ability ${mechanic.abilityId}`;
+    return { abilityId: mechanic.abilityId, name, names, castOffsets: mechanic.castOffsets.sort((a, b) => a - b) };
+  }).sort((a, b) => a.name.localeCompare(b.name));
+
+  mechanics.forEach(mechanic => {
+    const abilityId = Number(mechanic.abilityId) || 0;
+    if (!abilityId) return;
+    const previous = (existingEncounter.mechanics || []).filter(item => Number(item.abilityId) === abilityId);
+    const previousNames = [...new Set(previous.flatMap(item => [item.name, ...(item.names || [])]).filter(Boolean))];
+    const key = mechanic.name.toLocaleLowerCase();
+    const oldCategory = previousNames.map(name => mechanicCategories[String(name).toLocaleLowerCase()]).find(value => value != null);
+    if (mechanicCategories[key] == null && oldCategory != null) mechanicCategories[key] = oldCategory;
+    const oldRecast = previousNames.map(name => mechanicRecastIgnoreSeconds[String(name).toLocaleLowerCase()]).find(value => value != null);
+    if (mechanicRecastIgnoreSeconds[key] == null && oldRecast != null) mechanicRecastIgnoreSeconds[key] = oldRecast;
+    const wasHidden = previousNames.some(name => hiddenMechanicNames.some(hidden => String(hidden).toLocaleLowerCase() === String(name).toLocaleLowerCase()));
+    if (wasHidden && !hiddenMechanicNames.some(hidden => String(hidden).toLocaleLowerCase() === key)) hiddenMechanicNames.push(mechanic.name);
+  });
+
+  dataset[encounterId] = {
+    ...existingEncounter,
+    encounterID: Number(fight.encounterID),
+    name: fight.name || existingEncounter.name || '',
+    durationSeconds: Math.max(0, Math.ceil((fight.endTime - fight.startTime) / 1000)),
+    mechanics
+  };
+  localStorage.setItem(ENCOUNTER_MECHANICS_KEY, JSON.stringify(dataset));
+  localStorage.setItem('fflogs_vod_mechanic_categories', JSON.stringify(mechanicCategories));
+  writeJsonWithDefault(hiddenMechanicNamesKey(), 'fflogs_vod_hidden_mechanics_default', hiddenMechanicNames);
+  writeJsonWithDefault(mechanicRecastIgnoreKey(), 'fflogs_vod_mechanic_recast_ignore_default', mechanicRecastIgnoreSeconds);
+  renderPlanningControls();
+  return mechanics;
 }
 
 function collectSharedSetupStorage(includeReports) {
@@ -998,6 +1044,8 @@ function getMechanicRecastIgnoreSeconds(name) {
 function renderMechanicsList() {
   const container = document.getElementById('mechanics-list-container');
   const fight = getActiveFight();
+  const reloadButton = document.getElementById('reload-mechanics-button');
+  if (reloadButton) reloadButton.disabled = !fight || !fight.encounterID;
   const rows = getMechanicRows(fight, true);
   const encounterId = String(fight ? fight.encounterID || '' : activePlanningEncounterId || '');
   const encounter = encounterId ? loadEncounterMechanicsDataset()[encounterId] : null;
@@ -1085,6 +1133,44 @@ function renderMechanicsList() {
     item.append(toggle, name, castCount, categoryInput, recastControl, firstSeen);
     container.appendChild(item);
   });
+}
+
+async function reloadMechanicsFromActivePull() {
+  const fight = getActiveFight();
+  if (!report || !fight || !fight.encounterID) {
+    showToast('Select a report pull first.', 'error');
+    return;
+  }
+  if (!window.confirm(`Replace the saved mechanics for ${fight.name} with a fresh cast list from this pull? Categories, hidden states, and recast settings will be kept.`)) return;
+  const button = document.getElementById('reload-mechanics-button');
+  const reportCode = report.code;
+  const fightId = fight.id;
+  if (button) button.disabled = true;
+  try {
+    const data = await fflogsQuery(TIMELINE_EVENTS_QUERY, { code: reportCode, fightID: fightId });
+    if (!report || report.code !== reportCode || String(activeFightId) !== String(fightId)) {
+      throw new Error('The selected report or pull changed before the reload finished.');
+    }
+    const events = data.reportData.report;
+    const buffEvents = events.buffs && events.buffs.data || [];
+    const castEvents = events.casts && events.casts.data || [];
+    const enemyCastEvents = events.enemyCasts && events.enemyCasts.data || [];
+    const refreshedMechanics = replaceObservedEncounterMechanics(fight, enemyCastEvents);
+    const namesByAbilityId = new Map(refreshedMechanics.filter(mechanic => mechanic.abilityId).map(mechanic => [Number(mechanic.abilityId), mechanic.name]));
+    const normalizedEnemyCasts = enemyCastEvents.map(event => {
+      const name = namesByAbilityId.get(eventAbilityId(event));
+      return name ? { ...event, abilityName: name, ability: { ...(event.ability || {}), name } } : event;
+    });
+    timelineEventsCache[fightId] = { buffs: buffEvents, casts: castEvents, enemyCasts: normalizedEnemyCasts };
+    renderAbilityNameSuggestions([...buffEvents, ...castEvents]);
+    renderTimeline();
+    renderMechanicsList();
+    showToast(`Reloaded ${refreshedMechanics.length} mechanics from ${fight.name}; mechanic settings were kept.`, 'success');
+  } catch (e) {
+    showToast('Could not reload mechanics: ' + (e && e.message || e), 'error');
+  } finally {
+    if (button) button.disabled = !getActiveFight()?.encounterID;
+  }
 }
 
 /* =========================================================================
@@ -1516,15 +1602,10 @@ function getLoadedPOVSegment(pov) {
 }
 function updateTimelinePlayhead(offsetMs) {
   const fight = getActiveFight();
-  const slider = document.getElementById('timeline-seek-input');
-  if (!fight || !slider) return;
+  if (!fight) return;
   const durationMs = Math.max(1, fight.endTime - fight.startTime);
   const clampedMs = Math.max(0, Math.min(durationMs, Number(offsetMs) || 0));
-  const currentX = document.getElementById('timeline-seek-current');
-  if (currentX) currentX.textContent = formatSecondsToMMSS(clampedMs / 1000);
-  slider.value = String(clampedMs / 1000);
-  const hasVideo = !!(getActivePOV() && getActivePOV().segments.some(segment => segment.videoId && segment.startAbsMs != null));
-  slider.disabled = !hasVideo;
+  timelinePlayheadOffsetMs = clampedMs;
   const position = document.querySelectorAll('#timeline-visualization [data-timeline-playhead]');
   position.forEach(line => {
     const left = Number(line.ownerSVGElement.getAttribute('data-left')) || 110;
@@ -2765,13 +2846,6 @@ function renderCombatTimeline(fight, container, planningMode = false) {
   const start = fight.startTime, duration = Math.max(1, fight.endTime - start);
   const left = planningMode ? 205 : 110, right = W - 15, width = right - left;
   const xAt = timestamp => left + Math.max(0, Math.min(1, (timestamp - start) / duration)) * width;
-  const seekInput = planningMode ? null : document.getElementById('timeline-seek-input');
-  const durationLabel = planningMode ? null : document.getElementById('timeline-seek-duration');
-  if (seekInput) {
-    seekInput.max = String(duration / 1000);
-    seekInput.step = String(Math.max(0.1, duration / 100000));
-  }
-  if (durationLabel) durationLabel.textContent = formatSecondsToMMSS(duration / 1000);
   const makeSvg = h => {
     const el = document.createElementNS(svgNS, 'svg');
     el.setAttribute('viewBox', `0 0 ${W} ${h}`);
@@ -2840,9 +2914,11 @@ function renderCombatTimeline(fight, container, planningMode = false) {
       const x = xAt(event.timestamp);
       const category = getMechanicCategory(event.mechanicName);
       const color = category ? categoryColor(category) : '#fbbf24';
-      const marker = addMechanic('rect', { x: x - 6, y: 9, width: 12, height: 12, fill: color, stroke: '#0f172a', 'stroke-width': 1, class: 'cursor-pointer' });
+      const marker = createSvgElement(mechanicSvg, 'g', { class: 'cursor-pointer' });
       const sourceName = event.sourceName || actorNames.get(String(event.sourceID)) || 'Enemy';
       marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${event.mechanicName}${category ? ` · ${category}` : ''} cast by ${sourceName} at ${formatSecondsToMMSS((event.timestamp - start) / 1000)}`;
+      createSvgElement(marker, 'rect', { x: x - 44, y: 5, width: 88, height: 20, rx: 4, fill: color, stroke: '#0f172a', 'stroke-width': 1 });
+      createSvgElement(marker, 'text', { x, y: 18, fill: '#0f172a', 'font-size': 8, 'font-weight': 700, 'text-anchor': 'middle', 'pointer-events': 'none' }, event.mechanicName.length > 13 ? `${event.mechanicName.slice(0, 12)}…` : event.mechanicName);
       marker.addEventListener('click', () => jumpToSpecificOffsetMs(event.timestamp - start));
     });
 
@@ -2971,8 +3047,7 @@ function removePOV(id) {
 function selectPOV(id) {
   const fight = getActiveFight();
   const playbackOffsetMs = fight ? getTimelinePlaybackOffsetMs(fight) : null;
-  const slider = document.getElementById('timeline-seek-input');
-  const offsetMs = playbackOffsetMs != null ? playbackOffsetMs : (slider ? Number(slider.value) * 1000 : 0);
+  const offsetMs = playbackOffsetMs != null ? playbackOffsetMs : timelinePlayheadOffsetMs;
   activePovId = id;
   renderPOVTabs();
   if (fight) seekToAbsTime(pullAbsStartMs(fight) + offsetMs);
