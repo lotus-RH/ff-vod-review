@@ -299,9 +299,12 @@
 
       <div class="border-t border-slate-800 pt-3 mt-1">
         <h3 class="font-bold text-sm flex items-center gap-2 mb-1.5"><i class="fa-solid fa-share-nodes text-ffcyan-400"></i> Shared setup for everyone</h3>
-        <p class="text-slate-400 leading-relaxed">Tracked abilities, mechanic categories, planned cooldown placements, POVs and notes live in each browser, so a private window starts blank. Once your setup looks right, download the file below and upload it to your repo next to <span class="mono-font text-slate-300">index.html</span>. Anyone opening the site gets it automatically. Re-download and re-upload whenever you change things.</p>
+        <p class="text-slate-400 leading-relaxed">Tracked abilities, mechanic categories, planned cooldown placements, POVs and notes live in each browser, so a private window starts blank. Hit Save and it's live for everyone opening the site — no repo upload needed.</p>
         <label class="flex items-center gap-1.5 mt-2 text-slate-400 cursor-pointer select-none"><input type="checkbox" id="share-include-reports" checked> Include POVs &amp; notes for every log</label>
-        <div class="flex justify-end mt-2"><button onclick="exportSharedSetup()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-file-arrow-down"></i> Download vod-review-config.json</button></div>
+        <div class="flex justify-end gap-2 mt-2">
+          <button onclick="exportSharedSetup()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded border border-slate-700" title="Download a backup copy of the current setup"><i class="fa-solid fa-file-arrow-down"></i> Download backup</button>
+          <button onclick="saveSharedSetup()" class="bg-ffpurple-600 hover:bg-ffpurple-500 text-white font-medium px-3 py-1.5 rounded"><i class="fa-solid fa-cloud-arrow-up"></i> Save for everyone</button>
+        </div>
       </div>
     </div>
   </div>
@@ -511,12 +514,13 @@ function initPanelResizer() {
    SHARED SETUP (config file next to index.html)
    ========================================================================= */
 const SHARED_CONFIG_URL = 'vod-review-config.json';
+const SHARED_CONFIG_API_URL = '/api/config';
 const ENCOUNTER_MECHANICS_KEY = 'fflogs_vod_encounter_mechanics';
 const CONFIG_EXCLUDE = new Set(['fflogs_vod_auth', 'fflogs_vod_config_applied', 'fflogs_vod_bottom_panel_h']);
 
 async function applySharedConfig() {
   try {
-    const res = await fetch(SHARED_CONFIG_URL, { cache: 'no-store' });
+    const res = await fetch(SHARED_CONFIG_API_URL, { cache: 'no-store' });
     if (!res.ok) return;
     const cfg = await res.json();
     if (!cfg || typeof cfg !== 'object' || !cfg.storage || typeof cfg.storage !== 'object') return;
@@ -618,8 +622,7 @@ function saveObservedEncounterMechanics(fight, enemyCasts) {
   return true;
 }
 
-function exportSharedSetup() {
-  const includeReports = document.getElementById('share-include-reports').checked;
+function collectSharedSetupStorage(includeReports) {
   const storage = {};
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
@@ -627,6 +630,30 @@ function exportSharedSetup() {
     if (!includeReports && /^fflogs_vod_(povs|notes)_/.test(key)) continue;
     try { storage[key] = JSON.parse(localStorage.getItem(key)); } catch (e) {}
   }
+  return storage;
+}
+
+async function saveSharedSetup() {
+  const includeReports = document.getElementById('share-include-reports').checked;
+  const storage = collectSharedSetupStorage(includeReports);
+  try {
+    const res = await fetch(SHARED_CONFIG_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ storage })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `Save failed (${res.status}).`);
+    localStorage.setItem('fflogs_vod_config_applied', data.updatedAt);
+    showToast('Saved — everyone opening the site now gets this setup.', 'success');
+  } catch (e) {
+    showToast('Could not save shared setup: ' + (e && e.message || e), 'error');
+  }
+}
+
+function exportSharedSetup() {
+  const includeReports = document.getElementById('share-include-reports').checked;
+  const storage = collectSharedSetupStorage(includeReports);
   const payload = { version: 1, updatedAt: new Date().toISOString(), storage };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');

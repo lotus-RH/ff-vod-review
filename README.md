@@ -41,8 +41,16 @@ package.json
    - `FFLOGS_CLIENT_SECRET` (type: Secret)
    - `YOUTUBE_API_KEY` (type: Secret) — optional, only needed for auto-sync
 
-7. Trigger a new deployment so the variables take effect — push any small
-   commit, or use the dashboard's redeploy option.
+7. Create the KV namespace that stores the "shared setup" everyone saves to
+   from inside the app: run `npx wrangler kv namespace create VOD_CONFIG`.
+   It prints an `id` — put that in `wrangler.jsonc` under `kv_namespaces`
+   (replacing `REPLACE_WITH_KV_NAMESPACE_ID`), commit, and deploy. Without
+   this step the Setup modal's "Save for everyone" button won't work, but
+   the site still loads the bundled `vod-review-config.json` as a starting
+   point and the "Download backup" button still works.
+
+8. Trigger a new deployment so the variables/KV binding take effect — push
+   any small commit, or use the dashboard's redeploy option.
 
 That's it — anyone opening your `.workers.dev` URL can paste an FFLogs
 report link and go, no login and no keys on their end.
@@ -62,3 +70,10 @@ Network tab. Find the request to `/api/fflogs`:
 
 Push changes to `public/index.html` in the GitHub repo as before — Cloudflare
 redeploys automatically on every push.
+
+Shared setup (tracked abilities, mechanic categories, planned cooldowns,
+POVs/notes) is different: anyone can change it from the Setup modal in the
+app and click **Save for everyone** — that writes straight to the KV
+namespace, live, with no git push or redeploy needed. The bundled
+`public/vod-review-config.json` is just the initial/fallback copy used
+before anyone has saved anything (or if the KV binding isn't set up yet).

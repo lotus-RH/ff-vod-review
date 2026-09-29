@@ -78,11 +78,46 @@ async function handleYoutube(request, env) {
   }
 }
 
+// Live "shared setup" storage. Backed by a KV namespace (env.VOD_CONFIG) so
+// anyone using the site can save their setup and everyone else gets it on
+// next load — no manual git push needed. Falls back to the static
+// vod-review-config.json bundled in the repo when KV has nothing saved yet
+// (or isn't configured), so the site keeps working either way.
+const CONFIG_KV_KEY = 'shared-config';
+const MAX_CONFIG_BYTES = 5 * 1024 * 1024;
+
+async function handleConfig(request, env) {
+  if (request.method === 'GET') {
+    if (env.VOD_CONFIG) {
+      const stored = await env.VOD_CONFIG.get(CONFIG_KV_KEY, 'json');
+      if (stored) return json(stored);
+    }
+    return env.ASSETS.fetch(new Request(new URL('/vod-review-config.json', request.url), request));
+  }
+  if (request.method === 'POST') {
+    if (!env.VOD_CONFIG) {
+      return json({ error: 'Server is missing the VOD_CONFIG KV binding. See README.md for one-time setup.' }, 500);
+    }
+    let body;
+    try { body = await request.json(); } catch (e) { return json({ error: 'Invalid JSON body.' }, 400); }
+    if (!body || typeof body !== 'object' || !body.storage || typeof body.storage !== 'object') {
+      return json({ error: 'Missing storage object.' }, 400);
+    }
+    const payload = { version: 1, updatedAt: new Date().toISOString(), storage: body.storage };
+    const serialized = JSON.stringify(payload);
+    if (serialized.length > MAX_CONFIG_BYTES) return json({ error: 'Config is too large to save.' }, 413);
+    await env.VOD_CONFIG.put(CONFIG_KV_KEY, serialized);
+    return json({ ok: true, updatedAt: payload.updatedAt });
+  }
+  return json({ error: 'GET or POST only.' }, 405);
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === '/api/fflogs') return handleFflogs(request, env);
     if (url.pathname === '/api/youtube') return handleYoutube(request, env);
+    if (url.pathname === '/api/config') return handleConfig(request, env);
     // Anything else: serve the static site from ./public
     return env.ASSETS.fetch(request);
   }
