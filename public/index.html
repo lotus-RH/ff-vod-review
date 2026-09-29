@@ -64,7 +64,7 @@
       <button onclick="loadReportFromInput()" class="text-xs bg-ffpurple-600 hover:bg-ffpurple-500 text-white font-medium px-2.5 py-1 rounded shrink-0 transition">
         <i class="fa-solid fa-download"></i> Load
       </button>
-      <button id="settings-fab" onclick="openSettingsModal()" title="Setup / shared config"
+      <button id="settings-fab" onclick="openSettingsModal()" title="Connection settings (FFLogs / YouTube keys)"
         class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded border border-slate-700 shrink-0 transition">
         <i class="fa-solid fa-gear"></i>
       </button>
@@ -112,7 +112,8 @@
           <option value="">Any phase</option>
         </select>
         <label for="wipe-threshold-input" class="text-slate-400">Wipes at or under</label>
-        <div class="flex items-center gap-1 bg-slate-950 border border-slate-800 rounded px-2 py-1">
+        <div class="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded px-2 py-1">
+          <input id="wipe-threshold-range" type="range" min="0" max="100" step="0.1" value="20" class="w-24 accent-amber-400" aria-label="Wipe boss health threshold percentage">
           <input id="wipe-threshold-input" type="number" min="0" max="100" step="0.1" value="20" class="bg-transparent text-amber-300 font-mono w-12 text-right" aria-label="Wipe boss health threshold percentage">
           <span class="text-slate-500">%</span>
         </div>
@@ -188,7 +189,7 @@
       <div id="tab-content-timeline" class="bottom-tab-content flex-1 min-h-0 p-3 flex flex-col overflow-hidden">
         <div class="flex justify-between items-center mb-1 text-xs text-slate-400 shrink-0">
           <span id="timeline-pull-title" class="font-medium">No pull selected</span>
-          <span class="text-[11px] text-slate-500">Boss mechanics · Amber: cooldown · Green: buff duration</span>
+          <span class="text-[11px] text-slate-500">Mechanics - Orange, Raidwide - Red, Stack - Pink, Tank - Blue </span>
         </div>
         <div class="flex items-center justify-between gap-2 mb-2 text-[10px] shrink-0">
           <span id="tracked-ability-summary" class="text-slate-500">No abilities added</span>
@@ -202,13 +203,12 @@
           <input id="timeline-seek-input" type="range" min="0" max="1" step="0.1" value="0" aria-label="Seek within the current fight" class="flex-1 h-1 accent-ffcyan-400 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40">
           <span id="timeline-seek-duration" class="font-mono text-[10px] text-slate-500 w-10">00:00</span>
         </div>
-        <div id="timeline-visualization" class="w-full flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-slate-950 rounded-lg border border-slate-800 px-2" style="scrollbar-gutter: stable;"></div>
+        <div id="timeline-visualization" class="w-full flex-1 min-h-0 overflow-hidden bg-slate-950 rounded-lg border border-slate-800 px-2 flex flex-col"></div>
         <div class="text-[11px] text-slate-500 mt-1.5 shrink-0" id="timeline-help">Enter one or more ability names to show their casts and buff durations in this pull.</div>
       </div>
 
       <div id="tab-content-deaths" class="bottom-tab-content hidden flex-1 p-3 overflow-y-auto">
-        <div id="deaths-timeline" class="w-full overflow-x-auto bg-slate-950 rounded-lg border border-slate-800 px-2 py-1 mb-2"></div>
-        <div id="deaths-list-container" class="flex flex-wrap gap-1.5"></div>
+        <div id="deaths-list-container" class="flex flex-col items-center gap-1.5"></div>
       </div>
 
       <div id="tab-content-notes" class="bottom-tab-content hidden flex-1 p-3 overflow-y-auto flex flex-col gap-2">
@@ -247,7 +247,7 @@
   </div>
 </main>
 
-<main id="planning-workspace" class="hidden flex-1 min-h-0 flex-col overflow-hidden bg-slate-950">
+<main id="planning-workspace" class="hidden flex-1 min-h-0 flex flex-col overflow-hidden bg-slate-950">
   <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-slate-800 bg-slate-900/70 shrink-0">
     <div class="min-w-0">
       <h2 class="text-sm font-semibold text-slate-100 flex items-center gap-2"><i class="fa-solid fa-calendar-days text-ffcyan-400"></i> Ability plan</h2>
@@ -261,26 +261,25 @@
         <datalist id="planning-encounter-options"></datalist>
         <button onclick="loadPlanningEncounter()" class="text-xs bg-ffpurple-600 hover:bg-ffpurple-500 text-white px-2.5 py-1.5 rounded"><i class="fa-solid fa-arrow-right-to-bracket"></i> Load</button>
       </div>
-      <label for="planning-fight-select" class="text-[11px] text-slate-400">Pull</label>
-      <select id="planning-fight-select" class="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-200 min-w-40" onchange="if (this.value) selectPull(Number(this.value))">
-        <option value="">No report loaded</option>
-      </select>
-      <label for="planning-player-filter" class="sr-only">Filter by player</label>
-      <select id="planning-player-filter" class="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-200" onchange="renderTimeline()">
-        <option value="">All players</option>
-      </select>
-      <label for="planning-ability-filter" class="sr-only">Filter abilities</label>
+      <label for="planning-mechanic-category-filter" class="sr-only">Filter mechanics by category</label>
       <div class="flex items-center gap-1.5 bg-slate-950 border border-slate-700 rounded px-2 py-1.5">
         <i class="fa-solid fa-magnifying-glass text-slate-500 text-[10px]"></i>
-        <input id="planning-ability-filter" type="search" placeholder="Filter abilities" class="bg-transparent text-xs text-slate-200 w-32" oninput="renderTimeline()">
+        <input id="planning-mechanic-category-filter" type="search" list="planning-mechanic-category-options" placeholder="Filter categories" class="bg-transparent text-xs text-slate-200 w-36" oninput="renderTimeline()">
+        <datalist id="planning-mechanic-category-options"></datalist>
       </div>
-      <button onclick="openMechanicsModal()" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-2.5 py-1.5 text-slate-300"><i class="fa-solid fa-burst mr-1"></i> Mechanics</button>
-      <button onclick="openAbilityModal()" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-2.5 py-1.5 text-slate-300"><i class="fa-solid fa-list mr-1"></i> Tracked abilities</button>
+      <button onclick="importReviewCastsToPlanning()" title="Import tracked ability casts from the selected Review pull" class="text-xs bg-emerald-800 hover:bg-emerald-700 border border-emerald-700 rounded px-2.5 py-1.5 text-emerald-100"><i class="fa-solid fa-file-import mr-1"></i> Import Review casts</button>
     </div>
   </div>
   <div class="flex items-center justify-between gap-3 px-4 py-2 border-b border-slate-800/80 text-[11px] shrink-0">
     <span id="planning-ability-summary" class="text-slate-500">Abilities are grouped by class.</span>
-    <span class="text-slate-600">Fight-relative timeline · no playback cursor</span>
+    <div class="flex items-center gap-2">
+      <span class="text-slate-600">Double-click a track, or use +, to place a chip · drag to move</span>
+      <div class="flex items-center gap-1 bg-slate-950 border border-slate-700 rounded px-1 py-1" title="Timeline zoom (100% shows 5 minutes)">
+        <button onclick="adjustPlanningZoom(-0.25)" class="text-slate-300 hover:text-white px-1.5 py-0.5 rounded hover:bg-slate-800" title="Zoom out"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+        <span id="planning-zoom-label" class="text-[10px] font-mono text-slate-400 w-9 text-center">100%</span>
+        <button onclick="adjustPlanningZoom(0.25)" class="text-slate-300 hover:text-white px-1.5 py-0.5 rounded hover:bg-slate-800" title="Zoom in"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+      </div>
+    </div>
   </div>
   <div id="planning-timeline-visualization" class="flex-1 min-h-0 overflow-auto bg-slate-950 px-2" style="scrollbar-gutter:stable;"></div>
 </main>
@@ -289,20 +288,64 @@
 <div id="settings-modal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4">
   <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl">
     <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800">
-      <h2 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-gear text-ffpurple-400"></i> Setup</h2>
+      <h2 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-plug text-ffpurple-400"></i> FFLogs Connection</h2>
       <button onclick="closeSettingsModal()" class="text-slate-500 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="p-4 space-y-3 text-xs">
-      <div class="bg-emerald-950/30 border border-emerald-700/40 rounded-lg p-3 flex items-start gap-2">
-        <i class="fa-solid fa-circle-check text-emerald-400 mt-0.5"></i>
-        <p class="text-slate-300 leading-relaxed">No login, no API keys needed here. FFLogs access and YouTube auto-sync are handled by a small backend that's part of this site — see <span class="mono-font text-slate-300">README.md</span> in the project for the one-time setup (only needed once, by whoever hosts the site).</p>
+      <p class="text-slate-400 leading-relaxed">
+        Create a free API client at <span class="text-ffcyan-400 mono-font">fflogs.com/api/clients</span>.
+        Set its <b>Redirect URI</b> to the URL below (must match exactly), then paste the Client ID here.
+        This uses the PKCE login flow — no client secret is ever needed or stored.
+      </p>
+      <div>
+        <label class="text-[10px] text-slate-500 uppercase block mb-1">Redirect URI to register on FFLogs</label>
+        <div class="flex gap-1.5">
+          <input id="redirect-uri-display" readonly class="flex-1 bg-slate-950 border border-slate-800 rounded px-2 py-1.5 font-mono text-[11px] text-slate-300">
+          <button onclick="copyRedirectUri()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-2"><i class="fa-solid fa-copy"></i></button>
+        </div>
+        <p id="redirect-uri-warning" class="text-amber-400 mt-1 hidden"><i class="fa-solid fa-triangle-exclamation"></i> This page must be served over https:// or http://localhost for login to work.</p>
+      </div>
+      <div>
+        <label class="text-[10px] text-slate-500 uppercase block mb-1">FFLogs Client ID</label>
+        <input id="client-id-input" type="text" placeholder="e.g. 3f8a1c2e-..." class="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1.5 font-mono text-[11px]">
+      </div>
+      <div class="flex items-center justify-between pt-2">
+        <span id="settings-conn-detail" class="text-[11px] text-slate-500">Not connected.</span>
+        <div class="flex gap-2">
+          <button onclick="disconnectFFLogs()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded border border-slate-700">Disconnect</button>
+          <button onclick="saveSettingsAndConnect()" class="bg-ffpurple-600 hover:bg-ffpurple-500 text-white font-medium px-3 py-1.5 rounded"><i class="fa-solid fa-right-to-bracket"></i> Save &amp; Connect</button>
+        </div>
       </div>
 
       <div class="border-t border-slate-800 pt-3 mt-1">
         <h3 class="font-bold text-sm flex items-center gap-2 mb-1.5"><i class="fa-solid fa-share-nodes text-ffcyan-400"></i> Shared setup for everyone</h3>
-        <p class="text-slate-400 leading-relaxed">Tracked abilities, mechanic categories, POVs and notes live in each browser, so a private window starts blank. Once your setup looks right, download the file below and upload it to your repo next to <span class="mono-font text-slate-300">index.html</span>. Anyone opening the site gets it automatically. Re-download and re-upload whenever you change things.</p>
-        <label class="flex items-center gap-1.5 mt-2 text-slate-400 cursor-pointer select-none"><input type="checkbox" id="share-include-reports" checked> Include POVs &amp; notes for every log</label>
+        <p class="text-slate-400 leading-relaxed">Settings live in each browser, so a private window starts blank. Once your setup looks right, download the file below and upload it to your GitHub repo next to <span class="mono-font text-slate-300">index.html</span>. Anyone opening the site gets your Client ID, tracked abilities, observed encounter mechanics, POVs and notes automatically. Encounter mechanics merge with existing local data instead of replacing it. Re-download and re-upload whenever you change things.</p>
+        <label class="flex items-center gap-1.5 mt-2 text-slate-400 cursor-pointer select-none"><input type="checkbox" id="share-include-youtube" checked> Include YouTube API key <span class="text-slate-600">(public in a public repo — restrict it to your site's URL in Google Cloud)</span></label>
+        <label class="flex items-center gap-1.5 mt-1 text-slate-400 cursor-pointer select-none"><input type="checkbox" id="share-include-reports" checked> Include POVs &amp; notes for every log</label>
         <div class="flex justify-end mt-2"><button onclick="exportSharedSetup()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-file-arrow-down"></i> Download vod-review-config.json</button></div>
+        <p class="text-slate-600 text-[10px] mt-1">Note: each viewer still logs into FFLogs once with the Connect button to load logs.</p>
+      </div>
+
+      <div class="border-t border-slate-800 pt-3 mt-1">
+        <details open>
+          <summary class="font-bold text-sm flex items-center gap-2 cursor-pointer select-none text-slate-400 hover:text-slate-200"><i class="fa-brands fa-youtube text-rose-400"></i> Auto-Sync from YouTube (recommended — one-time setup)</summary>
+          <div class="mt-2">
+            <p class="text-slate-400 leading-relaxed">
+              Add a free YouTube Data API key here once, and every POV video you paste in afterward syncs itself
+              automatically from that VOD's actual live broadcast start time — no manual timestamp entry, ever,
+              as long as the video was streamed live on YouTube (not just uploaded). Do this once per browser, or
+              save it into the shared setup file below so every viewer gets it automatically.
+              Get one free at <span class="text-ffcyan-400 mono-font">console.cloud.google.com</span> → enable
+              "YouTube Data API v3" → Credentials → Create API Key. Manual calibration (typing in one timestamp
+              per video) is still available as a fallback for uploaded/edited videos.
+            </p>
+            <label class="text-[10px] text-slate-500 uppercase block mb-1 mt-2">YouTube Data API Key</label>
+            <input id="youtube-key-input" type="text" placeholder="AIza..." class="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1.5 font-mono text-[11px]">
+            <div class="flex justify-end mt-2">
+              <button onclick="saveYouTubeKey()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded border border-slate-700 text-[11px]"><i class="fa-solid fa-floppy-disk"></i> Save Key</button>
+            </div>
+          </div>
+        </details>
       </div>
     </div>
   </div>
@@ -327,7 +370,7 @@
 <div id="ability-modal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4">
   <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl">
     <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
-      <h2 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles text-ffcyan-400"></i> Timeline Abilities</h2>
+      <h2 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles text-ffcyan-400"></i> Player Abilities</h2>
       <button onclick="closeAbilityModal()" class="text-slate-500 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="p-4 overflow-y-auto text-xs space-y-3">
@@ -371,6 +414,9 @@
 /* =========================================================================
    CONFIG / CONSTANTS
    ========================================================================= */
+const FFLOGS_AUTHORIZE_URL = 'https://www.fflogs.com/oauth/authorize';
+const FFLOGS_TOKEN_URL = 'https://www.fflogs.com/oauth/token';
+const FFLOGS_API_URL = 'https://www.fflogs.com/api/v2/user';
 
 const JOB_COLORS = {
   PLD:'#a8d3e6', WAR:'#cf2621', DRK:'#d126cc', GNB:'#796834',
@@ -379,6 +425,19 @@ const JOB_COLORS = {
   RPR:'#965a90', BRD:'#91ba40', MCH:'#6ee1d6', DNC:'#e2b0af',
   BLM:'#a579d6', SMN:'#2d9b78', RDM:'#e28fb0', PCT:'#e8a5c4'
 };
+const JOB_CODES_BY_NAME = {
+  paladin: 'PLD', warrior: 'WAR', darkknight: 'DRK', gunbreaker: 'GNB',
+  whitemage: 'WHM', scholar: 'SCH', astrologian: 'AST', sage: 'SGE',
+  monk: 'MNK', dragoon: 'DRG', ninja: 'NIN', samurai: 'SAM', reaper: 'RPR', viper: 'VPR',
+  bard: 'BRD', machinist: 'MCH', dancer: 'DNC', blackmage: 'BLM', summoner: 'SMN',
+  redmage: 'RDM', pictomancer: 'PCT'
+};
+function jobCodeForSubType(subType) {
+  const normalized = String(subType || '').trim().toLocaleLowerCase().replace(/[\s_-]/g, '');
+  if (Object.prototype.hasOwnProperty.call(JOB_CODES_BY_NAME, normalized)) return JOB_CODES_BY_NAME[normalized];
+  const code = String(subType || '').trim().toUpperCase();
+  return Object.prototype.hasOwnProperty.call(JOB_COLORS, code) ? code : '';
+}
 const PLANNING_CLASS_GROUPS = [
   { name: 'Tanks', jobs: ['PLD', 'WAR', 'DRK', 'GNB'] },
   { name: 'Healer', jobs: ['WHM', 'AST', 'SCH', 'SGE'] },
@@ -387,10 +446,14 @@ const PLANNING_CLASS_GROUPS = [
   { name: 'Caster', jobs: ['RDM', 'PCT', 'BLM', 'SMN'] }
 ];
 const DEFAULT_AUTO_SYNC_NUDGE_SECONDS = -8;
+const DEFAULT_MECHANIC_RECAST_IGNORE_SECONDS = 5;
 
 /* =========================================================================
    STATE
    ========================================================================= */
+let settings = { clientId: '', redirectUri: '', youtubeApiKey: '' };
+let auth = { accessToken: null, refreshToken: null, expiresAt: 0 };
+
 let report = null;        // { code, title, zoneName, startTime, endTime, fights: [], actors: [] }
 let povs = [];             // [{ id, player, job, color, segments:[{id,videoId,label,startAbsMs}] }]
 let notes = [];            // [{ id, fightId, logSeconds, author, text, category }]
@@ -399,10 +462,14 @@ let timelineEventsCache = {}; // fightId -> { buffs: [], damage: [], healing: []
 let trackedAbilityNames = [];
 let trackedAbilityClasses = {};
 let trackedAbilityCooldowns = {};
+let trackedAbilityDurations = {};
+let trackedAbilityImages = {};
+let plannedUsages = {}; // encounterId -> abilityKey -> [{ id, time }]
+let planningZoom = 1;
 let hiddenMechanicNames = [];
 let mechanicCategories = {};
 let customMitigationNames = [];
-function getMechanicCategory(name) { return String(mechanicCategories[String(name).toLocaleLowerCase()] || '').trim(); }
+function getMechanicCategory(name) { return String(mechanicCategories[String(name).toLocaleLowerCase()] || '').trim() || 'Main'; }
 const CATEGORY_COLORS = ['#f472b6', '#a78bfa', '#38bdf8', '#34d399', '#fb923c', '#f87171', '#facc15', '#2dd4bf'];
 function categoryColor(category) {
   let h = 0;
@@ -431,11 +498,21 @@ let pollTimer = null;
    ========================================================================= */
 window.addEventListener('DOMContentLoaded', async () => {
   await applySharedConfig();
+  loadDefaultTrackedAbilities();
   try { mechanicCategories = JSON.parse(localStorage.getItem('fflogs_vod_mechanic_categories')) || {}; } catch (e) { mechanicCategories = {}; }
   try { hiddenMechanicNames = JSON.parse(localStorage.getItem('fflogs_vod_hidden_mechanics_default')) || []; } catch (e) { hiddenMechanicNames = []; }
   try { mechanicRecastIgnoreSeconds = JSON.parse(localStorage.getItem('fflogs_vod_mechanic_recast_ignore_default')) || {}; } catch (e) { mechanicRecastIgnoreSeconds = {}; }
   try { customMitigationNames = JSON.parse(localStorage.getItem('fflogs_vod_custom_mitigations')) || []; } catch (e) { customMitigationNames = []; }
+  try { plannedUsages = JSON.parse(localStorage.getItem('fflogs_vod_planned_usages')) || {}; } catch (e) { plannedUsages = {}; }
+  try { planningZoom = Number(localStorage.getItem('fflogs_vod_planning_zoom')) || 1; } catch (e) { planningZoom = 1; }
   initPanelResizer();
+  loadSettings();
+  document.getElementById('redirect-uri-display').value = settings.redirectUri;
+  if (!window.isSecureContext) {
+    document.getElementById('redirect-uri-warning').classList.remove('hidden');
+  }
+  handleOAuthRedirect();
+  renderConnStatus();
   switchBottomTab('timeline');
   renderPullList();
   renderPOVTabs();
@@ -446,6 +523,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     addTrackedAbilityFromForm();
   });
   document.getElementById('wipe-threshold-input').addEventListener('input', updateWipeThreshold);
+  document.getElementById('wipe-threshold-range').addEventListener('input', updateWipeThreshold);
   document.getElementById('timeline-seek-input').addEventListener('input', event => {
     const offsetMs = Number(event.target.value) * 1000;
     updateTimelinePlayhead(offsetMs);
@@ -513,7 +591,7 @@ async function applySharedConfig() {
       if (key === 'fflogs_vod_settings') {
         let local = {};
         try { local = JSON.parse(localStorage.getItem(key)) || {}; } catch (e) {}
-        value = { ...local, ...value };
+        value = { ...local, ...value, redirectUri: local.redirectUri || '' };
       }
       localStorage.setItem(key, JSON.stringify(value));
     });
@@ -541,8 +619,9 @@ function mergeEncounterMechanicDatasets(existing, incoming) {
       const abilityId = Number(incomingMechanic.abilityId) || 0;
       const normalizedName = String(incomingMechanic.name || '').trim();
       if (!abilityId && !normalizedName) return;
-      const mechanic = encounter.mechanics.find(item => abilityId && Number(item.abilityId) === abilityId ||
-        !abilityId && String(item.name || '').toLocaleLowerCase() === normalizedName.toLocaleLowerCase());
+      const mechanic = encounter.mechanics.find(item =>
+        normalizedName && String(item.name || '').trim().toLocaleLowerCase() === normalizedName.toLocaleLowerCase() ||
+        abilityId && Number(item.abilityId) === abilityId);
       const target = mechanic || { abilityId, name: normalizedName, names: [], castOffsets: [] };
       if (mechanic && !target.name && normalizedName) target.name = normalizedName;
       if (!Array.isArray(target.names)) target.names = target.name ? [target.name] : [];
@@ -579,7 +658,9 @@ function saveObservedEncounterMechanics(fight, enemyCasts) {
   (enemyCasts || []).filter(event => String(event.type).toLowerCase() === 'cast').forEach(event => {
     const abilityId = eventAbilityId(event);
     const name = eventAbilityName(event);
-    const key = abilityId ? `id:${abilityId}` : `name:${name.toLocaleLowerCase()}`;
+    const key = name && !/^Ability \d+$/.test(name)
+      ? `name:${name.trim().toLocaleLowerCase()}`
+      : `id:${abilityId || name.toLocaleLowerCase()}`;
     if (!byAbility.has(key)) byAbility.set(key, { abilityId, name, castOffsets: [] });
     const offset = Math.max(0, Math.round((event.timestamp - fight.startTime) / 1000));
     const offsets = byAbility.get(key).castOffsets;
@@ -595,6 +676,7 @@ function saveObservedEncounterMechanics(fight, enemyCasts) {
 }
 
 function exportSharedSetup() {
+  const includeYouTube = document.getElementById('share-include-youtube').checked;
   const includeReports = document.getElementById('share-include-reports').checked;
   const storage = {};
   for (let i = 0; i < localStorage.length; i++) {
@@ -602,6 +684,12 @@ function exportSharedSetup() {
     if (!key || !key.startsWith('fflogs_vod_') || CONFIG_EXCLUDE.has(key)) continue;
     if (!includeReports && /^fflogs_vod_(povs|notes)_/.test(key)) continue;
     try { storage[key] = JSON.parse(localStorage.getItem(key)); } catch (e) {}
+  }
+  if (storage.fflogs_vod_settings) {
+    const s = { ...storage.fflogs_vod_settings };
+    delete s.redirectUri;
+    if (!includeYouTube) delete s.youtubeApiKey;
+    storage.fflogs_vod_settings = s;
   }
   const payload = { version: 1, updatedAt: new Date().toISOString(), storage };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -629,24 +717,49 @@ function onYouTubeIframeAPIReady() {
 /* =========================================================================
    SETTINGS / LOCAL STORAGE
    ========================================================================= */
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem('fflogs_vod_settings');
+    if (raw) settings = { ...settings, ...JSON.parse(raw) };
+  } catch (e) {}
+  if (!settings.redirectUri) {
+    settings.redirectUri = window.location.origin + window.location.pathname;
+  }
+  try {
+    const rawAuth = localStorage.getItem('fflogs_vod_auth');
+    if (rawAuth) auth = { ...auth, ...JSON.parse(rawAuth) };
+  } catch (e) {}
+}
+function persistSettings() { localStorage.setItem('fflogs_vod_settings', JSON.stringify(settings)); }
+function persistAuth() { localStorage.setItem('fflogs_vod_auth', JSON.stringify(auth)); }
 
 function povsKey() { return `fflogs_vod_povs_${report ? report.code : 'none'}`; }
 function notesKey() { return `fflogs_vod_notes_${report ? report.code : 'none'}`; }
 function loadReportLocalData() {
   try { povs = JSON.parse(localStorage.getItem(povsKey())) || []; } catch (e) { povs = []; }
   try { notes = JSON.parse(localStorage.getItem(notesKey())) || []; } catch (e) { notes = []; }
-  trackedAbilityNames = readJsonWithDefault(abilityNamesKey(), 'fflogs_vod_ability_names_default', []);
-  trackedAbilityClasses = readJsonWithDefault(abilityClassesKey(), 'fflogs_vod_ability_classes_default', {});
-  trackedAbilityCooldowns = readJsonWithDefault(abilityCooldownsKey(), 'fflogs_vod_ability_cooldowns_default', {});
+  loadDefaultTrackedAbilities();
   hiddenMechanicNames = readJsonWithDefault(hiddenMechanicNamesKey(), 'fflogs_vod_hidden_mechanics_default', []);
   mechanicRecastIgnoreSeconds = readJsonWithDefault(mechanicRecastIgnoreKey(), 'fflogs_vod_mechanic_recast_ignore_default', {});
   renderAbilityCount();
+}
+function loadDefaultTrackedAbilities() {
+  const readDefault = (key, fallback) => {
+    try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch (e) { return fallback; }
+  };
+  trackedAbilityNames = readDefault('fflogs_vod_ability_names_default', []);
+  trackedAbilityClasses = readDefault('fflogs_vod_ability_classes_default', {});
+  trackedAbilityCooldowns = readDefault('fflogs_vod_ability_cooldowns_default', {});
+  trackedAbilityDurations = readDefault('fflogs_vod_ability_durations_default', {});
+  trackedAbilityImages = readDefault('fflogs_vod_ability_images_default', {});
 }
 function persistPOVs() { localStorage.setItem(povsKey(), JSON.stringify(povs)); }
 function persistNotes() { localStorage.setItem(notesKey(), JSON.stringify(notes)); }
 function abilityNamesKey() { return `fflogs_vod_ability_names_${report ? report.code : 'none'}`; }
 function abilityClassesKey() { return `fflogs_vod_ability_classes_${report ? report.code : 'none'}`; }
 function abilityCooldownsKey() { return `fflogs_vod_ability_cooldowns_${report ? report.code : 'none'}`; }
+function abilityDurationsKey() { return `fflogs_vod_ability_durations_${report ? report.code : 'none'}`; }
+function abilityImagesKey() { return `fflogs_vod_ability_images_${report ? report.code : 'none'}`; }
 function hiddenMechanicNamesKey() { return `fflogs_vod_hidden_mechanics_${report ? report.code : 'none'}`; }
 function mechanicRecastIgnoreKey() { return `fflogs_vod_mechanic_recast_ignore_${report ? report.code : 'none'}`; }
 function abilityCooldownKey(name) { return name.toLocaleLowerCase(); }
@@ -667,7 +780,14 @@ function persistTrackedAbilityNames() {
   writeJsonWithDefault(abilityNamesKey(), 'fflogs_vod_ability_names_default', trackedAbilityNames);
   writeJsonWithDefault(abilityClassesKey(), 'fflogs_vod_ability_classes_default', trackedAbilityClasses);
   writeJsonWithDefault(abilityCooldownsKey(), 'fflogs_vod_ability_cooldowns_default', trackedAbilityCooldowns);
+  writeJsonWithDefault(abilityDurationsKey(), 'fflogs_vod_ability_durations_default', trackedAbilityDurations);
+  writeJsonWithDefault(abilityImagesKey(), 'fflogs_vod_ability_images_default', trackedAbilityImages);
   renderAbilityCount();
+  renderTimeline();
+}
+function adjustPlanningZoom(delta) {
+  planningZoom = Math.max(0.25, Math.min(6, Math.round((planningZoom + delta) * 100) / 100));
+  try { localStorage.setItem('fflogs_vod_planning_zoom', String(planningZoom)); } catch (e) {}
   renderTimeline();
 }
 function renderAbilityCount() {
@@ -702,8 +822,9 @@ function renderAbilityList() {
     return;
   }
   trackedAbilityNames.forEach((name, index) => {
+    const key = abilityCooldownKey(name);
     const row = document.createElement('div');
-    row.className = 'grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2';
+    row.className = 'grid grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] items-center gap-2 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2';
     const details = document.createElement('div');
     details.className = 'min-w-0 flex flex-col gap-1';
     const label = document.createElement('span');
@@ -767,13 +888,56 @@ function renderAbilityList() {
       }
       persistTrackedAbilityNames();
     });
+    const durationControl = document.createElement('label');
+    durationControl.className = 'flex items-center gap-1.5 text-[10px] text-slate-500';
+    durationControl.textContent = 'Duration';
+    const durationInput = document.createElement('input');
+    durationInput.type = 'number';
+    durationInput.min = '0';
+    durationInput.step = '0.1';
+    durationInput.inputMode = 'decimal';
+    durationInput.value = trackedAbilityDurations[key] ?? '';
+    durationInput.placeholder = 'sec';
+    durationInput.title = `Displayed duration for ${name}, in seconds`;
+    durationInput.className = 'w-16 bg-slate-900 border border-slate-800 rounded px-1.5 py-1 font-mono text-slate-200';
+    durationControl.appendChild(durationInput);
+    durationInput.addEventListener('change', () => {
+      const seconds = Number(durationInput.value);
+      if (durationInput.value === '' || !Number.isFinite(seconds) || seconds <= 0) {
+        delete trackedAbilityDurations[key];
+      } else {
+        trackedAbilityDurations[key] = seconds;
+      }
+      persistTrackedAbilityNames();
+    });
+    const imageControl = document.createElement('div');
+    imageControl.className = 'flex items-center gap-1.5';
+    const imagePreview = document.createElement('img');
+    imagePreview.className = 'w-6 h-6 rounded object-cover border border-slate-700 bg-slate-900';
+    imagePreview.style.display = trackedAbilityImages[key] ? 'block' : 'none';
+    imagePreview.src = trackedAbilityImages[key] || '';
+    imagePreview.onerror = () => { imagePreview.style.display = 'none'; };
+    const imageInput = document.createElement('input');
+    imageInput.type = 'text';
+    imageInput.placeholder = 'Icon URL';
+    imageInput.value = trackedAbilityImages[key] || '';
+    imageInput.title = `Icon shown with ${name} on the planning timeline`;
+    imageInput.className = 'w-24 bg-slate-900 border border-slate-800 rounded px-2 py-1 font-mono text-[10px] text-slate-200';
+    imageInput.addEventListener('change', () => {
+      const url = imageInput.value.trim();
+      if (url) trackedAbilityImages[key] = url; else delete trackedAbilityImages[key];
+      imagePreview.src = url;
+      imagePreview.style.display = url ? 'block' : 'none';
+      persistTrackedAbilityNames();
+    });
+    imageControl.append(imagePreview, imageInput);
     const remove = document.createElement('button');
     remove.className = 'text-rose-400 hover:text-rose-300 px-2 py-1 rounded hover:bg-slate-800';
     remove.title = `Remove ${name}`;
     remove.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
     remove.addEventListener('click', () => removeTrackedAbility(index));
     details.append(label, classTags, classSelect);
-    row.append(details, cooldownControl, remove);
+    row.append(details, durationControl, cooldownControl, imageControl, remove);
     container.appendChild(row);
   });
 }
@@ -795,6 +959,7 @@ function removeTrackedAbility(index) {
   const [name] = trackedAbilityNames.splice(index, 1);
   delete trackedAbilityClasses[abilityCooldownKey(name)];
   delete trackedAbilityCooldowns[abilityCooldownKey(name)];
+  delete trackedAbilityDurations[abilityCooldownKey(name)];
   persistTrackedAbilityNames();
   renderAbilityList();
   showToast(`${name} removed from the timeline.`, 'success');
@@ -813,14 +978,20 @@ function getMechanicRows(fight, includeEncounterHistory = false) {
   ((events && events.enemyCasts) || []).filter(event => String(event.type).toLowerCase() === 'cast').forEach(event => {
     const name = eventAbilityName(event);
     const abilityId = eventAbilityId(event);
-    const key = abilityId ? `id:${abilityId}` : `name:${name.toLocaleLowerCase()}`;
+    const key = name && !/^Ability \d+$/.test(name)
+      ? `name:${name.trim().toLocaleLowerCase()}`
+      : `id:${abilityId || name.toLocaleLowerCase()}`;
     if (!mechanicsByName.has(key)) mechanicsByName.set(key, { name, abilityId, casts: [] });
-    mechanicsByName.get(key).casts.push(event);
+    const row = mechanicsByName.get(key);
+    if (!row.abilityId && abilityId) row.abilityId = abilityId;
+    row.casts.push(event);
   });
   (encounter && encounter.mechanics || []).forEach(mechanic => {
     const abilityId = Number(mechanic.abilityId) || 0;
     const name = String(mechanic.name || `Ability ${abilityId}`);
-    const key = abilityId ? `id:${abilityId}` : `name:${name.toLocaleLowerCase()}`;
+    const key = name && !/^Ability \d+$/.test(name)
+      ? `name:${name.trim().toLocaleLowerCase()}`
+      : `id:${abilityId || name.toLocaleLowerCase()}`;
     if (!mechanicsByName.has(key)) mechanicsByName.set(key, { name, abilityId, casts: [] });
     const row = mechanicsByName.get(key);
     if (!row.name || /^Ability \d+$/.test(row.name)) row.name = name;
@@ -846,16 +1017,20 @@ function getMechanicRows(fight, includeEncounterHistory = false) {
     .sort((a, b) => a.firstSeen - b.firstSeen);
 }
 function filterMechanicRecasts(name, casts) {
-  const ignoreSeconds = Number(mechanicRecastIgnoreSeconds[name.toLocaleLowerCase()]) || 0;
+  const ignoreSeconds = getMechanicRecastIgnoreSeconds(name);
   if (ignoreSeconds <= 0) return casts.slice().sort((a, b) => a.timestamp - b.timestamp);
-  const lastAcceptedBySource = new Map();
+  let lastAcceptedTimestamp = null;
   return casts.slice().sort((a, b) => a.timestamp - b.timestamp).filter(event => {
-    const sourceId = event.sourceID == null ? 'unknown' : String(event.sourceID);
-    const lastAccepted = lastAcceptedBySource.get(sourceId);
-    if (lastAccepted != null && event.timestamp - lastAccepted <= ignoreSeconds * 1000) return false;
-    lastAcceptedBySource.set(sourceId, event.timestamp);
+    if (lastAcceptedTimestamp != null && event.timestamp - lastAcceptedTimestamp <= ignoreSeconds * 1000) return false;
+    lastAcceptedTimestamp = event.timestamp;
     return true;
   });
+}
+function getMechanicRecastIgnoreSeconds(name) {
+  const configured = mechanicRecastIgnoreSeconds[String(name).toLocaleLowerCase()];
+  if (configured == null || configured === '') return DEFAULT_MECHANIC_RECAST_IGNORE_SECONDS;
+  const seconds = Number(configured);
+  return Number.isFinite(seconds) && seconds >= 0 ? seconds : DEFAULT_MECHANIC_RECAST_IGNORE_SECONDS;
 }
 function renderMechanicsList() {
   const container = document.getElementById('mechanics-list-container');
@@ -910,14 +1085,14 @@ function renderMechanicsList() {
     recastInput.min = '0';
     recastInput.step = '0.1';
     recastInput.inputMode = 'decimal';
-    recastInput.value = mechanicRecastIgnoreSeconds[row.name.toLocaleLowerCase()] ?? '';
-    recastInput.placeholder = '0';
+    recastInput.value = getMechanicRecastIgnoreSeconds(row.name);
+    recastInput.placeholder = String(DEFAULT_MECHANIC_RECAST_IGNORE_SECONDS);
     recastInput.title = `Ignore same-caster ${row.name} recasts within this many seconds`;
     recastInput.className = 'w-14 bg-slate-900 border border-slate-800 rounded px-1.5 py-1 font-mono text-slate-200';
     recastInput.addEventListener('change', () => {
       const key = row.name.toLocaleLowerCase();
       const seconds = Number(recastInput.value);
-      if (recastInput.value === '' || !Number.isFinite(seconds) || seconds <= 0) {
+      if (recastInput.value === '' || !Number.isFinite(seconds) || seconds < 0) {
         delete mechanicRecastIgnoreSeconds[key];
       } else {
         mechanicRecastIgnoreSeconds[key] = seconds;
@@ -963,19 +1138,146 @@ function showToast(msg, type) {
 }
 
 /* =========================================================================
-   BACKEND PROXY (Cloudflare Pages Function)
-   No OAuth, no API keys in the browser — /functions/api/* holds the
-   FFLogs client_credentials and YouTube key server-side. See README.md.
+   OAUTH / PKCE
+   ========================================================================= */
+function base64UrlEncode(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let str = '';
+  for (let i = 0; i < bytes.byteLength; i++) str += String.fromCharCode(bytes[i]);
+  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function randomString(len) {
+  const arr = new Uint8Array(len);
+  crypto.getRandomValues(arr);
+  return base64UrlEncode(arr.buffer).slice(0, len);
+}
+async function sha256(text) {
+  const enc = new TextEncoder().encode(text);
+  return await crypto.subtle.digest('SHA-256', enc);
+}
+
+async function startFFLogsLogin() {
+  if (!settings.clientId) { showToast('Enter your FFLogs Client ID first.', 'error'); return; }
+  if (!window.isSecureContext) { showToast('Must be served over https:// or localhost to log in.', 'error'); return; }
+  const verifier = randomString(64);
+  const challenge = base64UrlEncode(await sha256(verifier));
+  const state = randomString(24);
+  sessionStorage.setItem('pkce_verifier', verifier);
+  sessionStorage.setItem('pkce_state', state);
+
+  const params = new URLSearchParams({
+    client_id: settings.clientId,
+    redirect_uri: settings.redirectUri,
+    response_type: 'code',
+    code_challenge: challenge,
+    code_challenge_method: 'S256',
+    state: state
+  });
+  window.location.href = `${FFLOGS_AUTHORIZE_URL}?${params.toString()}`;
+}
+
+async function handleOAuthRedirect() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('error')) {
+    showToast('FFLogs login was cancelled or denied.', 'error');
+    cleanUrlParams();
+    return;
+  }
+  const code = params.get('code');
+  const state = params.get('state');
+  if (!code) return;
+
+  const expectedState = sessionStorage.getItem('pkce_state');
+  const verifier = sessionStorage.getItem('pkce_verifier');
+  cleanUrlParams();
+  if (!verifier || state !== expectedState) {
+    showToast('Login state mismatch — please try connecting again.', 'error');
+    return;
+  }
+  try {
+    const body = new URLSearchParams({
+      grant_type: 'authorization_code',
+      client_id: settings.clientId,
+      redirect_uri: settings.redirectUri,
+      code: code,
+      code_verifier: verifier
+    });
+    const res = await fetch(FFLOGS_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString()
+    });
+    if (!res.ok) throw new Error('Token exchange failed (' + res.status + ')');
+    const data = await res.json();
+    auth.accessToken = data.access_token;
+    auth.refreshToken = data.refresh_token || null;
+    auth.expiresAt = Date.now() + (data.expires_in || 3600) * 1000;
+    persistAuth();
+    showToast('Connected to FFLogs.', 'success');
+    renderConnStatus();
+  } catch (e) {
+    console.error(e);
+    showToast('Could not complete FFLogs login: ' + e.message, 'error');
+  }
+}
+
+function cleanUrlParams() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete('code'); url.searchParams.delete('state'); url.searchParams.delete('error'); url.searchParams.delete('scope');
+  window.history.replaceState({}, document.title, url.pathname + (url.search ? url.search : '') + url.hash);
+}
+
+async function ensureValidToken() {
+  if (!auth.accessToken) throw new Error('Not connected to FFLogs. Open Settings to connect.');
+  if (Date.now() < auth.expiresAt - 60000) return auth.accessToken;
+  if (!auth.refreshToken) throw new Error('Session expired. Please reconnect in Settings.');
+  const body = new URLSearchParams({ grant_type: 'refresh_token', client_id: settings.clientId, refresh_token: auth.refreshToken });
+  const res = await fetch(FFLOGS_TOKEN_URL, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() });
+  if (!res.ok) { auth = { accessToken: null, refreshToken: null, expiresAt: 0 }; persistAuth(); throw new Error('Session expired. Please reconnect in Settings.'); }
+  const data = await res.json();
+  auth.accessToken = data.access_token;
+  auth.refreshToken = data.refresh_token || auth.refreshToken;
+  auth.expiresAt = Date.now() + (data.expires_in || 3600) * 1000;
+  persistAuth();
+  return auth.accessToken;
+}
+
+function disconnectFFLogs() {
+  auth = { accessToken: null, refreshToken: null, expiresAt: 0 };
+  persistAuth();
+  renderConnStatus();
+  showToast('Disconnected.', 'info');
+}
+
+function renderConnStatus() {
+  const el = document.getElementById('conn-status');
+  const detail = document.getElementById('settings-conn-detail');
+  const fab = document.getElementById('settings-fab');
+  const connected = auth.accessToken && Date.now() < auth.expiresAt;
+  if (el) {
+    if (connected) {
+      el.className = 'text-[11px] font-mono px-2 py-1 rounded border border-emerald-700 bg-emerald-950/40 text-emerald-400';
+      el.innerHTML = '<i class="fa-solid fa-circle text-[6px] mr-1"></i>Connected';
+    } else {
+      el.className = 'text-[11px] font-mono px-2 py-1 rounded border border-slate-800 bg-slate-950 text-slate-500';
+      el.innerHTML = '<i class="fa-solid fa-circle text-[6px] mr-1"></i>Not connected';
+    }
+  }
+  if (fab) fab.classList.toggle('border-emerald-700', !!connected);
+  if (detail) detail.textContent = connected ? 'Connected. Token refreshes automatically.' : (auth.refreshToken ? 'Session needs refresh.' : 'Not connected.');
+}
+
+/* =========================================================================
+   GRAPHQL
    ========================================================================= */
 async function fflogsQuery(query, variables) {
-  const res = await fetch('/api/fflogs', {
+  const token = await ensureValidToken();
+  const res = await fetch(FFLOGS_API_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
     body: JSON.stringify({ query, variables: variables || {} })
   });
-  let json;
-  try { json = await res.json(); } catch (e) { throw new Error('Backend not set up yet (see README.md) — the site returned an unexpected response.'); }
-  if (!res.ok) throw new Error(json.error || `Backend error (${res.status}). See README.md to finish setup.`);
+  const json = await res.json();
   if (json.errors && json.errors.length) throw new Error(json.errors.map(e => e.message).join('; '));
   return json.data;
 }
@@ -983,21 +1285,47 @@ async function fflogsQuery(query, variables) {
 /* =========================================================================
    SETTINGS MODAL
    ========================================================================= */
-function openSettingsModal() { document.getElementById('settings-modal').classList.remove('hidden'); }
+function openSettingsModal() {
+  document.getElementById('client-id-input').value = settings.clientId || '';
+  document.getElementById('redirect-uri-display').value = settings.redirectUri;
+  document.getElementById('youtube-key-input').value = settings.youtubeApiKey || '';
+  document.getElementById('settings-modal').classList.remove('hidden');
+  renderConnStatus();
+}
 function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
+function copyRedirectUri() {
+  const val = document.getElementById('redirect-uri-display').value;
+  navigator.clipboard.writeText(val).then(() => showToast('Redirect URI copied.', 'success'));
+}
+function saveSettingsAndConnect() {
+  settings.clientId = document.getElementById('client-id-input').value.trim();
+  persistSettings();
+  if (!settings.clientId) { showToast('Enter a Client ID.', 'error'); return; }
+  startFFLogsLogin();
+}
+function saveYouTubeKey() {
+  settings.youtubeApiKey = document.getElementById('youtube-key-input').value.trim();
+  persistSettings();
+  showToast(settings.youtubeApiKey ? 'YouTube API key saved.' : 'YouTube API key cleared.', 'success');
+}
 
 /* =========================================================================
    YOUTUBE AUTO-SYNC (live broadcast start time)
    ========================================================================= */
-async function fetchYouTubeLiveStart(videoId) {
-  const res = await fetch('/api/youtube?videoId=' + encodeURIComponent(videoId));
-  let data;
-  try { data = await res.json(); } catch (e) { throw new Error('Backend not set up yet (see README.md).'); }
-  if (!res.ok || data.error) throw new Error(data.error || 'YouTube lookup failed.');
-  if (!data.actualStartTime) {
+async function fetchYouTubeLiveTiming(videoId) {
+  if (!settings.youtubeApiKey) throw new Error('Add a YouTube Data API key in Settings first.');
+  const url = `https://www.googleapis.com/youtube/v3/videos?part=liveStreamingDetails&id=${encodeURIComponent(videoId)}&key=${encodeURIComponent(settings.youtubeApiKey)}`;
+  const res = await fetch(url);
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message || 'YouTube API error.');
+  const item = data.items && data.items[0];
+  if (!item) throw new Error('Video not found — check the URL/ID.');
+  const details = item.liveStreamingDetails;
+  if (!details || !details.actualStartTime) {
     throw new Error('No live-broadcast start time on this video — it may have been uploaded/edited rather than streamed live. Use manual calibration below instead.');
   }
-  return Date.parse(data.actualStartTime);
+  const startAbsMs = Date.parse(details.actualStartTime);
+  return { startAbsMs };
 }
 
 /* =========================================================================
@@ -1066,6 +1394,8 @@ async function loadReport(code) {
     document.getElementById('active-log-title').textContent = `${r.title} — ${report.zoneName}`;
     document.getElementById('active-log-title').classList.remove('hidden');
     activeFightId = report.fights.length ? report.fights[0].id : null;
+    resetPlanningClassVisibility();
+    ensureReportPlayersArePOVs();
     renderPlanningControls();
     if (!activePovId && povs.length) activePovId = povs[0].id;
     populatePhaseFilter();
@@ -1081,14 +1411,52 @@ async function loadReport(code) {
   }
 }
 
+function getReportPlayers() {
+  return report.actors.filter(actor => {
+    const name = String(actor.name || '').trim().toLocaleLowerCase();
+    const subtype = String(actor.subType || '').replace(/[\s_-]/g, '').toLocaleLowerCase();
+    return name && name !== 'multiple players' && name !== 'limit break' && subtype !== 'multipleplayers' && subtype !== 'limitbreak';
+  });
+}
+
+function getPlayersInCurrentPull() {
+  if (!report) return [];
+  const players = getReportPlayers();
+  const fight = getActiveFight();
+  return fight && Array.isArray(fight.friendlyPlayers)
+    ? players.filter(actor => fight.friendlyPlayers.includes(actor.id))
+    : players;
+}
+
+function ensureReportPlayersArePOVs() {
+  const existingByName = new Map(povs.map(pov => [String(pov.player || '').trim().toLocaleLowerCase(), pov]).filter(([name]) => name));
+  let addedPOV = false;
+  getPlayersInCurrentPull().forEach(actor => {
+    const player = String(actor.name || '').trim();
+    const playerKey = player.toLocaleLowerCase();
+    const job = jobCodeForSubType(actor.subType);
+    const existingPOV = existingByName.get(playerKey);
+    if (existingPOV) {
+      if (job && !Object.prototype.hasOwnProperty.call(JOB_COLORS, String(existingPOV.job || '').toUpperCase())) {
+        existingPOV.job = job;
+        addedPOV = true;
+      }
+      return;
+    }
+    const pov = { id: uid('pov'), player, job, segments: [] };
+    povs.push(pov);
+    existingByName.set(playerKey, pov);
+    addedPOV = true;
+  });
+  if (addedPOV) persistPOVs();
+}
+
 function renderLogPlayerChips() {
   const c = document.getElementById('log-players-chip-container');
   c.innerHTML = '';
   if (!report) return;
   const fight = getActiveFight();
-  const roster = fight && Array.isArray(fight.friendlyPlayers)
-    ? report.actors.filter(a => fight.friendlyPlayers.includes(a.id))
-    : report.actors;
+  const roster = getPlayersInCurrentPull();
   const label = document.getElementById('log-players-label');
   if (label) label.textContent = fight ? `Players in this pull` : 'Players in log';
   if (fight && !roster.length) {
@@ -1096,7 +1464,7 @@ function renderLogPlayerChips() {
     return;
   }
   roster.forEach(a => {
-    const job = (a.subType || '').toUpperCase();
+    const job = jobCodeForSubType(a.subType);
     const color = JOB_COLORS[job] || '#64748b';
     const chip = document.createElement('button');
     chip.className = 'job-chip hover:opacity-80 transition';
@@ -1120,14 +1488,18 @@ function filterPulls(type) {
 
 function updateWipeThreshold(event) {
   const input = event.target;
+  const numberInput = document.getElementById('wipe-threshold-input');
+  const rangeInput = document.getElementById('wipe-threshold-range');
   const value = Number(input.value);
   if (input.value === '' || !Number.isFinite(value)) {
     currentFilter = 'all';
     document.querySelectorAll('.filter-btn').forEach(button => button.classList.remove('active'));
     document.getElementById('filter-btn-all').classList.add('active');
+    rangeInput.value = String(wipeThreshold);
   } else {
     wipeThreshold = Math.max(0, Math.min(100, value));
-    input.value = wipeThreshold;
+    numberInput.value = wipeThreshold;
+    rangeInput.value = wipeThreshold;
     currentFilter = 'threshold';
     document.querySelectorAll('.filter-btn').forEach(button => button.classList.remove('active'));
   }
@@ -1250,8 +1622,6 @@ function updateStatsHeader() {
    ========================================================================= */
 function selectPull(fightId) {
   activeFightId = fightId;
-  const planningFightSelect = document.getElementById('planning-fight-select');
-  if (planningFightSelect) planningFightSelect.value = String(fightId);
   renderPullList();
   const fight = getActiveFight();
   if (!fight) return;
@@ -1276,6 +1646,12 @@ function getActivePOV() {
 }
 function pullAbsStartMs(fight) { return report.startTime + fight.startTime; }
 
+// A segment's rate is video-seconds-elapsed per log-second-elapsed. 1 = perfectly in sync;
+// e.g. 1.00056 means the video runs slightly faster than the log's real-world clock.
+function segRate(seg) { return Number(seg.rate) > 0 ? Number(seg.rate) : 1; }
+function videoSecondsForSeg(seg, absMs) { return Math.max(0, ((absMs - seg.startAbsMs) / 1000) * segRate(seg)); }
+function absMsForSegVideoSeconds(seg, videoSeconds) { return seg.startAbsMs + (videoSeconds / segRate(seg)) * 1000; }
+
 function resolveSegmentForAbsTime(pov, absMs) {
   if (!pov || !pov.segments || !pov.segments.length) return null;
   const withCal = pov.segments.filter(s => s.videoId && s.startAbsMs != null);
@@ -1294,8 +1670,7 @@ function seekToAbsTime(absMs) {
   if (!pov) { showToast('Select or add a POV first.', 'error'); return; }
   const seg = resolveSegmentForAbsTime(pov, absMs);
   if (!seg) { showToast('This POV has no calibrated video segment yet. Open POVs to set one.', 'error'); return; }
-  const videoSeconds = Math.max(0, (absMs - seg.startAbsMs) / 1000);
-  loadAndSeek(seg.videoId, videoSeconds, seg.id);
+  loadAndSeek(seg.videoId, videoSecondsForSeg(seg, absMs), seg.id);
 }
 
 function jumpToCurrentPullStart() {
@@ -1324,7 +1699,7 @@ function getTimelinePlaybackOffsetMs(fight) {
   if (!pov || !ytReady || !ytPlayer || !currentLoadedVideoId) return null;
   const segment = getLoadedPOVSegment(pov);
   if (!segment) return null;
-  return ytPlayer.getCurrentTime() * 1000 + segment.startAbsMs - pullAbsStartMs(fight);
+  return absMsForSegVideoSeconds(segment, ytPlayer.getCurrentTime()) - pullAbsStartMs(fight);
 }
 function getLoadedPOVSegment(pov) {
   return pov && pov.segments.find(segment => segment.id === currentLoadedSegmentId && segment.videoId === currentLoadedVideoId && segment.startAbsMs != null);
@@ -1343,7 +1718,8 @@ function updateTimelinePlayhead(offsetMs) {
   const position = document.querySelectorAll('#timeline-visualization [data-timeline-playhead]');
   position.forEach(line => {
     const left = Number(line.ownerSVGElement.getAttribute('data-left')) || 110;
-    const x = left + (Math.max(1, timelineWidth(line.ownerSVGElement.parentElement)) - left - 15) * (clampedMs / durationMs);
+    const right = Number(line.ownerSVGElement.getAttribute('data-right')) || Math.max(1, timelineWidth(line.ownerSVGElement.parentElement)) - 15;
+    const x = left + (right - left) * (clampedMs / durationMs);
     line.setAttribute('x1', x);
     line.setAttribute('x2', x);
   });
@@ -1384,7 +1760,7 @@ function ensurePolling() {
     if (pov && fight) {
       const segment = getLoadedPOVSegment(pov);
       if (segment) {
-        const absNow = segment.startAbsMs + vSec * 1000;
+        const absNow = absMsForSegVideoSeconds(segment, vSec);
         const logOffsetSec = Math.floor((absNow - pullAbsStartMs(fight)) / 1000);
         document.getElementById('log-time-display').textContent = formatSecondsToMMSS(logOffsetSec);
       }
@@ -1471,7 +1847,6 @@ async function loadDeathsForFight(fightId) {
 function renderDeathRecap(fightId) {
   const container = document.getElementById('deaths-list-container');
   const deaths = deathsCache[fightId] || [];
-  renderDeathsTimeline(fightId);
   document.getElementById('pull-death-count').textContent = deaths.length;
   container.innerHTML = '';
   if (!deaths.length) {
@@ -1492,47 +1867,6 @@ function renderDeathRecap(fightId) {
   });
 }
 
-function renderDeathsTimeline(fightId) {
-  const container = document.getElementById('deaths-timeline');
-  container.innerHTML = '';
-  const fight = report && report.fights.find(item => item.id === fightId);
-  if (!fight) return;
-  const deaths = deathsCache[fight.id] || [];
-  const svgNS = 'http://www.w3.org/2000/svg';
-  const height = 76;
-  const svg = document.createElementNS(svgNS, 'svg');
-  svg.setAttribute('viewBox', `0 0 ${timelineWidth(container)} ${height}`);
-  svg.setAttribute('width', '100%');
-  svg.setAttribute('class', 'block w-full min-w-full');
-  svg.setAttribute('height', height);
-  const start = fight.startTime;
-  const duration = Math.max(1, fight.endTime - fight.startTime);
-  const left = 110, right = timelineWidth(container) - 15, width = right - left;
-  const xAt = timestamp => left + Math.max(0, Math.min(1, (timestamp - start) / duration)) * width;
-  const add = (tag, attrs, text) => {
-    const el = document.createElementNS(svgNS, tag);
-    Object.entries(attrs || {}).forEach(([name, value]) => el.setAttribute(name, value));
-    if (text != null) el.textContent = text;
-    svg.appendChild(el);
-    return el;
-  };
-  for (let tick = 0; tick <= 4; tick++) {
-    const x = left + width * tick / 4;
-    add('line', { x1: x, y1: 18, x2: x, y2: height - 4, stroke: '#1e293b', 'stroke-width': 1 });
-    add('text', { x, y: 12, fill: '#64748b', 'font-size': 10, 'text-anchor': tick === 0 ? 'start' : tick === 4 ? 'end' : 'middle' }, formatSecondsToMMSS(duration / 1000 * tick / 4));
-  }
-  const centerY = 47;
-  add('text', { x: 4, y: centerY + 3, fill: '#fb7185', 'font-size': 10 }, 'Deaths');
-  add('line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b', 'stroke-width': 1 });
-  deaths.forEach(death => {
-    const x = xAt(start + death.timeMs);
-    const marker = add('path', { d: `M ${x - 4} ${centerY - 4} L ${x + 4} ${centerY + 4} M ${x + 4} ${centerY - 4} L ${x - 4} ${centerY + 4}`, fill: 'none', stroke: '#fb7185', 'stroke-width': 2.5, class: 'cursor-pointer' });
-    marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${death.player} died to ${death.ability} at ${formatSecondsToMMSS(death.timeMs / 1000)}`;
-    marker.addEventListener('click', () => jumpToSpecificOffsetMs(death.timeMs));
-  });
-  container.appendChild(svg);
-}
-
 /* =========================================================================
    DEATH DETAIL ("Last Moments") — recent damage taken + active mitigations
    ========================================================================= */
@@ -1540,10 +1874,11 @@ const DEATH_DETAIL_QUERY = `
 query ($code: String!, $fightID: Int!, $targetID: Int!, $fightStart: Float!, $winStart: Float!, $debuffStart: Float!, $winEnd: Float!) {
   reportData {
     report(code: $code) {
-      damage: events(fightIDs: [$fightID], dataType: DamageTaken, targetID: $targetID, startTime: $winStart, endTime: $winEnd, limit: 10000) { data }
-      heals: events(fightIDs: [$fightID], dataType: Healing, targetID: $targetID, startTime: $winStart, endTime: $winEnd, limit: 10000) { data }
-      buffs: events(fightIDs: [$fightID], dataType: Buffs, targetID: $targetID, startTime: $fightStart, endTime: $winEnd, limit: 10000) { data }
-      debuffs: events(fightIDs: [$fightID], dataType: Debuffs, hostilityType: Enemies, startTime: $debuffStart, endTime: $winEnd, limit: 10000) { data }
+      damage: events(fightIDs: [$fightID], dataType: DamageDone, hostilityType: Enemies, targetID: $targetID, startTime: $winStart, endTime: $winEnd, limit: 10000, includeResources: true) { data }
+      heals: events(fightIDs: [$fightID], dataType: Healing, targetID: $targetID, startTime: $winStart, endTime: $winEnd, limit: 10000, includeResources: true) { data }
+      buffs: events(fightIDs: [$fightID], dataType: Buffs, startTime: $fightStart, endTime: $winEnd, limit: 10000) { data }
+      debuffs: events(fightIDs: [$fightID], dataType: Debuffs, startTime: $debuffStart, endTime: $winEnd, limit: 10000) { data }
+      resources: events(fightIDs: [$fightID], dataType: Resources, targetID: $targetID, startTime: $fightStart, endTime: $winEnd, limit: 10000) { data }
     }
   }
 }`;
@@ -1584,7 +1919,7 @@ async function openDeathDetailModal(fightId, death) {
   const body = document.getElementById('death-detail-body');
   body.innerHTML = '<div class="text-slate-500 italic text-center py-6"><i class="fa-solid fa-spinner fa-spin"></i> Loading last moments...</div>';
 
-  const cacheKey = `v2_${fightId}_${death.targetID}_${death.timeMs}`;
+  const cacheKey = `v4_${fightId}_${death.targetID}_${death.timeMs}`;
   if (deathDetailCache[cacheKey]) { renderDeathDetail(deathDetailCache[cacheKey], death, fight); return; }
   if (death.targetID == null) { body.innerHTML = '<div class="text-rose-400 text-center py-6">Could not identify this player for lookup.</div>'; return; }
 
@@ -1605,7 +1940,8 @@ async function openDeathDetailModal(fightId, death) {
       damage: (r.damage && r.damage.data) || [],
       heals: (r.heals && r.heals.data) || [],
       buffs: (r.buffs && r.buffs.data) || [],
-      debuffs: (r.debuffs && r.debuffs.data) || []
+      debuffs: (r.debuffs && r.debuffs.data) || [],
+      resources: (r.resources && r.resources.data) || []
     };
     deathDetailCache[cacheKey] = result;
     renderDeathDetail(result, death, fight);
@@ -1628,9 +1964,11 @@ function eventMitigationPct(ev) {
   return null;
 }
 function eventTargetHp(ev) {
-  const r = ev.targetResources || {};
-  const hp = r.hitPoints != null ? r.hitPoints : ev.hitPoints;
-  const max = r.maxHitPoints != null ? r.maxHitPoints : ev.maxHitPoints;
+  const r = ev.targetResources || ev.resources || {};
+  const hpValue = r.hitPoints ?? r.hitpoints ?? r.hp ?? ev.hitPoints ?? ev.hp;
+  const maxValue = r.maxHitPoints ?? r.maxhitpoints ?? r.maxHp ?? ev.maxHitPoints ?? ev.maxHp;
+  const hp = hpValue && typeof hpValue === 'object' ? hpValue.amount ?? hpValue.value : hpValue;
+  const max = maxValue && typeof maxValue === 'object' ? maxValue.amount ?? maxValue.value : maxValue;
   return (hp != null && Number(max) > 0) ? { hp: Number(hp), max: Number(max) } : null;
 }
 function fmtHp(n) { return n >= 10000 ? (n / 1000).toFixed(1) + 'k' : Math.round(n).toLocaleString(); }
@@ -1640,30 +1978,56 @@ function effectChips(names, kind) {
     : 'bg-emerald-950/50 text-emerald-300 border-emerald-700/40';
   return names.map(n => `<span class="${cls} border rounded px-1.5 py-0.5 text-[10px]">${escapeHTML(n)}${kind === 'debuff' ? ' <span class="opacity-60">(on boss)</span>' : ''}</span>`).join('');
 }
-
 // Which effects were on the player (and which debuffs on the attacker) at a given moment.
 function makeEffectTracker(result) {
   const isApply = t => /^(applybuff|applybuffstack|refreshbuff|applydebuff|applydebuffstack|refreshdebuff)$/.test(t);
   const isRemove = t => /^(removebuff|removebuffstack|removedebuff|removedebuffstack)$/.test(t);
+  const abilityKey = event => String(eventAbilityId(event) || eventAbilityName(event).toLocaleLowerCase());
   const buffs = (result.buffs || []).slice().sort((a, b) => a.timestamp - b.timestamp);
   const debuffs = (result.debuffs || []).slice().sort((a, b) => a.timestamp - b.timestamp);
+  const effectNamesById = new Map();
+  [...buffs, ...debuffs].forEach(event => {
+    const id = eventAbilityId(event);
+    const name = eventAbilityName(event);
+    if (id && name && !/^Ability \d+$/.test(name)) effectNamesById.set(String(id), name);
+  });
+  const resolveEffectName = value => {
+    const id = Number(value);
+    return Number.isFinite(id) && id > 0
+      ? (effectNamesById.get(String(id)) || resolveAbilityName(id))
+      : String(value);
+  };
   const buffActive = new Map(), debuffActive = new Map();
   let bi = 0, di = 0;
-  return function at(ts, attackerId, buffString) {
+  return function at(ts, targetId, attackerId, buffString) {
     while (bi < buffs.length && buffs[bi].timestamp <= ts) {
-      const ev = buffs[bi++], t = String(ev.type).toLowerCase(), key = `${ev.abilityGameID}:${ev.sourceID}`;
-      if (isApply(t)) buffActive.set(key, ev.abilityGameID); else if (isRemove(t)) buffActive.delete(key);
+      const ev = buffs[bi++], t = String(ev.type).toLowerCase(), key = `${ev.targetID}:${abilityKey(ev)}:${ev.sourceID}`;
+      if (isApply(t)) buffActive.set(key, { name: eventAbilityName(ev), targetID: ev.targetID }); else if (isRemove(t)) buffActive.delete(key);
     }
     while (di < debuffs.length && debuffs[di].timestamp <= ts) {
-      const ev = debuffs[di++], t = String(ev.type).toLowerCase(), key = `${ev.targetID}:${ev.abilityGameID}:${ev.sourceID}`;
-      if (isApply(t)) debuffActive.set(key, ev); else if (isRemove(t)) debuffActive.delete(key);
+      const ev = debuffs[di++], t = String(ev.type).toLowerCase(), key = `${ev.targetID}:${abilityKey(ev)}:${ev.sourceID}`;
+      if (isApply(t)) debuffActive.set(key, { event: ev, name: eventAbilityName(ev) }); else if (isRemove(t)) debuffActive.delete(key);
     }
-    const buffNames = new Set([...buffActive.values()].map(resolveAbilityName));
-    String(buffString || '').split('.').filter(Boolean).forEach(id => buffNames.add(resolveAbilityName(Number(id))));
+    const targetBuffNames = new Set([...buffActive.values()]
+      .filter(buff => String(buff.targetID) === String(targetId))
+      .map(buff => buff.name));
+    const eventBuffs = Array.isArray(buffString) ? buffString : String(buffString || '').split(/[.,\s]+/).filter(Boolean);
+    eventBuffs.forEach(buff => {
+      if (buff && typeof buff === 'object') {
+        targetBuffNames.add(buff.name || buff.abilityName || (buff.ability && buff.ability.name) || eventAbilityName(buff));
+      } else {
+        targetBuffNames.add(resolveEffectName(buff));
+      }
+    });
     const debuffNames = new Set();
-    debuffActive.forEach(ev => { if (attackerId == null || String(ev.targetID) === String(attackerId)) debuffNames.add(resolveAbilityName(ev.abilityGameID)); });
-    const allBuffs = [...buffNames].sort(), allDebuffs = [...debuffNames].sort();
-    return { allBuffs, allDebuffs, mitBuffs: allBuffs.filter(isMitigationName), mitDebuffs: allDebuffs.filter(isMitigationName) };
+    debuffActive.forEach(({ event, name }) => { if (attackerId == null || String(event.targetID) === String(attackerId)) debuffNames.add(name); });
+    const allBuffs = [...targetBuffNames].sort(), allDebuffs = [...debuffNames].sort();
+    return {
+      allBuffs,
+      allDebuffs,
+      mitBuffs: allBuffs.filter(isMitigationName),
+      mitDebuffs: allDebuffs.filter(isMitigationName)
+    };
   };
 }
 
@@ -1675,6 +2039,7 @@ function renderDeathDetail(result, death, fight) {
   const typeOf = ev => String(ev.type || '').toLowerCase();
 
   let damage = result.damage || [];
+  const absorbedEvents = damage.filter(ev => typeOf(ev) === 'absorbed');
   const appliedDamage = damage.filter(ev => typeOf(ev) === 'damage');
   const hpIsBeforeHit = !appliedDamage.length; // only "calculateddamage" present -> snapshot is pre-hit
   if (appliedDamage.length) damage = appliedDamage;
@@ -1688,23 +2053,39 @@ function renderDeathDetail(result, death, fight) {
 
   const rows = [
     ...damage.map(ev => ({ kind: 'dmg', ev })),
-    ...heals.map(ev => ({ kind: 'heal', ev }))
+    ...heals.map(ev => ({ kind: 'heal', ev })),
+    ...absorbedEvents.map(ev => ({ kind: 'absorbed', ev }))
   ].sort((a, b) => a.ev.timestamp - b.ev.timestamp);
+  const resourceSnapshots = (result.resources || []).map(event => ({
+    timestamp: event.timestamp,
+    snapshot: eventTargetHp(event)
+  })).filter(item => item.snapshot).sort((a, b) => a.timestamp - b.timestamp);
 
   // Effects at each hit + HP after each event (real snapshot when FFLogs gives one, otherwise estimated).
   const effectsAt = makeEffectTracker(result);
   let curHp = null, maxHp = null, anyRealHp = false;
+  let resourceIndex = 0, latestResource = null, appliedResourceTimestamp = null;
   rows.forEach(row => {
     const ev = row.ev;
-    if (row.kind === 'dmg') row.effects = effectsAt(ev.timestamp, ev.sourceID, ev.buffs);
+    if (row.kind === 'dmg') row.effects = effectsAt(ev.timestamp, ev.targetID ?? death.targetID, ev.sourceID, ev.buffs);
+    while (resourceIndex < resourceSnapshots.length && resourceSnapshots[resourceIndex].timestamp <= ev.timestamp) {
+      latestResource = resourceSnapshots[resourceIndex++];
+    }
+    if (latestResource && latestResource.timestamp !== appliedResourceTimestamp) {
+      curHp = latestResource.snapshot.hp;
+      maxHp = latestResource.snapshot.max;
+      appliedResourceTimestamp = latestResource.timestamp;
+      anyRealHp = true;
+    }
     const snap = eventTargetHp(ev);
     if (snap) {
       anyRealHp = true; maxHp = snap.max;
       curHp = (row.kind === 'dmg' && hpIsBeforeHit) ? Math.max(0, snap.hp - Number(ev.amount || 0)) : snap.hp;
       row.hpAfter = { hp: curHp, max: maxHp, estimated: false };
     } else if (curHp != null && maxHp) {
-      const amt = Number(ev.amount || 0);
-      curHp = row.kind === 'dmg' ? Math.max(0, curHp - amt) : Math.min(maxHp, curHp + amt);
+      const delta = Number(ev.amount || 0);
+      if (row.kind === 'dmg') curHp = Math.max(0, curHp - delta);
+      else if (row.kind === 'heal') curHp = Math.min(maxHp, curHp + delta);
       row.hpAfter = { hp: curHp, max: maxHp, estimated: true };
     }
   });
@@ -1715,7 +2096,6 @@ function renderDeathDetail(result, death, fight) {
   const killerName = death.ability && death.ability !== 'Unknown cause'
     ? death.ability
     : (killingBlow ? resolveAbilityName(killingBlow.abilityGameID) : 'Unknown cause');
-  const killFx = killRow && killRow.effects ? killRow.effects : { allBuffs: [], allDebuffs: [], mitBuffs: [], mitDebuffs: [] };
   const killMit = killingBlow ? eventMitigationPct(killingBlow) : null;
   const hpBeforeKill = (() => {
     const idx = rows.indexOf(killRow);
@@ -1745,16 +2125,6 @@ function renderDeathDetail(result, death, fight) {
     </div>` : ''}
   </div>`;
 
-  const nothingActive = !killFx.mitBuffs.length && !killFx.mitDebuffs.length;
-  html += `<div class="bg-slate-950 border border-slate-800 rounded-lg p-3">
-    <div class="text-[10px] uppercase text-slate-500 font-bold mb-1.5">Mitigation active on the killing blow</div>
-    ${nothingActive
-      ? `<div class="text-slate-500 italic text-[11px]">${killingBlow ? 'No recognized mitigation or shields found. Check the full effect list below and click anything that should count.' : 'No damage events found to read mitigation from.'}</div>`
-      : `<div class="flex flex-wrap gap-1">${effectChips(killFx.mitBuffs, 'buff')}${effectChips(killFx.mitDebuffs, 'debuff')}</div>`}
-    ${(killFx.allBuffs.length || killFx.allDebuffs.length) ? `<details class="mt-2"><summary class="text-[10px] text-slate-500 cursor-pointer hover:text-slate-300 select-none">All effects at that moment (click to mark/unmark as mitigation)</summary>
-      <div class="flex flex-wrap gap-1 mt-1.5">${killFx.allBuffs.map(n => effectToggle(n, 'buff')).join('')}${killFx.allDebuffs.map(n => effectToggle(n, 'debuff')).join('')}</div></details>` : ''}
-  </div>`;
-
   html += `<div class="bg-slate-950 border border-slate-800 rounded-lg p-3">
     <div class="text-[10px] uppercase text-slate-500 font-bold mb-1.5">Last 20 seconds</div>
     ${rows.length ? `<div class="space-y-1 max-h-80 overflow-y-auto pr-1">${rows.map(row => {
@@ -1771,6 +2141,12 @@ function renderDeathDetail(result, death, fight) {
         return `<div class="flex items-center justify-between gap-2 px-2 py-1 rounded hover:bg-slate-900 cursor-pointer death-row" data-ms="${relMs}">
           <span class="flex items-center gap-2 min-w-0"><span class="font-mono text-slate-500 text-[10px]">${time}</span><span class="text-emerald-400 truncate"><i class="fa-solid fa-plus text-[9px]"></i> ${escapeHTML(resolveAbilityName(ev.abilityGameID))} <span class="text-slate-500">(${escapeHTML(src)})</span></span></span>
           <span class="flex items-center gap-2 font-mono text-[10px] shrink-0"><span class="text-emerald-400">+${Number(ev.amount).toLocaleString()}</span>${hpCell}</span></div>`;
+      }
+      if (row.kind === 'absorbed') {
+        const src = actorNames.get(String(ev.sourceID)) || 'Unknown source';
+        return `<div class="flex items-center justify-between gap-2 px-2 py-1 rounded hover:bg-slate-900 cursor-pointer death-row" data-ms="${relMs}">
+          <span class="flex items-center gap-2 min-w-0"><span class="font-mono text-slate-500 text-[10px]">${time}</span><span class="text-sky-300 truncate"><i class="fa-solid fa-shield-halved text-[9px]"></i> ${escapeHTML(resolveAbilityName(ev.abilityGameID))} absorbed <span class="text-slate-500">(${escapeHTML(src)})</span></span></span>
+          <span class="flex items-center gap-2 font-mono text-[10px] shrink-0"><span class="text-sky-300">${Number(ev.amount || 0).toLocaleString()} absorbed</span>${hpCell}</span></div>`;
       }
       const isKill = ev === killingBlow;
       const mit = eventMitigationPct(ev);
@@ -1789,7 +2165,7 @@ function renderDeathDetail(result, death, fight) {
     }).join('')}</div>` : `<div class="text-slate-500 italic text-[11px]">No damage or healing data found in this window.</div>`}
     <div class="text-[10px] text-slate-600 mt-2">Mitigation % is FFLogs' own damage math. Green chips are defensives/shields on the player; blue chips are debuffs on the attacker (Reprisal, Addle, Feint). ${anyRealHp ? '' : 'FFLogs did not include HP snapshots here, so HP could not be shown.'}</div>
     <details class="mt-1"><summary class="text-[10px] text-slate-600 cursor-pointer hover:text-slate-400 select-none">Debug info</summary>
-      <div class="text-[10px] text-slate-500 font-mono mt-1 break-words">damage events: ${(result.damage || []).length} · heals: ${(result.heals || []).length} · buff events on player: ${(result.buffs || []).length} · enemy debuff events: ${(result.debuffs || []).length}<br>damage event fields: ${escapeHTML(Object.keys((result.damage || [])[0] || {}).join(', ') || 'none')}</div></details>
+      <div class="text-[10px] text-slate-500 font-mono mt-1 break-words">damage events: ${(result.damage || []).length} · heals: ${(result.heals || []).length} · buff events across targets: ${(result.buffs || []).length} · enemy debuff events: ${(result.debuffs || []).length} · resource events: ${(result.resources || []).length}<br>damage event fields: ${escapeHTML(Object.keys((result.damage || [])[0] || {}).join(', ') || 'none')}<br>resource event fields: ${escapeHTML(Object.keys((result.resources || [])[0] || {}).join(', ') || 'none')}</div></details>
   </div>`;
 
   body.innerHTML = html;
@@ -1835,28 +2211,112 @@ function loadPlanningEncounter() {
     showToast('Enter a numeric encounter ID.', 'error');
     return;
   }
+  report = null;
+  activeFightId = null;
+  activePovId = null;
+  povs = [];
+  notes = [];
+  deathsCache = {};
+  timelineEventsCache = {};
+  deathDetailCache = {};
+  selectedPhaseFilter = '';
+  hiddenPlanningClasses = new Set();
+  const phaseFilter = document.getElementById('phase-filter');
+  if (phaseFilter) phaseFilter.value = '';
+  const logTitle = document.getElementById('active-log-title');
+  if (logTitle) {
+    logTitle.textContent = 'No report loaded';
+    logTitle.classList.add('hidden');
+  }
   activePlanningEncounterId = String(Number(encounterId));
   input.value = activePlanningEncounterId;
-  document.getElementById('planning-player-filter').value = '';
+  renderPullList();
+  renderPOVTabs();
+  renderLogPlayerChips();
+  renderNotes();
+  renderAbilityCount();
   renderTimeline();
+}
+
+async function importReviewCastsToPlanning() {
+  if (!report || !activeFightId) {
+    showToast('Load a log and select a pull in Review before importing casts.', 'error');
+    return;
+  }
+  const reportCode = report.code;
+  const fightId = activeFightId;
+  const fight = getActiveFight();
+  if (!window.confirm(`Replace all planned ability markers for ${fight.name} with casts from this Review pull?`)) return;
+  if (!timelineEventsCache[fightId]) await loadTimelineEventsForFight(fightId);
+  if (!report || report.code !== reportCode || activeFightId !== fightId) {
+    showToast('The selected log or pull changed before the cast import finished.', 'error');
+    return;
+  }
+  const reviewAbilities = new Map(getTimelineAbilityNames().map(name => [name.toLocaleLowerCase(), name]));
+  const actorsById = new Map(report.actors.map(actor => [String(actor.id), actor]));
+  const povJobsByName = new Map(povs.map(pov => [String(pov.player || '').toLocaleLowerCase(), jobCodeForSubType(pov.job)]));
+  const encounterId = String(fight.encounterID);
+  const casts = (timelineEventsCache[fightId] && timelineEventsCache[fightId].casts || [])
+    .filter(event => String(event.type).toLowerCase() === 'cast');
+  let importedCount = 0;
+  const importedUsages = {};
+  casts.forEach(event => {
+    const abilityName = reviewAbilities.get(eventAbilityName(event).toLocaleLowerCase());
+    const actor = actorsById.get(String(event.sourceID));
+    if (!abilityName || !actor) return;
+    const job = jobCodeForSubType(actor.subType) || povJobsByName.get(String(actor.name || '').toLocaleLowerCase());
+    if (!job) return;
+    const key = `planned:${job}:${abilityCooldownKey(abilityName)}`;
+    if (!Array.isArray(importedUsages[key])) importedUsages[key] = [];
+    const sourceID = String(event.sourceID);
+    const sourceTimeMs = Number(event.timestamp);
+    if (importedUsages[key].some(usage => String(usage.sourceID) === sourceID && Number(usage.sourceTimeMs) === sourceTimeMs)) return;
+    importedUsages[key].push({
+      id: uid('imported-cast'),
+      time: Math.max(0, (sourceTimeMs - fight.startTime) / 1000),
+      importedFightId: fightId,
+      sourceID,
+      sourceTimeMs
+    });
+    importedCount++;
+  });
+  if (!importedCount) {
+    showToast('No tracked player casts were found; the existing plan was left unchanged.', 'info');
+    return;
+  }
+  plannedUsages[encounterId] = importedUsages;
+  persistPlannedUsages();
+  renderTimeline();
+  showToast(`Imported ${importedCount} cast${importedCount === 1 ? '' : 's'} from Pull ${report.fights.indexOf(fight) + 1}.`, 'success');
+}
+
+function getPlanningClassJobs() {
+  const jobs = new Set(Object.keys(JOB_COLORS));
+  trackedAbilityNames.forEach(name => {
+    const assignedJobs = getAbilityClasses(name);
+    (assignedJobs.length ? assignedJobs : ['Unassigned']).forEach(job => jobs.add(String(job).toUpperCase()));
+  });
+  return jobs;
+}
+
+function resetPlanningClassVisibility() {
+  const rosterJobs = new Set(getPlayersInCurrentPull().map(actor => jobCodeForSubType(actor.subType)).filter(Boolean));
+  hiddenPlanningClasses = new Set([...getPlanningClassJobs()].filter(job => !rosterJobs.has(job)));
 }
 
 function renderPlanningClassFilters() {
   const container = document.getElementById('planning-class-filters');
   if (!container) return;
-  const jobs = new Set(PLANNING_CLASS_GROUPS.flatMap(group => group.jobs));
-  trackedAbilityNames.forEach(name => {
-    const assignedJobs = getAbilityClasses(name);
-    (assignedJobs.length ? assignedJobs : ['Unassigned']).forEach(job => jobs.add(job.toUpperCase()));
-  });
+  const jobs = getPlanningClassJobs();
   container.innerHTML = '';
   const renderJobButton = (groupContainer, job) => {
     const enabled = !hiddenPlanningClasses.has(job);
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = 'text-[10px] font-semibold px-2 py-1 border rounded transition';
-    button.textContent = job;
+    button.className = 'flex items-center gap-1 text-[10px] font-semibold px-2 py-1 border rounded transition';
+    button.innerHTML = `<i class="fa-solid ${enabled ? 'fa-eye' : 'fa-eye-slash'}" aria-hidden="true"></i><span>${job}</span>`;
     button.setAttribute('aria-pressed', String(enabled));
+    button.setAttribute('aria-label', `${enabled ? 'Hide' : 'Show'} ${job} ability tracks`);
     button.title = `${enabled ? 'Hide' : 'Show'} ${job} ability tracks`;
     const color = JOB_COLORS[job] || '#38bdf8';
     button.style.color = enabled ? color : '#64748b';
@@ -1891,14 +2351,43 @@ function renderPlanningClassFilters() {
 }
 
 function renderCuratedPlanningTimeline(encounter, container) {
-  const mechanics = Array.isArray(encounter.mechanics) ? encounter.mechanics : [];
+  const mechanicsByName = new Map();
+  (Array.isArray(encounter.mechanics) ? encounter.mechanics : []).forEach(mechanic => {
+    const name = String(mechanic.name || '').trim();
+    const abilityId = Number(mechanic.abilityId) || 0;
+    const key = name && !/^Ability \d+$/.test(name)
+      ? `name:${name.toLocaleLowerCase()}`
+      : `id:${abilityId || name.toLocaleLowerCase()}`;
+    if (!mechanicsByName.has(key)) mechanicsByName.set(key, { ...mechanic, name, castOffsets: [] });
+    const target = mechanicsByName.get(key);
+    (Array.isArray(mechanic.castOffsets) ? mechanic.castOffsets : []).forEach(offset => {
+      const seconds = Math.max(0, Math.round(Number(offset)));
+      if (Number.isFinite(seconds) && !target.castOffsets.includes(seconds)) target.castOffsets.push(seconds);
+    });
+  });
+  const mechanics = [...mechanicsByName.values()].map(mechanic => ({
+    ...mechanic,
+    castOffsets: mechanic.castOffsets.sort((a, b) => a - b)
+  }));
   const observedEnd = mechanics.reduce((latest, mechanic) => Math.max(latest, ...(mechanic.castOffsets || [0])), 0);
   const durationSeconds = Math.max(Number(encounter.durationSeconds) || 0, observedEnd + 15, 60);
-  const search = document.getElementById('planning-ability-filter').value.trim().toLocaleLowerCase();
+  const search = document.getElementById('planning-mechanic-category-filter').value.trim().toLocaleLowerCase();
+  const categoryLabels = [...new Set(mechanics.map(mechanic => getMechanicCategory(String(mechanic.name || '')) || 'Uncategorized'))]
+    .sort((a, b) => a.localeCompare(b));
+  const categoryOptions = document.getElementById('planning-mechanic-category-options');
+  if (categoryOptions) {
+    categoryOptions.innerHTML = '';
+    categoryLabels.forEach(category => {
+      const option = document.createElement('option');
+      option.value = category;
+      categoryOptions.appendChild(option);
+    });
+  }
   const filteredMechanics = mechanics.filter(mechanic => {
-    return !hiddenMechanicNames.includes(mechanic.name) && (!search || String(mechanic.name || '').toLocaleLowerCase().includes(search));
+    const category = getMechanicCategory(String(mechanic.name || '')) || 'Uncategorized';
+    return !hiddenMechanicNames.includes(mechanic.name) && (!search || category.toLocaleLowerCase().includes(search));
   }).map(mechanic => {
-    const ignoreSeconds = Number(mechanicRecastIgnoreSeconds[String(mechanic.name).toLocaleLowerCase()]) || 0;
+    const ignoreSeconds = getMechanicRecastIgnoreSeconds(mechanic.name);
     const castOffsets = (mechanic.castOffsets || []).slice().sort((a, b) => a - b).filter((offset, index, offsets) => {
       return ignoreSeconds <= 0 || index === 0 || offset - offsets[index - 1] > ignoreSeconds;
     });
@@ -1909,12 +2398,19 @@ function renderCuratedPlanningTimeline(encounter, container) {
     return aFirst - bFirst || String(a.name).localeCompare(String(b.name));
   });
   const classRows = new Map();
+  const encounterUsages = plannedUsages[String(encounter.encounterID)] || {};
   trackedAbilityNames.forEach(name => {
-    const jobs = getAbilityClasses(name);
+    const abilityKey = abilityCooldownKey(name);
+    const plannedJobs = Object.keys(encounterUsages).flatMap(key => {
+      if (!key.startsWith('planned:')) return [];
+      const separator = key.indexOf(':', 'planned:'.length);
+      return separator >= 0 && key.slice(separator + 1) === abilityKey ? [key.slice('planned:'.length, separator)] : [];
+    });
+    const jobs = [...new Set([...getAbilityClasses(name).map(job => job.toUpperCase()), ...plannedJobs])];
     (jobs.length ? jobs : ['Unassigned']).forEach(job => {
       const key = job === 'Unassigned' ? job : job.toUpperCase();
       if (!classRows.has(key)) classRows.set(key, []);
-      if (!hiddenPlanningClasses.has(key) && (!document.getElementById('planning-ability-filter').value || name.toLocaleLowerCase().includes(document.getElementById('planning-ability-filter').value.trim().toLocaleLowerCase()))) {
+      if (!hiddenPlanningClasses.has(key)) {
         classRows.get(key).push(name);
       }
     });
@@ -1932,160 +2428,372 @@ function renderCuratedPlanningTimeline(encounter, container) {
   const observationCount = mechanics.reduce((count, mechanic) => count + (mechanic.castOffsets || []).length, 0);
   document.getElementById('planning-pull-summary').textContent = `${encounter.name || 'Encounter'} · ID ${encounter.encounterID} · ${observationCount} recorded cast timings from loaded logs`;
   document.getElementById('planning-ability-summary').textContent = `${mechanicCount} observed mechanics · ${abilityLaneCount} tracked ability lanes · ${classCount} classes across ${roleGroups.length} roles`;
-  const width = timelineWidth(container);
-  const left = 205, right = width - 15, timelineWidthPx = right - left;
-  const xAt = seconds => left + Math.max(0, Math.min(1, seconds / durationSeconds)) * timelineWidthPx;
-  const mechanicRowHeight = 120;
-  const abilityRowHeight = 30;
-  const mechanicHeight = mechanicRowHeight + 8;
-  const abilityRowCount = roleGroups.reduce((count, group) => count + 1 + group.jobs.reduce((jobCount, job) => jobCount + 1 + classRows.get(job).length, 0), 0);
-  const abilityHeight = Math.max(1, abilityRowCount * abilityRowHeight + 8);
-  const svgNS = 'http://www.w3.org/2000/svg';
-  const makeSvg = svgHeight => {
-    const svg = document.createElementNS(svgNS, 'svg');
-    svg.setAttribute('viewBox', `0 0 ${width} ${svgHeight}`);
-    svg.setAttribute('width', width);
-    svg.setAttribute('height', svgHeight);
-    svg.setAttribute('class', 'block');
-    return svg;
-  };
-  const axis = makeSvg(20);
-  for (let tick = 0; tick <= 6; tick++) {
-    const x = left + timelineWidthPx * tick / 6;
-    const label = document.createElementNS(svgNS, 'text');
-    label.setAttribute('x', x);
-    label.setAttribute('y', '14');
-    label.setAttribute('fill', '#64748b');
-    label.setAttribute('font-size', '10');
-    label.setAttribute('text-anchor', tick === 0 ? 'start' : tick === 6 ? 'end' : 'middle');
-    label.textContent = formatSecondsToMMSS(durationSeconds * tick / 6);
-    axis.appendChild(label);
+  const LABEL_W = 200;
+  const BASE_VISIBLE_SECONDS = 300; // "normal" (100%) zoom shows 5 minutes across the viewport
+  const viewportPx = Math.max(320, (container.clientWidth || 900) - LABEL_W - 24);
+  const pxPerSecond = Math.max(0.5, (viewportPx / BASE_VISIBLE_SECONDS) * planningZoom);
+  const trackWidth = Math.max(viewportPx, durationSeconds * pxPerSecond);
+  const totalWidth = LABEL_W + trackWidth;
+  const xAt = seconds => Math.max(0, Math.min(trackWidth, seconds * pxPerSecond));
+  const secondsAt = px => Math.max(0, Math.min(durationSeconds, px / pxPerSecond));
+  const zoomLabel = document.getElementById('planning-zoom-label');
+  if (zoomLabel) zoomLabel.textContent = `${Math.round(planningZoom * 100)}%`;
+  const gridBg = `repeating-linear-gradient(to right, rgba(30,41,59,0.9) 0, rgba(30,41,59,0.9) 1px, transparent 1px, transparent ${pxPerSecond * 30}px)`;
+  const encounterId = String(encounter.encounterID || activePlanningEncounterId || '');
+
+  const MECHANIC_CHIP = 20, MECHANIC_LANE_HEIGHT = 26, MECHANIC_HEADER_HEIGHT = 18;
+  const mechanicLaneByColor = new Map();
+  const mechanicCategoriesByColor = new Map();
+  filteredMechanics.forEach(mechanic => {
+    const category = getMechanicCategory(String(mechanic.name || '')) || 'Uncategorized';
+    const color = category === 'Uncategorized' ? '#fbbf24' : categoryColor(category);
+    if (!mechanicLaneByColor.has(color)) mechanicLaneByColor.set(color, mechanicLaneByColor.size);
+    if (!mechanicCategoriesByColor.has(color)) mechanicCategoriesByColor.set(color, new Set());
+    mechanicCategoriesByColor.get(color).add(category);
+  });
+  const MECHANIC_LANES = Math.max(1, mechanicLaneByColor.size);
+  const MECHANIC_ROW_H = MECHANIC_HEADER_HEIGHT + MECHANIC_LANES * MECHANIC_LANE_HEIGHT + 2;
+  const ABILITY_ROW_H = 40, ABILITY_CHIP = 26;
+
+  const root = document.createElement('div');
+  root.style.cssText = `position:relative;width:${totalWidth}px;`;
+
+  // Axis row
+  const axisRow = document.createElement('div');
+  axisRow.className = 'flex sticky top-0 z-30';
+  axisRow.style.height = '22px';
+  const axisLabel = document.createElement('div');
+  axisLabel.className = 'shrink-0 border-b border-r border-slate-800 sticky left-0 z-20';
+  axisLabel.style.cssText = `width:${LABEL_W}px;background:#080d1a;`;
+  const axisTrack = document.createElement('div');
+  axisTrack.className = 'relative border-b border-slate-800';
+  axisTrack.style.cssText = `width:${trackWidth}px;background:#080d1a;background-image:${gridBg};`;
+  for (let t = 0; t <= durationSeconds; t += 30) {
+    const tick = document.createElement('span');
+    tick.className = 'absolute top-0.5 text-[10px] font-mono text-slate-500';
+    tick.style.left = xAt(t) + 'px';
+    tick.textContent = formatSecondsToMMSS(t);
+    axisTrack.appendChild(tick);
   }
-  const mechanicsSvg = makeSvg(mechanicHeight);
-  const addTo = (svg, tag, attrs, text) => {
-    const element = document.createElementNS(svgNS, tag);
-    Object.entries(attrs).forEach(([key, value]) => element.setAttribute(key, value));
-    if (text != null) element.textContent = text;
-    svg.appendChild(element);
-    return element;
-  };
-  const drawGrid = svg => {
-    for (let tick = 0; tick <= 6; tick++) {
-      const x = left + timelineWidthPx * tick / 6;
-      addTo(svg, 'line', { x1: x, y1: 0, x2: x, y2: Number(svg.getAttribute('height')), stroke: '#1e293b', 'stroke-width': 1 });
-    }
-  };
-  drawGrid(mechanicsSvg);
-  const mechanicCenterY = 4 + mechanicRowHeight / 2;
-  addTo(mechanicsSvg, 'rect', { x: 0, y: 4, width, height: mechanicRowHeight - 1, fill: '#fbbf24', opacity: 0.1 });
-  addTo(mechanicsSvg, 'text', { x: 4, y: mechanicCenterY + 3, fill: '#fbbf24', 'font-size': 11, 'font-weight': 700 }, 'Mechanics');
-  addTo(mechanicsSvg, 'line', { x1: left, y1: mechanicCenterY + 5, x2: right, y2: mechanicCenterY + 5, stroke: '#1e293b' });
-  let mechanicMarkerIndex = 0;
+  axisRow.append(axisLabel, axisTrack);
+  root.appendChild(axisRow);
+
+  // Mechanics row
+  const mechRow = document.createElement('div');
+  mechRow.className = 'flex border-b border-slate-800';
+  mechRow.style.height = MECHANIC_ROW_H + 'px';
+  const mechLabel = document.createElement('div');
+  mechLabel.className = 'relative shrink-0 px-2.5 border-r border-l-4 border-amber-500 border-slate-800 sticky left-0 z-10';
+  mechLabel.style.cssText = `width:${LABEL_W}px;background:#1c1206;`;
+  const mechTitle = document.createElement('span');
+  mechTitle.className = 'absolute top-0.5 left-2.5 text-amber-400 font-bold text-[10px] uppercase';
+  mechTitle.textContent = 'Mechanics';
+  mechLabel.appendChild(mechTitle);
+  mechanicCategoriesByColor.forEach((categories, color) => {
+    const lane = mechanicLaneByColor.get(color);
+    const categoryLabel = document.createElement('span');
+    categoryLabel.className = 'absolute left-2.5 right-2 truncate text-[10px] font-semibold';
+    categoryLabel.style.cssText = `top:${MECHANIC_HEADER_HEIGHT + lane * MECHANIC_LANE_HEIGHT + MECHANIC_LANE_HEIGHT / 2}px; transform:translateY(-50%); color:${color};`;
+    categoryLabel.textContent = [...categories].join(' / ');
+    categoryLabel.title = [...categories].join(', ');
+    mechLabel.appendChild(categoryLabel);
+  });
+  const mechTrack = document.createElement('div');
+  mechTrack.className = 'relative';
+  mechTrack.style.cssText = `width:${trackWidth}px;height:${MECHANIC_ROW_H}px;overflow:hidden;background:rgba(251,191,36,0.06);background-image:${gridBg};`;
   filteredMechanics.forEach(mechanic => {
     const name = String(mechanic.name || `Ability ${mechanic.abilityId || ''}`);
-    const color = getMechanicCategory(name) ? categoryColor(getMechanicCategory(name)) : '#fbbf24';
+    const category = getMechanicCategory(name) || 'Uncategorized';
+    const color = category === 'Uncategorized' ? '#fbbf24' : categoryColor(category);
+    const lane = mechanicLaneByColor.get(color);
     mechanic.castOffsets.forEach(seconds => {
       const x = xAt(seconds);
-      const markerY = mechanicCenterY + ((mechanicMarkerIndex++ % 9) - 4) * 9;
-      const marker = addTo(mechanicsSvg, 'path', { d: `M ${x} ${markerY - 5} l 4 5 l -4 5 l -4 -5 Z`, fill: color, stroke: '#0f172a', 'stroke-width': 1 });
-      marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${name} observed at ${formatSecondsToMMSS(seconds)}`;
+      const markerCenterY = MECHANIC_HEADER_HEIGHT + lane * MECHANIC_LANE_HEIGHT + MECHANIC_LANE_HEIGHT / 2;
+      const chip = document.createElement('div');
+      chip.className = 'absolute rounded-[4px] border border-slate-950/70 shadow';
+      chip.style.cssText = `left:${x - MECHANIC_CHIP / 2}px; top:${markerCenterY - MECHANIC_CHIP / 2}px; width:${MECHANIC_CHIP}px; height:${MECHANIC_CHIP}px; background:${color};`;
+      chip.title = `${name} observed at ${formatSecondsToMMSS(seconds)}`;
+      mechTrack.appendChild(chip);
     });
   });
+  mechRow.append(mechLabel, mechTrack);
+  root.appendChild(mechRow);
 
-  const abilitiesSvg = makeSvg(abilityHeight);
-  drawGrid(abilitiesSvg);
-  let abilityRowIndex = 0;
-  const drawAbilitySection = (label, color) => {
-    const y = 4 + abilityRowIndex++ * abilityRowHeight;
-    addTo(abilitiesSvg, 'rect', { x: 0, y, width, height: abilityRowHeight - 1, fill: color, opacity: 0.1 });
-    addTo(abilitiesSvg, 'text', { x: 4, y: y + abilityRowHeight / 2 + 3, fill: color, 'font-size': 11, 'font-weight': 700 }, label);
-    addTo(abilitiesSvg, 'line', { x1: left, y1: y + abilityRowHeight - 1, x2: right, y2: y + abilityRowHeight - 1, stroke: color, 'stroke-opacity': 0.35 });
-  };
-  const drawRoleSection = label => {
-    const y = 4 + abilityRowIndex++ * abilityRowHeight;
-    addTo(abilitiesSvg, 'rect', { x: 0, y, width, height: abilityRowHeight - 1, fill: '#334155', opacity: 0.35 });
-    addTo(abilitiesSvg, 'text', { x: 4, y: y + abilityRowHeight / 2 + 3, fill: '#cbd5e1', 'font-size': 10, 'font-weight': 700 }, label.toUpperCase());
-    addTo(abilitiesSvg, 'line', { x1: left, y1: y + abilityRowHeight - 1, x2: right, y2: y + abilityRowHeight - 1, stroke: '#475569', 'stroke-opacity': 0.65 });
-  };
+  // Ability rows (grouped by role, then job)
+  let hasAbilityRows = false;
   roleGroups.forEach(group => {
-    drawRoleSection(group.name);
+    hasAbilityRows = true;
+    const roleRow = document.createElement('div');
+    roleRow.className = 'flex border-b border-slate-800';
+    const roleLabel = document.createElement('div');
+    roleLabel.className = 'shrink-0 flex items-center justify-between gap-1 px-2.5 text-slate-200 font-bold text-[10px] uppercase border-r border-slate-800 sticky left-0 z-10';
+    roleLabel.style.cssText = `width:${LABEL_W}px; height:22px; background:#1e293b;`;
+    const roleName = document.createElement('span');
+    roleName.textContent = group.name;
+    roleLabel.append(roleName, createTrackResetButton(encounterId, group.name, group.jobs));
+    const roleTrack = document.createElement('div');
+    roleTrack.style.cssText = `width:${trackWidth}px; height:22px; background:rgba(51,65,85,0.15);`;
+    roleRow.append(roleLabel, roleTrack);
+    root.appendChild(roleRow);
+
     group.jobs.forEach(job => {
-      const abilities = classRows.get(job);
+      const abilities = classRows.get(job).slice().sort((a, b) => a.localeCompare(b));
       const color = JOB_COLORS[job] || '#38bdf8';
-      drawAbilitySection(job, color);
-      abilities.sort((a, b) => a.localeCompare(b)).forEach(name => {
-        const y = 4 + abilityRowIndex++ * abilityRowHeight;
-        const centerY = y + abilityRowHeight / 2;
-        addTo(abilitiesSvg, 'text', { x: 12, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, name.length > 24 ? name.slice(0, 23) + '…' : name).appendChild(document.createElementNS(svgNS, 'title')).textContent = name;
-        addTo(abilitiesSvg, 'line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b' });
+      const jobRow = document.createElement('div');
+      jobRow.className = 'flex border-b border-slate-800';
+      const jobLabel = document.createElement('div');
+      jobLabel.className = 'shrink-0 flex items-center justify-between gap-1 px-2.5 font-bold text-[10px] border-r border-l-4 border-slate-800 sticky left-0 z-10';
+      jobLabel.style.cssText = `width:${LABEL_W}px; height:20px; color:${color}; background:#0b1220; border-left-color:${color};`;
+      const jobName = document.createElement('span');
+      jobName.textContent = job;
+      jobLabel.append(jobName, createTrackResetButton(encounterId, job, [job]));
+      const jobTrack = document.createElement('div');
+      jobTrack.style.cssText = `width:${trackWidth}px; height:20px; background:${color}10;`;
+      jobRow.append(jobLabel, jobTrack);
+      root.appendChild(jobRow);
+
+      abilities.forEach(name => {
+        const key = abilityCooldownKey(name);
+        const cooldownSeconds = Number(trackedAbilityCooldowns[key]) || 0;
+        const imageUrl = trackedAbilityImages[key] || '';
+        const abilityRow = document.createElement('div');
+        abilityRow.className = 'flex border-b border-slate-800/70';
+        abilityRow.style.height = ABILITY_ROW_H + 'px';
+        const abilityLabel = document.createElement('div');
+        abilityLabel.className = 'shrink-0 flex items-center gap-1.5 px-2 border-r border-slate-800 sticky left-0 z-10';
+        abilityLabel.style.cssText = `width:${LABEL_W}px; background:#080d1a;`;
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.className = 'shrink-0 w-5 h-5 flex items-center justify-center rounded bg-slate-800 hover:bg-ffpurple-600 text-slate-300 hover:text-white border border-slate-700 transition';
+        addBtn.title = `Place ${name} on the track`;
+        addBtn.innerHTML = '<i class="fa-solid fa-plus text-[9px]"></i>';
+        addBtn.addEventListener('click', () => {
+          const startSeconds = secondsAt(container.scrollLeft + viewportPx / 2);
+          addPlannedUsage(encounterId, name, startSeconds, job);
+        });
+        const icon = document.createElement(imageUrl ? 'img' : 'span');
+        icon.className = 'shrink-0 w-5 h-5 rounded border border-slate-700';
+        if (imageUrl) {
+          icon.src = imageUrl;
+          icon.style.objectFit = 'cover';
+          icon.onerror = () => icon.remove();
+        } else {
+          icon.style.background = color;
+        }
+        const nameEl = document.createElement('span');
+        nameEl.className = 'text-slate-300 text-[10.5px] truncate';
+        nameEl.textContent = name;
+        nameEl.title = cooldownSeconds ? `${name} · ${cooldownSeconds}s cooldown` : name;
+        abilityLabel.append(addBtn, icon, nameEl);
+
+        const abilityTrack = document.createElement('div');
+        abilityTrack.className = 'relative';
+        abilityTrack.style.cssText = `width:${trackWidth}px; height:${ABILITY_ROW_H}px; background-image:${gridBg};`;
+        abilityTrack.title = 'Double-click to place a chip here';
+        abilityTrack.addEventListener('dblclick', event => {
+          if (event.target !== abilityTrack) return;
+          const rect = abilityTrack.getBoundingClientRect();
+          addPlannedUsage(encounterId, name, secondsAt(event.clientX - rect.left), job);
+        });
+
+        getPlannedUsages(encounterId, name, job).forEach(usage => {
+          abilityTrack.appendChild(buildPlannedChip(encounterId, name, job, usage, { color, imageUrl, cooldownSeconds, abilityDurationSeconds: Number(trackedAbilityDurations[key]) || 0, pxPerSecond, durationSeconds, rowHeight: ABILITY_ROW_H, chipSize: ABILITY_CHIP }));
+        });
+
+        abilityRow.append(abilityLabel, abilityTrack);
+        root.appendChild(abilityRow);
       });
     });
   });
-  const fixedMechanics = document.createElement('div');
-  fixedMechanics.className = 'shrink-0 border-b border-slate-800 bg-slate-950';
-  fixedMechanics.appendChild(axis);
-  fixedMechanics.appendChild(mechanicsSvg);
-  const abilitiesScroll = document.createElement('div');
-  abilitiesScroll.className = 'flex-1 min-h-0 overflow-y-auto overflow-x-hidden';
-  abilitiesScroll.style.cssText = 'flex:1 1 0%;min-height:0;height:0;overflow-y:scroll;overflow-x:hidden;scrollbar-gutter:stable;';
-  if (abilityRowCount) {
-    abilitiesScroll.appendChild(abilitiesSvg);
-  } else {
-    abilitiesScroll.innerHTML = '<div class="text-xs text-slate-500 italic p-4">Add tracked abilities and assign them to classes to build player lanes.</div>';
+
+  if (!hasAbilityRows) {
+    const empty = document.createElement('div');
+    empty.className = 'text-xs text-slate-500 italic p-4 sticky left-0';
+    empty.style.width = LABEL_W + 'px';
+    empty.textContent = 'Add tracked abilities and assign them to classes to build player lanes for placing cooldowns.';
+    root.appendChild(empty);
   }
-  container.classList.remove('overflow-auto');
-  container.classList.add('flex', 'flex-col', 'overflow-hidden');
-  container.style.cssText = 'display:flex;flex:1 1 0%;flex-direction:column;min-height:0;height:100%;overflow:hidden;';
-  container.replaceChildren(fixedMechanics, abilitiesScroll);
+
+  container.style.cssText = 'position:relative; overflow:auto; flex:1 1 0%; min-height:0;';
+  container.replaceChildren(root);
+}
+
+function plannedUsagesForKey(encounterId, name, job) {
+  const encId = String(encounterId || '');
+  if (!plannedUsages[encId]) plannedUsages[encId] = {};
+  const abilityKey = abilityCooldownKey(name);
+  const key = `planned:${String(job || 'Unassigned').toUpperCase()}:${abilityKey}`;
+  if (!Array.isArray(plannedUsages[encId][key])) {
+    const legacyUsages = plannedUsages[encId][abilityKey];
+    plannedUsages[encId][key] = Array.isArray(legacyUsages)
+      ? legacyUsages.map(usage => ({ ...usage }))
+      : [];
+  }
+  return plannedUsages[encId][key];
+}
+function createTrackResetButton(encounterId, label, jobs) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'shrink-0 w-4 h-4 flex items-center justify-center text-slate-500 hover:text-rose-300';
+  button.title = `Reset planned placements for ${label}`;
+  button.setAttribute('aria-label', `Reset planned placements for ${label}`);
+  button.innerHTML = '<i class="fa-solid fa-trash-can text-[9px]" aria-hidden="true"></i>';
+  button.addEventListener('click', event => {
+    event.stopPropagation();
+    resetPlannedUsagesForJobs(encounterId, label, jobs);
+  });
+  return button;
+}
+function resetPlannedUsagesForJobs(encounterId, label, jobs) {
+  const jobKeys = new Set(jobs.map(job => String(job).toUpperCase()));
+  if (!jobKeys.size || !window.confirm(`Reset all planned ability placements for ${label}?`)) return;
+  const encounterPlan = plannedUsages[String(encounterId)];
+  if (!encounterPlan) {
+    showToast(`No planned placements for ${label}.`, 'info');
+    return;
+  }
+  let removedAny = false;
+  Object.keys(encounterPlan).forEach(key => {
+    const match = key.match(/^planned:([^:]+):/);
+    if (match && jobKeys.has(match[1])) {
+      delete encounterPlan[key];
+      removedAny = true;
+    }
+  });
+  trackedAbilityNames.forEach(name => {
+    const abilityKey = abilityCooldownKey(name);
+    const legacyUsages = encounterPlan[abilityKey];
+    if (!Array.isArray(legacyUsages)) return;
+    const assignedJobs = getAbilityClasses(name);
+    const legacyJobs = assignedJobs.length ? assignedJobs.map(job => job.toUpperCase()) : ['UNASSIGNED'];
+    legacyJobs.filter(job => !jobKeys.has(job)).forEach(job => {
+      const key = `planned:${job}:${abilityKey}`;
+      if (!Array.isArray(encounterPlan[key])) encounterPlan[key] = legacyUsages.map(usage => ({ ...usage }));
+    });
+    delete encounterPlan[abilityKey];
+    removedAny = true;
+  });
+  if (!removedAny) {
+    showToast(`No planned placements for ${label}.`, 'info');
+    return;
+  }
+  persistPlannedUsages();
+  renderTimeline();
+  showToast(`Reset planned placements for ${label}.`, 'success');
+}
+function getPlannedUsages(encounterId, name, job) {
+  return plannedUsagesForKey(encounterId, name, job).slice().sort((a, b) => a.time - b.time);
+}
+function addPlannedUsage(encounterId, name, time, job) {
+  plannedUsagesForKey(encounterId, name, job).push({ id: `pu_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, time: Math.max(0, time) });
+  persistPlannedUsages();
+  renderTimeline();
+}
+function removePlannedUsage(encounterId, name, job, id) {
+  const usages = plannedUsagesForKey(encounterId, name, job);
+  const index = usages.findIndex(usage => usage.id === id);
+  if (index >= 0) usages.splice(index, 1);
+  persistPlannedUsages();
+  renderTimeline();
+}
+function updatePlannedUsageTime(encounterId, name, job, id, time) {
+  const usage = plannedUsagesForKey(encounterId, name, job).find(u => u.id === id);
+  if (usage) usage.time = Math.max(0, time);
+  persistPlannedUsages();
+}
+function persistPlannedUsages() {
+  try { localStorage.setItem('fflogs_vod_planned_usages', JSON.stringify(plannedUsages)); } catch (e) {}
+}
+function buildPlannedChip(encounterId, name, job, usage, opts) {
+  const { color, imageUrl, cooldownSeconds, abilityDurationSeconds, pxPerSecond, durationSeconds, rowHeight, chipSize } = opts;
+  const wrap = document.createElement('div');
+  wrap.className = 'absolute group';
+  wrap.style.cssText = `top:${(rowHeight - chipSize) / 2}px; height:${chipSize}px; left:${usage.time * pxPerSecond}px;`;
+  const setLeft = time => { wrap.style.left = (time * pxPerSecond) + 'px'; };
+  const tooltipFor = time => `${name} used at ${formatSecondsToMMSS(time)}${abilityDurationSeconds ? ` · duration ${abilityDurationSeconds}s` : ''}${cooldownSeconds ? ` · ready again at ${formatSecondsToMMSS(time + cooldownSeconds)}` : ''}`;
+
+  if (cooldownSeconds > 0) {
+    const bar = document.createElement('div');
+    bar.className = 'absolute rounded-r pointer-events-none';
+    bar.style.cssText = `left:${chipSize}px; top:${chipSize / 2 - 3}px; height:6px; width:${cooldownSeconds * pxPerSecond}px; background:${color};`;
+    wrap.appendChild(bar);
+  }
+  if (abilityDurationSeconds > 0) {
+    const bar = document.createElement('div');
+    const visibleDuration = Math.min(abilityDurationSeconds, Math.max(0, durationSeconds - usage.time));
+    bar.className = 'absolute rounded-r pointer-events-none';
+    bar.style.cssText = `left:${chipSize}px; top:${chipSize / 2 + 3}px; height:4px; width:${visibleDuration * pxPerSecond}px; background:#34d399;`;
+    bar.title = `${name} duration: ${abilityDurationSeconds}s`;
+    wrap.appendChild(bar);
+  }
+
+  const chip = document.createElement('div');
+  chip.className = 'absolute rounded-[4px] border-2 cursor-grab active:cursor-grabbing shadow flex items-center justify-center overflow-hidden select-none touch-none';
+  chip.style.cssText = `left:0; top:0; width:${chipSize}px; height:${chipSize}px; border-color:${color}; background:${color};`;
+  if (imageUrl) {
+    const img = document.createElement('img');
+    img.src = imageUrl;
+    img.className = 'w-full h-full object-cover pointer-events-none';
+    img.draggable = false;
+    img.onerror = () => img.remove();
+    chip.appendChild(img);
+  }
+  chip.title = tooltipFor(usage.time);
+
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-[8px] items-center justify-center hidden group-hover:flex';
+  removeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+  removeBtn.title = `Remove ${name} at ${formatSecondsToMMSS(usage.time)}`;
+  removeBtn.addEventListener('click', event => {
+    event.stopPropagation();
+    removePlannedUsage(encounterId, name, job, usage.id);
+  });
+
+  let dragging = false, startX = 0, startTime = usage.time;
+  chip.addEventListener('pointerdown', event => {
+    dragging = true;
+    startX = event.clientX;
+    startTime = usage.time;
+    chip.setPointerCapture(event.pointerId);
+    event.stopPropagation();
+  });
+  chip.addEventListener('pointermove', event => {
+    if (!dragging) return;
+    const newTime = Math.max(0, Math.min(durationSeconds, startTime + (event.clientX - startX) / pxPerSecond));
+    usage.time = newTime;
+    setLeft(newTime);
+    chip.title = tooltipFor(newTime);
+  });
+  const endDrag = () => {
+    if (!dragging) return;
+    dragging = false;
+    updatePlannedUsageTime(encounterId, name, job, usage.id, usage.time);
+  };
+  chip.addEventListener('pointerup', endDrag);
+  chip.addEventListener('pointercancel', endDrag);
+
+  wrap.append(chip, removeBtn);
+  return wrap;
 }
 
 function renderPlanningControls() {
-  const fightSelect = document.getElementById('planning-fight-select');
-  const playerSelect = document.getElementById('planning-player-filter');
-  if (!fightSelect || !playerSelect) return;
   renderPlanningClassFilters();
-  const selectedPlayer = playerSelect.value;
-  fightSelect.innerHTML = '';
-  playerSelect.innerHTML = '<option value="">All players</option>';
   const encounterOptions = document.getElementById('planning-encounter-options');
-  if (encounterOptions) {
-    encounterOptions.innerHTML = '';
-    Object.values(loadEncounterMechanicsDataset()).sort((a, b) => String(a.name).localeCompare(String(b.name))).forEach(encounter => {
-      const option = document.createElement('option');
-      option.value = String(encounter.encounterID);
-      option.label = encounter.name || `Encounter ${encounter.encounterID}`;
-      encounterOptions.appendChild(option);
-    });
-  }
-  if (!report || !report.fights.length) {
-    fightSelect.innerHTML = '<option value="">No report loaded</option>';
-    playerSelect.disabled = true;
-    return;
-  }
-  report.fights.forEach((fight, index) => {
+  if (!encounterOptions) return;
+  encounterOptions.innerHTML = '';
+  Object.values(loadEncounterMechanicsDataset()).sort((a, b) => String(a.name).localeCompare(String(b.name))).forEach(encounter => {
     const option = document.createElement('option');
-    option.value = String(fight.id);
-    const result = fight.kill ? 'Kill' : (fight.fightPercentage != null ? `${fight.fightPercentage.toFixed(1)}%` : 'Wipe');
-    option.textContent = `${String(index + 1).padStart(2, '0')} · ${fight.name} · ${result}`;
-    fightSelect.appendChild(option);
+    option.value = String(encounter.encounterID);
+    option.label = encounter.name || `Encounter ${encounter.encounterID}`;
+    encounterOptions.appendChild(option);
   });
-  fightSelect.value = String(activeFightId || report.fights[0].id);
-  report.actors.forEach(actor => {
-    const option = document.createElement('option');
-    option.value = String(actor.id);
-    option.textContent = actor.name;
-    playerSelect.appendChild(option);
-  });
-  if ([...playerSelect.options].some(option => option.value === selectedPlayer)) playerSelect.value = selectedPlayer;
-  playerSelect.disabled = !report;
 }
 
 function getPlanningAbilityRows(events, fight) {
   const actors = new Map(report.actors.map(actor => [String(actor.id), actor]));
   const povJobs = new Map(povs.map(pov => [pov.player.toLocaleLowerCase(), pov.job]));
   const casts = (events.casts || []).filter(event => String(event.type).toLowerCase() === 'cast');
-  const playerFilter = document.getElementById('planning-player-filter').value;
-  const search = document.getElementById('planning-ability-filter').value.trim().toLocaleLowerCase();
   const jobs = new Map();
   trackedAbilityNames.forEach(abilityName => {
     const assignedJobs = getAbilityClasses(abilityName);
@@ -2100,11 +2808,10 @@ function getPlanningAbilityRows(events, fight) {
         const actorJob = (povJobs.get(actor.name.toLocaleLowerCase()) || actor.subType || '').toUpperCase();
         const matchesJob = jobKey === 'Unassigned' || actorJob === jobKey;
         return matchesJob && eventAbilityName(event).toLocaleLowerCase() === abilityName.toLocaleLowerCase();
-      }).filter(event => !playerFilter || String(event.sourceID) === playerFilter);
+      });
       const matchingActors = new Set(abilityCasts.map(event => String(event.sourceID)));
       const rowActors = [...matchingActors].map(id => actors.get(id)).filter(Boolean);
       const actorNames = rowActors.map(actor => actor.name);
-      if (search && !abilityName.toLocaleLowerCase().includes(search) && !actorNames.some(name => name.toLocaleLowerCase().includes(search))) return;
       const abilityId = eventAbilityId(abilityCasts[0] || casts.find(event => eventAbilityName(event).toLocaleLowerCase() === abilityName.toLocaleLowerCase()) || {});
       const sourceIds = new Set(abilityCasts.map(event => String(event.sourceID)));
       const spans = [];
@@ -2127,6 +2834,14 @@ function getPlanningAbilityRows(events, fight) {
             }
           }
         });
+      const manualDuration = Number(trackedAbilityDurations[abilityCooldownKey(abilityName)]) || 0;
+      const durationAnchors = abilityCasts.length ? abilityCasts : spans;
+      const timelineSpans = manualDuration > 0
+        ? durationAnchors.map(anchor => {
+          const start = abilityCasts.length ? anchor.timestamp : anchor.start;
+          return { start, end: Math.min(fight.endTime, start + manualDuration * 1000), targetID: anchor.targetID, name: abilityName };
+        })
+        : spans;
       jobs.get(jobKey).push({
         type: 'ability',
         job: jobKey,
@@ -2135,7 +2850,7 @@ function getPlanningAbilityRows(events, fight) {
         actorNames,
         color: JOB_COLORS[jobKey] || '#38bdf8',
         casts: abilityCasts,
-        spans
+        spans: timelineSpans
       });
     });
   });
@@ -2154,7 +2869,6 @@ window.addEventListener('resize', () => {
   clearTimeout(timelineResizeTimer);
   timelineResizeTimer = setTimeout(() => {
     if (report || (activePlanningEncounterId && !document.getElementById('planning-workspace').classList.contains('hidden'))) renderTimeline();
-    if (report && activeFightId != null) renderDeathsTimeline(activeFightId);
   }, 150);
 });
 
@@ -2212,18 +2926,22 @@ function renderCombatTimeline(fight, container, planningMode = false) {
         }
       }
     });
-    return { abilityName, casts, spans };
+    const manualDuration = Number(trackedAbilityDurations[abilityCooldownKey(abilityName)]) || 0;
+    const durationAnchors = casts.length ? casts : spans;
+    const timelineSpans = manualDuration > 0
+      ? durationAnchors.map(anchor => {
+        const start = casts.length ? anchor.timestamp : anchor.start;
+        return { start, end: Math.min(fight.endTime, start + manualDuration * 1000), targetID: anchor.targetID, name: abilityName };
+      })
+      : spans;
+    return { abilityName, casts, spans: timelineSpans };
   });
   const fightNotes = planningMode ? [] : notes.filter(note => note.fightId === fight.id);
-  const mechanicLanes = [];
-  const uncategorized = mechanicRows.filter(row => !getMechanicCategory(row.name));
-  if (uncategorized.length) mechanicLanes.push({ label: 'Mechanics', color: '#fbbf24', rows: uncategorized });
-  [...new Set(mechanicRows.map(row => getMechanicCategory(row.name)).filter(Boolean))].sort((a, b) => a.localeCompare(b)).forEach(category => {
-    mechanicLanes.push({ label: category, color: categoryColor(category), rows: mechanicRows.filter(row => getMechanicCategory(row.name) === category) });
-  });
-  const rowCount = mechanicLanes.length + (fightNotes.length ? 1 : 0) + abilityRows.length;
+  const deaths = planningMode ? [] : (deathsCache[fight.id] || []);
   const rowHeight = planningMode ? 30 : 32;
-  const height = Math.max(40, 8 + rowCount * rowHeight);
+  const pinnedTrackHeight = 30;
+  const scrollRowCount = (fightNotes.length ? 1 : 0) + abilityRows.length;
+  const height = Math.max(40, 8 + scrollRowCount * rowHeight);
   const svgNS = 'http://www.w3.org/2000/svg';
   const W = timelineWidth(container);
   const start = fight.startTime, duration = Math.max(1, fight.endTime - start);
@@ -2243,21 +2961,26 @@ function renderCombatTimeline(fight, container, planningMode = false) {
     el.setAttribute('height', h);
     el.setAttribute('class', 'block');
     el.setAttribute('data-left', left);
+    el.setAttribute('data-right', right);
     return el;
   };
-  // Sticky time axis stays visible while the lanes scroll underneath.
-  const axisWrap = document.createElement('div');
-  axisWrap.style.cssText = 'position:sticky;top:0;z-index:2;background:#020617;';
+  const pinnedTracks = document.createElement('div');
+  pinnedTracks.className = 'shrink-0';
+  pinnedTracks.style.background = '#020617';
   const axisSvg = makeSvg(18);
-  axisWrap.appendChild(axisSvg);
+  const mechanicSvg = makeSvg(pinnedTrackHeight);
+  const deathsSvg = makeSvg(pinnedTrackHeight);
   const svg = makeSvg(height);
-  const add = (tag, attrs, text) => {
+  const createSvgElement = (target, tag, attrs, text) => {
     const el = document.createElementNS(svgNS, tag);
     Object.entries(attrs || {}).forEach(([name, value]) => el.setAttribute(name, value));
     if (text != null) el.textContent = text;
-    svg.appendChild(el);
+    target.appendChild(el);
     return el;
   };
+  const add = (tag, attrs, text) => createSvgElement(svg, tag, attrs, text);
+  const addMechanic = (tag, attrs, text) => createSvgElement(mechanicSvg, tag, attrs, text);
+  const addDeath = (tag, attrs, text) => createSvgElement(deathsSvg, tag, attrs, text);
   for (let tick = 0; tick <= 4; tick++) {
     const x = left + width * tick / 4;
     const label = document.createElementNS(svgNS, 'text');
@@ -2265,6 +2988,10 @@ function renderCombatTimeline(fight, container, planningMode = false) {
     label.textContent = formatSecondsToMMSS(duration / 1000 * tick / 4);
     axisSvg.appendChild(label);
     add('line', { x1: x, y1: 0, x2: x, y2: height, stroke: '#1e293b', 'stroke-width': 1 });
+    if (!planningMode) {
+      addMechanic('line', { x1: x, y1: 0, x2: x, y2: pinnedTrackHeight, stroke: '#1e293b', 'stroke-width': 1 });
+      addDeath('line', { x1: x, y1: 0, x2: x, y2: pinnedTrackHeight, stroke: '#1e293b', 'stroke-width': 1 });
+    }
   }
   if (!planningMode) {
     const axisPlayhead = document.createElementNS(svgNS, 'line');
@@ -2275,23 +3002,42 @@ function renderCombatTimeline(fight, container, planningMode = false) {
     axisPlayhead.setAttribute('stroke-width', '2');
     axisPlayhead.setAttribute('pointer-events', 'none');
     axisSvg.appendChild(axisPlayhead);
+    [mechanicSvg, deathsSvg].forEach(track => {
+      const playhead = document.createElementNS(svgNS, 'line');
+      playhead.setAttribute('data-timeline-playhead', 'true');
+      playhead.setAttribute('y1', '0');
+      playhead.setAttribute('y2', String(pinnedTrackHeight));
+      playhead.setAttribute('stroke', '#22d3ee');
+      playhead.setAttribute('stroke-width', '2');
+      playhead.setAttribute('stroke-opacity', '0.85');
+      playhead.setAttribute('pointer-events', 'none');
+      track.appendChild(playhead);
+    });
+  }
+  if (!planningMode) {
+    addMechanic('text', { x: 4, y: 19, fill: '#fbbf24', 'font-size': 10, 'font-weight': 700 }, 'Mechanics');
+    addMechanic('line', { x1: left, y1: pinnedTrackHeight - 1, x2: right, y2: pinnedTrackHeight - 1, stroke: '#334155', 'stroke-width': 1 });
+    const mechanicEvents = mechanicRows.flatMap(row => row.casts.map(event => ({ ...event, mechanicName: row.name })));
+    mechanicEvents.forEach(event => {
+      const x = xAt(event.timestamp);
+      const category = getMechanicCategory(event.mechanicName);
+      const color = category ? categoryColor(category) : '#fbbf24';
+      const marker = addMechanic('rect', { x: x - 6, y: 9, width: 12, height: 12, fill: color, stroke: '#0f172a', 'stroke-width': 1, class: 'cursor-pointer' });
+      const sourceName = event.sourceName || actorNames.get(String(event.sourceID)) || 'Enemy';
+      marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${event.mechanicName}${category ? ` · ${category}` : ''} cast by ${sourceName} at ${formatSecondsToMMSS((event.timestamp - start) / 1000)}`;
+      marker.addEventListener('click', () => jumpToSpecificOffsetMs(event.timestamp - start));
+    });
+
+    addDeath('text', { x: 4, y: 19, fill: '#fb7185', 'font-size': 10, 'font-weight': 700 }, 'Deaths');
+    addDeath('line', { x1: left, y1: pinnedTrackHeight - 1, x2: right, y2: pinnedTrackHeight - 1, stroke: '#334155', 'stroke-width': 1 });
+    deaths.forEach(death => {
+      const x = xAt(start + death.timeMs);
+      const marker = addDeath('rect', { x: x - 5, y: 10, width: 10, height: 10, fill: '#fb7185', stroke: '#0f172a', 'stroke-width': 1, class: 'cursor-pointer' });
+      marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${death.player} died to ${death.ability} at ${formatSecondsToMMSS(death.timeMs / 1000)}`;
+      marker.addEventListener('click', () => jumpToSpecificOffsetMs(death.timeMs));
+    });
   }
   let rowIndex = 0;
-  mechanicLanes.forEach(lane => {
-    const y = 4 + rowIndex++ * rowHeight;
-    const centerY = y + rowHeight / 2;
-    add('text', { x: 4, y: centerY + 3, fill: lane.color, 'font-size': 10 }, lane.label.length > 17 ? lane.label.slice(0, 16) + '…' : lane.label).appendChild(document.createElementNS(svgNS, 'title')).textContent = lane.label;
-    add('line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b', 'stroke-width': 1 });
-    lane.rows.flatMap(row => row.casts.map(event => ({ ...event, mechanicName: row.name })))
-      .sort((a, b) => a.timestamp - b.timestamp)
-      .forEach(event => {
-        const x = xAt(event.timestamp);
-        const marker = add('path', { d: `M ${x} ${centerY - 6} l 4 6 l -4 6 l -4 -6 Z`, fill: lane.color, stroke: '#0f172a', 'stroke-width': 1, class: 'cursor-pointer' });
-        const sourceName = event.sourceName || actorNames.get(String(event.sourceID)) || 'Enemy';
-        marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${event.mechanicName} cast by ${sourceName} at ${formatSecondsToMMSS((event.timestamp - start) / 1000)}`;
-        if (!planningMode) marker.addEventListener('click', () => jumpToSpecificOffsetMs(event.timestamp - start));
-      });
-  });
   if (fightNotes.length) {
     const notesY = 4 + rowIndex++ * rowHeight;
     const centerY = notesY + rowHeight / 2;
@@ -2299,7 +3045,7 @@ function renderCombatTimeline(fight, container, planningMode = false) {
     add('line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b', 'stroke-width': 1 });
     fightNotes.forEach(note => {
       const noteMs = note.logSeconds * 1000;
-      const marker = add('circle', { cx: xAt(start + noteMs), cy: centerY, r: 4, fill: '#22d3ee', stroke: '#0f172a', 'stroke-width': 1, class: 'cursor-pointer' });
+      const marker = add('rect', { x: xAt(start + noteMs) - 4, y: centerY - 4, width: 8, height: 8, fill: '#22d3ee', stroke: '#0f172a', 'stroke-width': 1, class: 'cursor-pointer' });
       marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `Note at ${formatSecondsToMMSS(note.logSeconds)}: ${note.text}`;
       marker.addEventListener('click', () => jumpToSpecificOffsetMs(noteMs));
     });
@@ -2314,11 +3060,20 @@ function renderCombatTimeline(fight, container, planningMode = false) {
       return;
     }
     const { abilityName, casts, spans } = row;
+    const abilityImageUrl = trackedAbilityImages[abilityCooldownKey(abilityName)] || '';
     if (planningMode) {
       const abilityLabel = abilityName.length > 17 ? abilityName.slice(0, 16) + '…' : abilityName;
-      add('text', { x: 12, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, abilityLabel).appendChild(document.createElementNS(svgNS, 'title')).textContent = `${abilityName}${row.actorNames.length ? ` · ${row.actorNames.join(', ')}` : ''}`;
+      if (abilityImageUrl) {
+        const icon = add('image', { x: 12, y: centerY - 8, width: 16, height: 16, href: abilityImageUrl, preserveAspectRatio: 'xMidYMid meet' });
+        icon.appendChild(document.createElementNS(svgNS, 'title')).textContent = abilityName;
+      }
+      add('text', { x: abilityImageUrl ? 32 : 12, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, abilityLabel).appendChild(document.createElementNS(svgNS, 'title')).textContent = `${abilityName}${row.actorNames.length ? ` · ${row.actorNames.join(', ')}` : ''}`;
     } else {
-      add('text', { x: 4, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, abilityName.length > 17 ? abilityName.slice(0, 16) + '…' : abilityName);
+      if (abilityImageUrl) {
+        const icon = add('image', { x: 4, y: centerY - 8, width: 16, height: 16, href: abilityImageUrl, preserveAspectRatio: 'xMidYMid meet' });
+        icon.appendChild(document.createElementNS(svgNS, 'title')).textContent = abilityName;
+      }
+      add('text', { x: abilityImageUrl ? 24 : 4, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, abilityName.length > 17 ? abilityName.slice(0, 16) + '…' : abilityName);
     }
     add('line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b', 'stroke-width': 1 });
     spans.forEach(span => {
@@ -2331,14 +3086,21 @@ function renderCombatTimeline(fight, container, planningMode = false) {
     });
     casts.forEach(event => {
       const x = xAt(event.timestamp);
-      const marker = add('path', { d: `M ${x} ${centerY - 7} l 5 6 l -5 6 l -5 -6 Z`, fill: planningMode ? row.color : '#38bdf8', stroke: '#0f172a', 'stroke-width': 1, class: 'cursor-pointer' });
+      const marker = abilityImageUrl
+        ? add('image', { x: x - 8, y: centerY - 8, width: 16, height: 16, href: abilityImageUrl, preserveAspectRatio: 'xMidYMid meet', class: 'cursor-pointer' })
+        : add('rect', { x: x - 5, y: centerY - 5, width: 10, height: 10, fill: planningMode ? row.color : '#38bdf8', stroke: '#0f172a', 'stroke-width': 1, class: 'cursor-pointer' });
       marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${eventAbilityName(event)} pressed by ${actorNames.get(String(event.sourceID)) || 'player'} at ${formatSecondsToMMSS((event.timestamp - start) / 1000)}`;
       if (!planningMode) marker.addEventListener('click', () => jumpToSpecificOffsetMs(event.timestamp - start));
     });
   });
   if (!planningMode) add('line', { 'data-timeline-playhead': 'true', x1: left, y1: 0, x2: left, y2: height, stroke: '#22d3ee', 'stroke-width': 2, 'stroke-opacity': 0.85, 'pointer-events': 'none' });
-  container.appendChild(axisWrap);
-  container.appendChild(svg);
+  pinnedTracks.appendChild(axisSvg);
+  if (!planningMode) pinnedTracks.append(mechanicSvg, deathsSvg);
+  const scrollArea = document.createElement('div');
+  scrollArea.className = 'flex-1 min-h-0 overflow-y-auto overflow-x-hidden';
+  scrollArea.style.scrollbarGutter = 'stable';
+  scrollArea.appendChild(svg);
+  container.replaceChildren(pinnedTracks, scrollArea);
   if (!planningMode) {
     updateTimelinePlayhead(getTimelinePlaybackOffsetMs(fight));
     renderMechanicsList();
@@ -2347,13 +3109,13 @@ function renderCombatTimeline(fight, container, planningMode = false) {
     const status = document.createElement('div');
     status.className = 'text-[10px] text-slate-600 py-1';
     status.textContent = planningMode ? 'Loading ability events...' : 'Loading ability events...';
-    container.appendChild(status);
+    scrollArea.appendChild(status);
   }
   if (!abilityRows.length) {
     const hint = document.createElement('div');
     hint.className = 'text-[10px] text-slate-600 py-1';
     hint.textContent = planningMode ? (isLoading ? 'Loading tracked ability events...' : 'No tracked abilities have class assignments or matching casts for this pull.') : 'Assign an ability a class that is represented by a POV to show it here.';
-    container.appendChild(hint);
+    scrollArea.appendChild(hint);
   }
   if (planningMode) {
     const summary = document.getElementById('planning-ability-summary');
@@ -2389,9 +3151,13 @@ function removePOV(id) {
   renderPOVModalBody();
 }
 function selectPOV(id) {
+  const fight = getActiveFight();
+  const playbackOffsetMs = fight ? getTimelinePlaybackOffsetMs(fight) : null;
+  const slider = document.getElementById('timeline-seek-input');
+  const offsetMs = playbackOffsetMs != null ? playbackOffsetMs : (slider ? Number(slider.value) * 1000 : 0);
   activePovId = id;
   renderPOVTabs();
-  jumpToCurrentPullStart();
+  if (fight) seekToAbsTime(pullAbsStartMs(fight) + offsetMs);
 }
 function addSegment(povId) {
   const pov = povs.find(p => p.id === povId);
@@ -2433,30 +3199,25 @@ async function tryAutoSyncSegment(pov, seg, row) {
   persistPOVs();
   const statusEl = row.querySelector('.seg-status');
   const nudgeInput = row.querySelector('.seg-nudge-input');
-  const configuredNudge = nudgeInput.value.trim() === '' ? DEFAULT_AUTO_SYNC_NUDGE_SECONDS : Number(nudgeInput.value);
+  const configuredNudge = nudgeInput && nudgeInput.value.trim() !== '' ? Number(nudgeInput.value) : DEFAULT_AUTO_SYNC_NUDGE_SECONDS;
   const nudgeSeconds = Number.isFinite(configuredNudge) ? configuredNudge : DEFAULT_AUTO_SYNC_NUDGE_SECONDS;
-  const btn = row.querySelector('.seg-autosync');
-  const originalLabel = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Checking...';
   statusEl.className = 'text-[10px] text-slate-500 seg-status';
-  statusEl.textContent = 'Checking YouTube for live broadcast start time...';
+  statusEl.textContent = 'Syncing from YouTube...';
   try {
-    const startAbsMs = await fetchYouTubeLiveStart(vid);
+    const timing = await fetchYouTubeLiveTiming(vid);
     if (seg.syncAttemptId !== attemptId) return;
-    seg.startAbsMs = startAbsMs + nudgeSeconds * 1000;
+    seg.startAbsMs = timing.startAbsMs + nudgeSeconds * 1000;
     seg.autoSynced = true;
     seg.syncNudgeSeconds = nudgeSeconds;
     persistPOVs();
-    showToast(`Auto-synced from YouTube with a ${nudgeSeconds}s nudge.`, 'success');
+    showToast('Synced automatically from YouTube.', 'success');
     renderPOVModalBody();
     if (getActivePOV() && getActivePOV().id === pov.id) jumpToCurrentPullStart();
   } catch (e) {
     if (seg.syncAttemptId !== attemptId) return;
     statusEl.className = 'text-[10px] text-rose-400 seg-status';
-    statusEl.textContent = `${e.message} Manual calibration is still available.`;
-    btn.disabled = false;
-    btn.innerHTML = originalLabel;
+    statusEl.textContent = `${e.message}`;
+    renderPOVModalBody();
   }
 }
 
@@ -2494,35 +3255,33 @@ function renderPOVModalBody() {
     const jobOptions = Object.keys(JOB_COLORS).map(j => `<option value="${j}" ${pov.job === j ? 'selected' : ''}>${j}</option>`).join('');
 
     let segmentsHtml = pov.segments.map(seg => {
-      const statusText = seg.startAbsMs != null
-        ? `${seg.autoSynced ? `Auto-synced (${seg.syncNudgeSeconds ?? DEFAULT_AUTO_SYNC_NUDGE_SECONDS}s nudge)` : 'Synced'} — video 00:00 = ${new Date(seg.startAbsMs).toLocaleString()}`
-        : 'Not synced yet — paste a video below and set its start time';
-      const statusColor = seg.startAbsMs != null ? 'text-emerald-400' : 'text-slate-500';
+      const synced = seg.startAbsMs != null;
+      const statusText = synced
+        ? `${seg.autoSynced ? 'Synced automatically' : 'Synced'} — video 00:00 = ${new Date(seg.startAbsMs).toLocaleString()}`
+        : (seg.videoId ? 'Not synced yet — checking YouTube...' : 'Paste a YouTube video link above — it syncs automatically.');
+      const statusColor = synced ? 'text-emerald-400' : 'text-slate-500';
       return `
       <div class="bg-slate-900 p-2 rounded border border-slate-800 space-y-1.5" data-seg="${seg.id}">
         <div class="grid grid-cols-12 gap-1.5 items-center">
-          <input class="col-span-11 seg-video bg-slate-950 border border-slate-800 rounded px-2 py-1 font-mono text-[11px]" placeholder="YouTube URL or ID" value="${escapeHTML(seg.videoId || '')}">
+          <input class="col-span-10 seg-video bg-slate-950 border border-slate-800 rounded px-2 py-1 font-mono text-[11px]" placeholder="Paste a YouTube video URL" value="${escapeHTML(seg.videoId || '')}">
+          <button class="col-span-1 seg-retry bg-slate-800 hover:bg-slate-700 rounded px-1 py-1 text-[10px]" title="Retry auto-sync"><i class="fa-solid fa-rotate"></i></button>
           <button class="col-span-1 seg-del bg-rose-900/60 hover:bg-rose-800 rounded px-1 py-1 text-[10px]"><i class="fa-solid fa-trash-can"></i></button>
-        </div>
-        <div class="grid grid-cols-12 gap-1.5 items-center">
-          <select class="col-span-4 seg-pull bg-slate-950 border border-slate-800 rounded px-1 py-1 text-[11px]">
-            <option value="">This video starts at pull...</option>
-            ${report ? report.fights.map((f, i) => `<option value="${f.id}">Pull ${i + 1} — ${escapeHTML(f.name)}</option>`).join('') : ''}
-          </select>
-          <input class="col-span-3 seg-time bg-slate-950 border border-slate-800 rounded px-2 py-1 font-mono text-[11px]" placeholder="MM:SS in video">
-          <button class="col-span-2 seg-grab bg-slate-800 hover:bg-slate-700 rounded px-1 py-1 text-[10px]" title="Use current player position">grab</button>
-          <button class="col-span-3 seg-apply bg-ffpurple-600 hover:bg-ffpurple-500 rounded px-1 py-1 text-[10px] font-bold">Set sync point</button>
         </div>
         <div class="text-[10px] ${statusColor} seg-status">${statusText}</div>
 
-        <details>
-          <summary class="text-[10px] text-slate-500 cursor-pointer hover:text-slate-300 select-none">Advanced: try auto-sync / nudge (optional)</summary>
+        <details ${synced ? '' : 'open'}>
+          <summary class="text-[10px] text-slate-500 cursor-pointer hover:text-slate-300 select-none">${synced ? 'Manual override (rarely needed)' : 'Manual sync (only needed if auto-sync fails, e.g. an uploaded/edited video)'}</summary>
           <div class="grid grid-cols-12 gap-1.5 items-center mt-1.5">
-            <button class="col-span-7 seg-autosync bg-slate-800 hover:bg-slate-700 rounded px-2 py-1 text-[10px]"><i class="fa-brands fa-youtube"></i> Try auto-sync from YouTube</button>
-            <span class="col-span-5 text-[9px] text-slate-600">needs a YouTube API key in Settings</span>
+            <select class="col-span-4 seg-pull bg-slate-950 border border-slate-800 rounded px-1 py-1 text-[11px]">
+              <option value="">This video starts at pull...</option>
+              ${report ? report.fights.map((f, i) => `<option value="${f.id}">Pull ${i + 1} — ${escapeHTML(f.name)}</option>`).join('') : ''}
+            </select>
+            <input class="col-span-3 seg-time bg-slate-950 border border-slate-800 rounded px-2 py-1 font-mono text-[11px]" placeholder="MM:SS in video">
+            <button class="col-span-2 seg-grab bg-slate-800 hover:bg-slate-700 rounded px-1 py-1 text-[10px]" title="Use current player position">grab</button>
+            <button class="col-span-3 seg-apply bg-ffpurple-600 hover:bg-ffpurple-500 rounded px-1 py-1 text-[10px] font-bold">Set sync point</button>
           </div>
           <div class="grid grid-cols-12 gap-1.5 items-center mt-1.5">
-            <span class="col-span-4 text-[10px] text-slate-500">Nudge sync (seconds):</span>
+            <span class="col-span-4 text-[10px] text-slate-500">Nudge (seconds):</span>
             <input class="col-span-3 seg-nudge-input bg-slate-950 border border-slate-800 rounded px-2 py-1 font-mono text-[11px]" value="${seg.autoSynced ? '' : DEFAULT_AUTO_SYNC_NUDGE_SECONDS}" placeholder="e.g. 2 or -1.5" type="number" step="0.1">
             <button class="col-span-5 seg-nudge-apply bg-slate-800 hover:bg-slate-700 rounded px-1 py-1 text-[10px]">Apply nudge</button>
           </div>
@@ -2549,17 +3308,20 @@ function renderPOVModalBody() {
     wrap.querySelectorAll('[data-seg]').forEach(row => {
       const segId = row.getAttribute('data-seg');
       const seg = pov.segments.find(s => s.id === segId);
-      row.querySelector('.seg-video').addEventListener('change', e => {
-        seg.videoId = extractYouTubeId(e.target.value);
+      const videoInput = row.querySelector('.seg-video');
+      const trySync = () => {
+        seg.videoId = extractYouTubeId(videoInput.value);
         persistPOVs();
         if (seg.videoId) tryAutoSyncSegment(pov, seg, row);
-      });
-      row.querySelector('.seg-del').addEventListener('click', () => removeSegment(pov.id, segId));
-
-      row.querySelector('.seg-autosync').addEventListener('click', () => {
-        if (!extractYouTubeId(row.querySelector('.seg-video').value)) { showToast('Enter a YouTube URL or video ID first.', 'error'); return; }
+      };
+      // Paste-and-done: sync fires as soon as a valid link lands, no extra clicks needed.
+      videoInput.addEventListener('change', trySync);
+      videoInput.addEventListener('paste', () => setTimeout(trySync, 0));
+      row.querySelector('.seg-retry').addEventListener('click', () => {
+        if (!extractYouTubeId(videoInput.value)) { showToast('Paste a YouTube URL or video ID first.', 'error'); return; }
         tryAutoSyncSegment(pov, seg, row);
       });
+      row.querySelector('.seg-del').addEventListener('click', () => removeSegment(pov.id, segId));
 
       row.querySelector('.seg-grab').addEventListener('click', () => {
         if (!ytReady || !ytPlayer || currentLoadedVideoId !== seg.videoId) { showToast('Load this segment video in the main player first, then grab.', 'error'); return; }
@@ -2568,7 +3330,7 @@ function renderPOVModalBody() {
       row.querySelector('.seg-apply').addEventListener('click', () => {
         const fightId = row.querySelector('.seg-pull').value;
         const timeStr = row.querySelector('.seg-time').value;
-        const vid = extractYouTubeId(row.querySelector('.seg-video').value);
+        const vid = extractYouTubeId(videoInput.value);
         if (!vid) { showToast('Enter a YouTube URL or video ID first.', 'error'); return; }
         if (!fightId) { showToast('Choose which pull this timestamp corresponds to.', 'error'); return; }
         const secs = parseMMSSorHHMMSS(timeStr);
