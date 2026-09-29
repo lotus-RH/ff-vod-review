@@ -782,14 +782,14 @@ function renderAbilityList() {
   trackedAbilityNames.forEach((name, index) => {
     const key = abilityCooldownKey(name);
     const row = document.createElement('div');
-    row.className = 'grid grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] items-center gap-2 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2';
-    const details = document.createElement('div');
-    details.className = 'min-w-0 flex flex-col gap-1';
+    row.className = 'flex flex-col gap-2 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2';
+    const header = document.createElement('div');
+    header.className = 'flex items-center gap-2 min-w-0';
     const label = document.createElement('span');
-    label.className = 'text-slate-200 truncate';
+    label.className = 'text-slate-200 truncate flex-1';
     label.textContent = name;
     const classTags = document.createElement('div');
-    classTags.className = 'flex flex-wrap items-center gap-1';
+    classTags.className = 'flex flex-wrap items-center gap-1 min-h-5';
     const renderClassTags = () => {
       classTags.innerHTML = '';
       getAbilityClasses(name).forEach(job => {
@@ -811,7 +811,7 @@ function renderAbilityList() {
       });
     };
     const classSelect = document.createElement('select');
-    classSelect.className = 'bg-slate-900 border border-slate-800 rounded px-2 py-1 text-slate-200';
+    classSelect.className = 'bg-slate-900 border border-slate-800 rounded px-2 py-1 text-slate-200 shrink-0';
     classSelect.title = `Add a class tag to ${name}`;
     classSelect.innerHTML = '<option value="">Add class...</option>' + Object.keys(JOB_COLORS).map(job => `<option value="${job}">${job}</option>`).join('');
     classSelect.addEventListener('change', () => {
@@ -824,6 +824,8 @@ function renderAbilityList() {
       renderClassTags();
     });
     renderClassTags();
+    const metadata = document.createElement('div');
+    metadata.className = 'flex flex-wrap items-center gap-x-3 gap-y-2';
     const cooldownControl = document.createElement('label');
     cooldownControl.className = 'flex items-center gap-1.5 text-[10px] text-slate-500';
     cooldownControl.textContent = 'Cooldown';
@@ -868,8 +870,9 @@ function renderAbilityList() {
       }
       persistTrackedAbilityNames();
     });
-    const imageControl = document.createElement('div');
-    imageControl.className = 'flex items-center gap-1.5';
+    const imageControl = document.createElement('label');
+    imageControl.className = 'flex items-center gap-1.5 text-[10px] text-slate-500';
+    imageControl.appendChild(document.createTextNode('Icon'));
     const imagePreview = document.createElement('img');
     imagePreview.className = 'w-6 h-6 rounded object-cover border border-slate-700 bg-slate-900';
     imagePreview.style.display = trackedAbilityImages[key] ? 'block' : 'none';
@@ -890,12 +893,13 @@ function renderAbilityList() {
     });
     imageControl.append(imagePreview, imageInput);
     const remove = document.createElement('button');
-    remove.className = 'text-rose-400 hover:text-rose-300 px-2 py-1 rounded hover:bg-slate-800';
+    remove.className = 'text-rose-400 hover:text-rose-300 px-2 py-1 rounded hover:bg-slate-800 shrink-0';
     remove.title = `Remove ${name}`;
     remove.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
     remove.addEventListener('click', () => removeTrackedAbility(index));
-    details.append(label, classTags, classSelect);
-    row.append(details, durationControl, cooldownControl, imageControl, remove);
+    header.append(label, classSelect, remove);
+    metadata.append(durationControl, cooldownControl, imageControl);
+    row.append(header, classTags, metadata);
     container.appendChild(row);
   });
 }
