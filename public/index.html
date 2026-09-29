@@ -197,8 +197,16 @@
         <div class="text-[11px] text-slate-500 mt-1.5 shrink-0" id="timeline-help">Enter one or more ability names to show their casts and buff durations in this pull.</div>
       </div>
 
-      <div id="tab-content-deaths" class="bottom-tab-content hidden flex-1 p-3 overflow-y-auto">
-        <div id="deaths-list-container" class="flex flex-col items-center gap-1.5"></div>
+      <div id="tab-content-deaths" class="bottom-tab-content hidden flex-1 min-h-0 p-3">
+        <div class="flex h-full min-h-0 gap-3">
+          <div id="deaths-list-container" class="w-72 max-w-[42%] shrink-0 flex flex-col items-stretch gap-1.5 overflow-y-auto pr-2 border-r border-slate-800"></div>
+          <section class="flex-1 min-w-0 overflow-y-auto pl-1">
+            <h2 id="death-detail-title" class="text-xs font-bold text-slate-300 mb-2">Select a death</h2>
+            <div id="death-detail-body" class="space-y-3 text-xs">
+              <div class="text-slate-500 italic text-center py-8">Choose a player from the list to inspect what happened.</div>
+            </div>
+          </section>
+        </div>
       </div>
 
       <div id="tab-content-notes" class="bottom-tab-content hidden flex-1 p-3 overflow-y-auto flex flex-col gap-2">
@@ -1793,6 +1801,10 @@ async function loadTimelineEventsForFight(fightId) {
 }
 
 async function loadDeathsForFight(fightId) {
+  selectedDeathKey = '';
+  lastDeathDetail = null;
+  document.getElementById('death-detail-title').textContent = 'Select a death';
+  document.getElementById('death-detail-body').innerHTML = '<div class="text-slate-500 italic text-center py-8">Choose a player from the list to inspect what happened.</div>';
   document.getElementById('deaths-list-container').innerHTML = '<div class="text-xs text-slate-500 italic p-3">Loading...</div>';
   if (deathsCache[fightId]) { renderDeathRecap(fightId); renderTimeline(); return; }
   try {
@@ -1823,21 +1835,32 @@ function renderDeathRecap(fightId) {
   document.getElementById('pull-death-count').textContent = deaths.length;
   container.innerHTML = '';
   if (!deaths.length) {
-    container.innerHTML = '<div class="w-full text-xs text-slate-500 italic p-3 text-center">No deaths recorded for this pull.</div>';
+    container.innerHTML = '<div class="w-full text-xs text-slate-500 italic p-3">No deaths recorded for this pull.</div>';
     return;
   }
   deaths.forEach(d => {
+    const deathKey = `${fightId}_${d.targetID}_${d.timeMs}`;
     const card = document.createElement('div');
-    card.className = 'inline-flex items-center gap-2 bg-slate-950 border border-slate-800 hover:border-slate-600 rounded-lg pl-2 pr-1.5 py-1 text-xs transition';
+    card.className = `w-full grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 bg-slate-950 border rounded-lg p-2 text-xs transition ${selectedDeathKey === deathKey ? 'border-rose-500/60 bg-rose-950/30' : 'border-slate-800 hover:border-slate-600'}`;
     card.innerHTML = `
-      <i class="fa-solid fa-skull text-rose-400 text-[10px]"></i>
-      <button class="death-name font-semibold text-slate-200 hover:text-white hover:underline" title="View last moments">${escapeHTML(d.player)}</button>
-      <span class="text-amber-400/90 truncate max-w-[150px]" title="${escapeHTML(d.ability)}">${escapeHTML(d.ability)}</span>
-      <button class="death-time bg-slate-800 hover:bg-slate-700 text-ffcyan-400 px-1.5 py-0.5 rounded font-mono font-bold" title="Jump to this moment in the video"><i class="fa-solid fa-play text-[8px]"></i> ${formatSecondsToMMSS(Math.round(d.timeMs / 1000))}</button>`;
-    card.querySelector('.death-name').onclick = () => openDeathDetailModal(fightId, d);
+      <button class="death-name min-w-0 flex items-start gap-2 text-left" title="View what happened to ${escapeHTML(d.player)}">
+        <i class="fa-solid fa-skull text-rose-400 text-[10px] mt-0.5"></i>
+        <span class="min-w-0"><span class="block font-semibold text-slate-200 truncate">${escapeHTML(d.player)}</span><span class="block text-amber-400/90 text-[10px] truncate" title="${escapeHTML(d.ability)}">${escapeHTML(d.ability)}</span></span>
+      </button>
+      <button class="death-time bg-slate-800 hover:bg-slate-700 text-ffcyan-400 px-1.5 py-1 rounded font-mono font-bold" title="Jump to this moment in the video"><i class="fa-solid fa-play text-[8px]"></i> ${formatSecondsToMMSS(Math.round(d.timeMs / 1000))}</button>`;
+    card.querySelector('.death-name').onclick = () => {
+      openDeathInTab(fightId, d);
+    };
     card.querySelector('.death-time').onclick = () => jumpToSpecificOffsetMs(d.timeMs);
     container.appendChild(card);
   });
+}
+
+function openDeathInTab(fightId, death, seekToDeath = false) {
+  selectedDeathKey = `${fightId}_${death.targetID}_${death.timeMs}`;
+  if (seekToDeath) jumpToSpecificOffsetMs(death.timeMs);
+  switchBottomTab('deaths');
+  showDeathDetail(fightId, death);
 }
 
 /* =========================================================================
@@ -1883,22 +1906,23 @@ function toggleCustomMitigation(name) {
 
 let deathDetailCache = {};
 let lastDeathDetail = null;
+let selectedDeathKey = '';
 
-async function openDeathDetailModal(fightId, death) {
+async function showDeathDetail(fightId, death) {
   const fight = report.fights.find(f => f.id === fightId);
   if (!fight) return;
-  document.getElementById('death-detail-title').textContent = `${death.player} — Last Moments`;
-  document.getElementById('death-detail-modal').classList.remove('hidden');
+  const selectionKey = `${fightId}_${death.targetID}_${death.timeMs}`;
+  document.getElementById('death-detail-title').textContent = `${death.player} — Last 10 Seconds`;
   const body = document.getElementById('death-detail-body');
   body.innerHTML = '<div class="text-slate-500 italic text-center py-6"><i class="fa-solid fa-spinner fa-spin"></i> Loading last moments...</div>';
 
-  const cacheKey = `v4_${fightId}_${death.targetID}_${death.timeMs}`;
+  const cacheKey = `v5_${fightId}_${death.targetID}_${death.timeMs}`;
   if (deathDetailCache[cacheKey]) { renderDeathDetail(deathDetailCache[cacheKey], death, fight); return; }
   if (death.targetID == null) { body.innerHTML = '<div class="text-rose-400 text-center py-6">Could not identify this player for lookup.</div>'; return; }
 
   try {
     const deathAbs = fight.startTime + death.timeMs;
-    const winStart = Math.max(fight.startTime, deathAbs - 20000);
+    const winStart = Math.max(fight.startTime, deathAbs - 10000);
     const data = await fflogsQuery(DEATH_DETAIL_QUERY, {
       code: report.code,
       fightID: fightId,
@@ -1917,13 +1941,12 @@ async function openDeathDetailModal(fightId, death) {
       resources: (r.resources && r.resources.data) || []
     };
     deathDetailCache[cacheKey] = result;
-    renderDeathDetail(result, death, fight);
+    if (selectedDeathKey === selectionKey) renderDeathDetail(result, death, fight);
   } catch (e) {
     console.error(e);
-    body.innerHTML = `<div class="text-rose-400 text-center py-6">Could not load details: ${escapeHTML(e.message)}</div>`;
+    if (selectedDeathKey === selectionKey) body.innerHTML = `<div class="text-rose-400 text-center py-6">Could not load details: ${escapeHTML(e.message)}</div>`;
   }
 }
-function closeDeathDetailModal() { document.getElementById('death-detail-modal').classList.add('hidden'); }
 
 function resolveAbilityName(abilityGameID) {
   if (abilityGameID == null) return 'Unknown';
@@ -2100,7 +2123,7 @@ function renderDeathDetail(result, death, fight) {
   </div>`;
 
   html += `<div class="bg-slate-950 border border-slate-800 rounded-lg p-3">
-    <div class="text-[10px] uppercase text-slate-500 font-bold mb-1.5">Last 20 seconds</div>
+    <div class="text-[10px] uppercase text-slate-500 font-bold mb-1.5">Last 10 seconds</div>
     ${rows.length ? `<div class="space-y-1 max-h-80 overflow-y-auto pr-1">${rows.map(row => {
       const ev = row.ev;
       const relMs = ev.timestamp - fight.startTime;
@@ -3034,9 +3057,12 @@ function renderCombatTimeline(fight, container, planningMode = false) {
     addDeath('line', { x1: left, y1: pinnedTrackHeight - 1, x2: right, y2: pinnedTrackHeight - 1, stroke: '#334155', 'stroke-width': 1 });
     deaths.forEach(death => {
       const x = xAt(start + death.timeMs);
-      const marker = addDeath('rect', { x: x - 5, y: 10, width: 10, height: 10, fill: '#fb7185', stroke: '#0f172a', 'stroke-width': 1, class: 'cursor-pointer' });
+      const marker = addDeath('g', { class: 'cursor-pointer' });
       marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${death.player} died to ${death.ability} at ${formatSecondsToMMSS(death.timeMs / 1000)}`;
-      marker.addEventListener('click', () => jumpToSpecificOffsetMs(death.timeMs));
+      createSvgElement(marker, 'rect', { x: x - 44, y: 2, width: 88, height: 20, rx: 4, fill: '#fb7185', stroke: '#0f172a', 'stroke-width': 1 });
+      const playerLabel = death.player.length > 13 ? `${death.player.slice(0, 12)}…` : death.player;
+      createSvgElement(marker, 'text', { x, y: 15, fill: '#0f172a', 'font-size': 8, 'font-weight': 700, 'text-anchor': 'middle', 'pointer-events': 'none' }, playerLabel);
+      marker.addEventListener('click', () => openDeathInTab(fight.id, death, true));
     });
   }
   let rowIndex = 0;
@@ -3505,16 +3531,6 @@ function escapeHTML(str) {
   return String(str == null ? '' : str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 </script>
-<!-- DEATH DETAIL MODAL -->
-<div id="death-detail-modal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4">
-  <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-3xl max-h-[88vh] flex flex-col shadow-2xl">
-    <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
-      <h2 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-skull text-rose-400"></i> <span id="death-detail-title">Last Moments</span></h2>
-      <button onclick="closeDeathDetailModal()" class="text-slate-500 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <div id="death-detail-body" class="p-4 space-y-3 overflow-y-auto text-xs"></div>
-  </div>
-</div>
 
 </body>
 </html>
