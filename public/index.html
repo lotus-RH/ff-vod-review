@@ -1448,7 +1448,7 @@ function populateBossFilter() {
     });
     select.classList.toggle('hidden', encounters.size <= 1);
     select.replaceChildren(new Option('All bosses', ''));
-    [...encounters.entries()].sort((a, b) => a[1].localeCompare(b[1])).forEach(([id, name]) => {
+    [...encounters.entries()].forEach(([id, name]) => {
       select.appendChild(new Option(name, String(id)));
     });
     select.value = selectedEncounterFilter;
