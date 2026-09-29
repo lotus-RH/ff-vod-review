@@ -2272,7 +2272,7 @@ function adjustReviewZoom(delta) {
 
 function getReviewAbilityRows(events, fight) {
   const rosterJobs = new Set(getReviewClassJobs());
-  return getPlanningAbilityRows(events, fight).filter(row => rosterJobs.has(row.job) && !hiddenReviewClasses.has(row.job));
+  return getPlanningAbilityRows(events, fight).filter(row => row.type === 'ability' && rosterJobs.has(row.job) && !hiddenReviewClasses.has(row.job));
 }
 
 function renderCuratedPlanningTimeline(encounter, container) {
@@ -2987,11 +2987,13 @@ function renderCombatTimeline(fight, container, planningMode = false) {
       }
       add('text', { x: abilityImageUrl ? 32 : 12, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, abilityLabel).appendChild(document.createElementNS(svgNS, 'title')).textContent = `${abilityName}${row.actorNames.length ? ` · ${row.actorNames.join(', ')}` : ''}`;
     } else {
+      add('text', { x: 4, y: centerY + 3, fill: row.color, 'font-size': 8, 'font-weight': 700 }, row.job);
       if (abilityImageUrl) {
-        const icon = add('image', { x: 4, y: centerY - 8, width: 16, height: 16, href: abilityImageUrl, preserveAspectRatio: 'xMidYMid meet' });
+        const icon = add('image', { x: 24, y: centerY - 8, width: 16, height: 16, href: abilityImageUrl, preserveAspectRatio: 'xMidYMid meet' });
         icon.appendChild(document.createElementNS(svgNS, 'title')).textContent = abilityName;
       }
-      add('text', { x: abilityImageUrl ? 24 : 4, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, abilityName.length > 17 ? abilityName.slice(0, 16) + '…' : abilityName);
+      const labelX = abilityImageUrl ? 44 : 24;
+      add('text', { x: labelX, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, abilityName.length > 11 ? abilityName.slice(0, 10) + '…' : abilityName);
     }
     add('line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b', 'stroke-width': 1 });
     spans.forEach(span => {
