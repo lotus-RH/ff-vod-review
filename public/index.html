@@ -400,6 +400,12 @@ const PLANNING_CLASS_GROUPS = [
   { name: 'Phys', jobs: ['DNC', 'MCH', 'BRD'] },
   { name: 'Caster', jobs: ['RDM', 'PCT', 'BLM', 'SMN'] }
 ];
+const JOB_ROLE_ORDER = PLANNING_CLASS_GROUPS.flatMap(group => group.jobs);
+function compareJobsByRole(a, b) {
+  const aIndex = JOB_ROLE_ORDER.indexOf(String(a).toUpperCase());
+  const bIndex = JOB_ROLE_ORDER.indexOf(String(b).toUpperCase());
+  return (aIndex < 0 ? JOB_ROLE_ORDER.length : aIndex) - (bIndex < 0 ? JOB_ROLE_ORDER.length : bIndex) || String(a).localeCompare(String(b));
+}
 const DEFAULT_AUTO_SYNC_NUDGE_SECONDS = -8;
 const DEFAULT_MECHANIC_RECAST_IGNORE_SECONDS = 5;
 
@@ -2331,7 +2337,7 @@ function renderPlanningClassFilters() {
 }
 
 function getReviewClassJobs() {
-  return [...new Set(getPlayersInCurrentPull().map(actor => jobCodeForSubType(actor.subType)).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  return [...new Set(getPlayersInCurrentPull().map(actor => jobCodeForSubType(actor.subType)).filter(Boolean))].sort(compareJobsByRole);
 }
 
 function renderReviewClassFilters() {
@@ -3264,7 +3270,7 @@ function renderPOVTabs() {
     c.innerHTML = '<span class="text-[11px] text-slate-600 italic">No POVs yet — click POVs above to add one.</span>';
     return;
   }
-  povs.forEach(p => {
+  povs.slice().sort((a, b) => compareJobsByRole(a.job, b.job) || a.player.localeCompare(b.player)).forEach(p => {
     const color = JOB_COLORS[p.job] || '#64748b';
     const btn = document.createElement('button');
     btn.onclick = () => selectPOV(p.id);
