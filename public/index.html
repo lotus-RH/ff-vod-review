@@ -101,20 +101,19 @@
 
       <div class="flex flex-wrap items-center gap-2 mt-2.5 pb-1 text-[11px]">
         <button onclick="filterPulls('all')" id="filter-btn-all" class="filter-btn active bg-slate-800 text-white px-2.5 py-1 rounded font-medium border border-slate-700 shrink-0">All</button>
-        <div id="boss-filter-wrap" class="hidden items-center gap-1.5">
-          <label for="boss-filter" class="text-slate-400">Boss</label>
-          <select id="boss-filter" class="bg-slate-950 border border-slate-800 rounded px-2 py-1 text-slate-200 max-w-36">
+        <div class="flex items-center gap-1.5">
+          <select id="boss-filter" class="hidden bg-slate-950 border border-slate-800 rounded px-2 py-1 text-slate-200 max-w-32" aria-label="Filter by boss">
             <option value="">All bosses</option>
           </select>
+          <select id="phase-filter" class="bg-slate-950 border border-slate-800 rounded px-2 py-1 text-slate-200 max-w-32" aria-label="Filter by phase">
+            <option value="">Any phase</option>
+          </select>
         </div>
-        <select id="phase-filter" class="bg-slate-950 border border-slate-800 rounded px-2 py-1 text-slate-200 max-w-36" aria-label="Filter by phase">
-          <option value="">Any phase</option>
-        </select>
-        <label for="wipe-threshold-input" class="text-slate-400">Boss HP</label>
         <div class="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded px-2 py-1">
-          <input id="wipe-threshold-range" type="range" min="0" max="100" step="0.1" value="20" class="w-24 accent-amber-400" aria-label="Wipe boss health threshold percentage">
-          <input id="wipe-threshold-input" type="number" min="0" max="100" step="0.1" value="20" class="bg-transparent text-amber-300 font-mono w-12 text-right" aria-label="Wipe boss health threshold percentage">
-          <span class="text-slate-500">%</span>
+          <label for="fight-time-input" class="text-slate-400 shrink-0">Fight Time</label>
+          <input id="fight-time-range" type="range" min="0" max="30" step="0.5" value="0" class="w-20 accent-amber-400" aria-label="Minimum pull duration in minutes">
+          <input id="fight-time-input" type="number" min="0" max="30" step="0.5" value="0" class="bg-transparent text-amber-300 font-mono w-10 text-right" aria-label="Minimum pull duration in minutes">
+          <span class="text-slate-500">min</span>
         </div>
       </div>
     </div>
@@ -431,8 +430,7 @@ let activePlanningEncounterId = '';
 let hiddenPlanningClasses = new Set();
 let hiddenReviewClasses = new Set();
 let reviewTimelineZoom = 1;
-let currentFilter = 'all';
-let wipeThreshold = 20;
+let minimumFightDurationMinutes = 0;
 let selectedPhaseFilter = '';
 let selectedEncounterFilter = '';
 
@@ -465,16 +463,18 @@ window.addEventListener('DOMContentLoaded', async () => {
     event.preventDefault();
     addTrackedAbilityFromForm();
   });
-  document.getElementById('wipe-threshold-input').addEventListener('input', updateWipeThreshold);
-  document.getElementById('wipe-threshold-range').addEventListener('input', updateWipeThreshold);
+  document.getElementById('fight-time-input').addEventListener('input', updateFightTimeThreshold);
+  document.getElementById('fight-time-range').addEventListener('input', updateFightTimeThreshold);
   document.getElementById('phase-filter').addEventListener('change', event => {
     selectedPhaseFilter = event.target.value;
+    updateAllFilterButton();
     renderPullList();
   });
   document.getElementById('boss-filter').addEventListener('change', event => {
     selectedEncounterFilter = event.target.value;
     selectedPhaseFilter = '';
     document.getElementById('phase-filter').value = '';
+    updateAllFilterButton();
     renderPullList();
   });
 });
@@ -1291,8 +1291,11 @@ async function loadReport(code) {
     deathDetailCache = {};
     selectedPhaseFilter = '';
     selectedEncounterFilter = '';
+    minimumFightDurationMinutes = 0;
     document.getElementById('boss-filter').value = '';
     document.getElementById('phase-filter').value = '';
+    document.getElementById('fight-time-input').value = '0';
+    document.getElementById('fight-time-range').value = '0';
     loadReportLocalData();
     document.getElementById('active-log-title').textContent = `${r.title} — ${report.zoneName}`;
     document.getElementById('active-log-title').classList.remove('hidden');
@@ -1303,6 +1306,7 @@ async function loadReport(code) {
     if (!activePovId && povs.length) activePovId = povs[0].id;
     populateBossFilter();
     populatePhaseFilter();
+    updateAllFilterButton();
     renderPullList();
     renderPOVTabs();
     renderLogPlayerChips();
@@ -1384,29 +1388,39 @@ function renderLogPlayerChips() {
    PULL LIST
    ========================================================================= */
 function filterPulls(type) {
-  currentFilter = type;
-  document.querySelectorAll('.filter-btn').forEach(button => button.classList.remove('active'));
-  if (type === 'all') document.getElementById('filter-btn-all').classList.add('active');
+  if (type === 'all') {
+    selectedEncounterFilter = '';
+    selectedPhaseFilter = '';
+    minimumFightDurationMinutes = 0;
+    document.getElementById('boss-filter').value = '';
+    document.getElementById('phase-filter').value = '';
+    document.getElementById('fight-time-input').value = '0';
+    document.getElementById('fight-time-range').value = '0';
+  }
+  updateAllFilterButton();
   renderPullList();
 }
 
-function updateWipeThreshold(event) {
+function updateAllFilterButton() {
+  const hasFilters = Boolean(selectedEncounterFilter || selectedPhaseFilter || minimumFightDurationMinutes > 0);
+  document.getElementById('filter-btn-all').classList.toggle('active', !hasFilters);
+}
+
+function updateFightTimeThreshold(event) {
   const input = event.target;
-  const numberInput = document.getElementById('wipe-threshold-input');
-  const rangeInput = document.getElementById('wipe-threshold-range');
+  const numberInput = document.getElementById('fight-time-input');
+  const rangeInput = document.getElementById('fight-time-range');
   const value = Number(input.value);
   if (input.value === '' || !Number.isFinite(value)) {
-    currentFilter = 'all';
-    document.querySelectorAll('.filter-btn').forEach(button => button.classList.remove('active'));
-    document.getElementById('filter-btn-all').classList.add('active');
-    rangeInput.value = String(wipeThreshold);
+    minimumFightDurationMinutes = 0;
+    numberInput.value = '0';
+    rangeInput.value = '0';
   } else {
-    wipeThreshold = Math.max(0, Math.min(100, value));
-    numberInput.value = wipeThreshold;
-    rangeInput.value = wipeThreshold;
-    currentFilter = 'threshold';
-    document.querySelectorAll('.filter-btn').forEach(button => button.classList.remove('active'));
+    minimumFightDurationMinutes = Math.max(0, Math.min(30, value));
+    numberInput.value = String(minimumFightDurationMinutes);
+    rangeInput.value = String(minimumFightDurationMinutes);
   }
+  updateAllFilterButton();
   renderPullList();
 }
 
@@ -1414,7 +1428,8 @@ function getFilteredFights() {
   if (!report) return [];
   return report.fights.filter(f => {
     if (selectedEncounterFilter && Number(f.encounterID) !== Number(selectedEncounterFilter)) return false;
-    if (currentFilter === 'threshold' && (f.kill || f.fightPercentage == null || f.fightPercentage > wipeThreshold)) return false;
+    const durationMinutes = Math.max(0, f.endTime - f.startTime) / 60000;
+    if (durationMinutes < minimumFightDurationMinutes) return false;
     if (selectedPhaseFilter) {
       const [bossId, phaseId] = selectedPhaseFilter.split(':').map(Number);
       if (Number(f.encounterID) !== bossId || getFightReachedPhaseId(f) !== phaseId) return false;
@@ -1423,17 +1438,15 @@ function getFilteredFights() {
   });
 }
 
-  function populateBossFilter() {
-    const wrapper = document.getElementById('boss-filter-wrap');
+function populateBossFilter() {
     const select = document.getElementById('boss-filter');
-    if (!wrapper || !select) return;
+    if (!select) return;
     const encounters = new Map();
     (report ? report.fights : []).forEach(fight => {
       const id = Number(fight.encounterID);
       if (id && !encounters.has(id)) encounters.set(id, fight.name || `Boss ${id}`);
     });
-    wrapper.classList.toggle('hidden', encounters.size <= 1);
-    wrapper.classList.toggle('flex', encounters.size > 1);
+    select.classList.toggle('hidden', encounters.size <= 1);
     select.replaceChildren(new Option('All bosses', ''));
     [...encounters.entries()].sort((a, b) => a[1].localeCompare(b[1])).forEach(([id, name]) => {
       select.appendChild(new Option(name, String(id)));
