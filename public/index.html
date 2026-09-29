@@ -99,12 +99,6 @@
         <span id="pull-count-badge" class="text-[11px] font-mono bg-ffpurple-900/60 text-ffpurple-300 px-2 py-0.5 rounded-full border border-ffpurple-600/40">0 pulls</span>
       </div>
 
-      <div class="grid grid-cols-3 gap-1.5 bg-slate-950 p-2 rounded-lg border border-slate-800 text-center">
-        <div><div class="text-[10px] text-slate-500 uppercase">Kills</div><div id="stat-kills" class="text-sm font-bold text-emerald-400 font-mono">-</div></div>
-        <div><div class="text-[10px] text-slate-500 uppercase">Best Pull</div><div id="stat-best" class="text-sm font-bold text-ffcyan-400 font-mono">-</div></div>
-        <div><div class="text-[10px] text-slate-500 uppercase">Raid Time</div><div id="stat-time" class="text-sm font-bold text-slate-300 font-mono">-</div></div>
-      </div>
-
       <div class="flex flex-wrap items-center gap-2 mt-2.5 pb-1 text-[11px]">
         <button onclick="filterPulls('all')" id="filter-btn-all" class="filter-btn active bg-slate-800 text-white px-2.5 py-1 rounded font-medium border border-slate-700 shrink-0">All</button>
         <div id="boss-filter-wrap" class="hidden items-center gap-1.5">
@@ -1495,7 +1489,6 @@ function renderPullList() {
   const container = document.getElementById('pull-list-container');
   container.innerHTML = '';
   document.getElementById('pull-count-badge').textContent = report ? `${report.fights.length} pulls` : '0 pulls';
-  updateStatsHeader();
 
   if (!report) {
     container.innerHTML = '<div class="text-xs text-slate-500 italic text-center p-6">Connect to FFLogs and load a report to see pulls here.</div>';
@@ -1528,22 +1521,6 @@ function renderPullList() {
       </div>`;
     container.appendChild(div);
   });
-}
-
-function updateStatsHeader() {
-  if (!report) {
-    document.getElementById('stat-kills').textContent = '-';
-    document.getElementById('stat-best').textContent = '-';
-    document.getElementById('stat-time').textContent = '-';
-    return;
-  }
-  const kills = report.fights.filter(f => f.kill).length;
-  const wipes = report.fights.filter(f => !f.kill && f.fightPercentage != null);
-  const best = wipes.length ? Math.min(...wipes.map(f => f.fightPercentage)) : (kills ? 0 : null);
-  const totalMs = report.fights.length ? (report.fights[report.fights.length - 1].endTime) : 0;
-  document.getElementById('stat-kills').textContent = kills;
-  document.getElementById('stat-best').textContent = best != null ? best.toFixed(1) + '%' : '-';
-  document.getElementById('stat-time').textContent = formatMsToHM(totalMs);
 }
 
 /* =========================================================================
