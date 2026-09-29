@@ -2852,8 +2852,8 @@ function renderCombatTimeline(fight, container, planningMode = false) {
   const abilityRows = planningMode ? getPlanningAbilityRows(events, fight) : getReviewAbilityRows(events, fight);
   const fightNotes = planningMode ? [] : notes.filter(note => note.fightId === fight.id);
   const deaths = planningMode ? [] : (deathsCache[fight.id] || []);
-  const rowHeight = planningMode ? 30 : 32;
-  const pinnedTrackHeight = 30;
+  const rowHeight = planningMode ? 30 : 27;
+  const pinnedTrackHeight = planningMode ? 30 : 24;
   const scrollRowCount = (fightNotes.length ? 1 : 0) + abilityRows.length;
   const height = Math.max(40, 8 + scrollRowCount * rowHeight);
   const svgNS = 'http://www.w3.org/2000/svg';
@@ -2931,8 +2931,8 @@ function renderCombatTimeline(fight, container, planningMode = false) {
     const mechanicEvents = mechanicRows.flatMap(row => row.casts.map(event => ({ ...event, mechanicName: row.name })));
     mechanicCategories.forEach((category, index) => {
       const track = mechanicSvgs[index];
-      const categoryLabel = createSvgElement(track, 'text', { x: 4, y: 19, fill: categoryColor(category), 'font-size': 8, 'font-weight': 700 }, `Mechanics · ${category}`.slice(0, 17));
-      categoryLabel.appendChild(document.createElementNS(svgNS, 'title')).textContent = `Mechanics · ${category}`;
+      const categoryLabel = createSvgElement(track, 'text', { x: 4, y: 19, fill: categoryColor(category), 'font-size': 9, 'font-weight': 700 }, category.slice(0, 16));
+      categoryLabel.appendChild(document.createElementNS(svgNS, 'title')).textContent = category;
       createSvgElement(track, 'line', { x1: left, y1: pinnedTrackHeight - 1, x2: right, y2: pinnedTrackHeight - 1, stroke: '#334155', 'stroke-width': 1 });
       mechanicEvents.filter(event => getMechanicCategory(event.mechanicName) === category).forEach(event => {
         const x = xAt(event.timestamp);
@@ -2940,8 +2940,8 @@ function renderCombatTimeline(fight, container, planningMode = false) {
         const marker = createSvgElement(track, 'g', { class: 'cursor-pointer' });
         const sourceName = event.sourceName || actorNames.get(String(event.sourceID)) || 'Enemy';
         marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${event.mechanicName} · ${category} · cast by ${sourceName} at ${formatSecondsToMMSS((event.timestamp - start) / 1000)}`;
-        createSvgElement(marker, 'rect', { x: x - 44, y: 5, width: 88, height: 20, rx: 4, fill: color, stroke: '#0f172a', 'stroke-width': 1 });
-        createSvgElement(marker, 'text', { x, y: 18, fill: '#0f172a', 'font-size': 8, 'font-weight': 700, 'text-anchor': 'middle', 'pointer-events': 'none' }, event.mechanicName.length > 13 ? `${event.mechanicName.slice(0, 12)}…` : event.mechanicName);
+        createSvgElement(marker, 'rect', { x: x - 44, y: 2, width: 88, height: 20, rx: 4, fill: color, stroke: '#0f172a', 'stroke-width': 1 });
+        createSvgElement(marker, 'text', { x, y: 15, fill: '#0f172a', 'font-size': 8, 'font-weight': 700, 'text-anchor': 'middle', 'pointer-events': 'none' }, event.mechanicName.length > 13 ? `${event.mechanicName.slice(0, 12)}…` : event.mechanicName);
         marker.addEventListener('click', () => jumpToSpecificOffsetMs(event.timestamp - start));
       });
     });
