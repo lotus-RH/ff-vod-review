@@ -107,11 +107,16 @@
 
       <div class="flex flex-wrap items-center gap-2 mt-2.5 pb-1 text-[11px]">
         <button onclick="filterPulls('all')" id="filter-btn-all" class="filter-btn active bg-slate-800 text-white px-2.5 py-1 rounded font-medium border border-slate-700 shrink-0">All</button>
-        <label for="phase-filter" class="text-slate-400">Deepest phase</label>
-        <select id="phase-filter" class="bg-slate-950 border border-slate-800 rounded px-2 py-1 text-slate-200 max-w-36">
+        <div id="boss-filter-wrap" class="hidden items-center gap-1.5">
+          <label for="boss-filter" class="text-slate-400">Boss</label>
+          <select id="boss-filter" class="bg-slate-950 border border-slate-800 rounded px-2 py-1 text-slate-200 max-w-36">
+            <option value="">All bosses</option>
+          </select>
+        </div>
+        <select id="phase-filter" class="bg-slate-950 border border-slate-800 rounded px-2 py-1 text-slate-200 max-w-36" aria-label="Filter by phase">
           <option value="">Any phase</option>
         </select>
-        <label for="wipe-threshold-input" class="text-slate-400">Wipes at or under</label>
+        <label for="wipe-threshold-input" class="text-slate-400">Boss HP</label>
         <div class="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded px-2 py-1">
           <input id="wipe-threshold-range" type="range" min="0" max="100" step="0.1" value="20" class="w-24 accent-amber-400" aria-label="Wipe boss health threshold percentage">
           <input id="wipe-threshold-input" type="number" min="0" max="100" step="0.1" value="20" class="bg-transparent text-amber-300 font-mono w-12 text-right" aria-label="Wipe boss health threshold percentage">
@@ -435,6 +440,7 @@ let reviewTimelineZoom = 1;
 let currentFilter = 'all';
 let wipeThreshold = 20;
 let selectedPhaseFilter = '';
+let selectedEncounterFilter = '';
 
 let ytPlayer = null;
 let ytReady = false;
@@ -469,6 +475,12 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('wipe-threshold-range').addEventListener('input', updateWipeThreshold);
   document.getElementById('phase-filter').addEventListener('change', event => {
     selectedPhaseFilter = event.target.value;
+    renderPullList();
+  });
+  document.getElementById('boss-filter').addEventListener('change', event => {
+    selectedEncounterFilter = event.target.value;
+    selectedPhaseFilter = '';
+    document.getElementById('phase-filter').value = '';
     renderPullList();
   });
 });
@@ -1284,6 +1296,8 @@ async function loadReport(code) {
     timelineEventsCache = {};
     deathDetailCache = {};
     selectedPhaseFilter = '';
+    selectedEncounterFilter = '';
+    document.getElementById('boss-filter').value = '';
     document.getElementById('phase-filter').value = '';
     loadReportLocalData();
     document.getElementById('active-log-title').textContent = `${r.title} — ${report.zoneName}`;
@@ -1293,6 +1307,7 @@ async function loadReport(code) {
     ensureReportPlayersArePOVs();
     renderPlanningControls();
     if (!activePovId && povs.length) activePovId = povs[0].id;
+    populateBossFilter();
     populatePhaseFilter();
     renderPullList();
     renderPOVTabs();
@@ -1404,6 +1419,7 @@ function updateWipeThreshold(event) {
 function getFilteredFights() {
   if (!report) return [];
   return report.fights.filter(f => {
+    if (selectedEncounterFilter && Number(f.encounterID) !== Number(selectedEncounterFilter)) return false;
     if (currentFilter === 'threshold' && (f.kill || f.fightPercentage == null || f.fightPercentage > wipeThreshold)) return false;
     if (selectedPhaseFilter) {
       const [bossId, phaseId] = selectedPhaseFilter.split(':').map(Number);
@@ -1412,6 +1428,24 @@ function getFilteredFights() {
     return true;
   });
 }
+
+  function populateBossFilter() {
+    const wrapper = document.getElementById('boss-filter-wrap');
+    const select = document.getElementById('boss-filter');
+    if (!wrapper || !select) return;
+    const encounters = new Map();
+    (report ? report.fights : []).forEach(fight => {
+      const id = Number(fight.encounterID);
+      if (id && !encounters.has(id)) encounters.set(id, fight.name || `Boss ${id}`);
+    });
+    wrapper.classList.toggle('hidden', encounters.size <= 1);
+    wrapper.classList.toggle('flex', encounters.size > 1);
+    select.replaceChildren(new Option('All bosses', ''));
+    [...encounters.entries()].sort((a, b) => a[1].localeCompare(b[1])).forEach(([id, name]) => {
+      select.appendChild(new Option(name, String(id)));
+    });
+    select.value = selectedEncounterFilter;
+  }
 
 function populatePhaseFilter() {
   const select = document.getElementById('phase-filter');
