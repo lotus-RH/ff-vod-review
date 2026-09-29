@@ -187,17 +187,6 @@
       </div>
 
       <div id="tab-content-timeline" class="bottom-tab-content flex-1 min-h-0 p-3 flex flex-col overflow-hidden">
-        <div class="flex justify-between items-center mb-1 text-xs text-slate-400 shrink-0">
-          <span id="timeline-pull-title" class="font-medium">No pull selected</span>
-          <span class="text-[11px] text-slate-500">Mechanics/Deaths pinned above · abilities scroll below</span>
-        </div>
-        <div class="flex items-center justify-between gap-2 mb-2 text-[10px] shrink-0">
-          <span id="tracked-ability-summary" class="text-slate-500">No abilities added</span>
-          <div class="flex items-center gap-1.5">
-            <button onclick="openMechanicsModal()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-2.5 py-1 text-slate-300"><i class="fa-solid fa-burst"></i> Mechanics</button>
-            <button onclick="openAbilityModal()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-2.5 py-1 text-slate-300"><i class="fa-solid fa-list"></i> Abilities</button>
-          </div>
-        </div>
         <div id="timeline-visualization" class="w-full flex-1 min-h-0 overflow-hidden bg-slate-950 rounded-lg border border-slate-800 px-2 flex flex-col"></div>
         <div class="text-[11px] text-slate-500 mt-1.5 shrink-0" id="timeline-help">Enter one or more ability names to show their casts and buff durations in this pull.</div>
       </div>
@@ -1526,8 +1515,6 @@ function selectPull(fightId) {
   if (encounterInput) encounterInput.value = activePlanningEncounterId;
   const planningSummary = document.getElementById('planning-pull-summary');
   if (planningSummary) planningSummary.textContent = `${fight.name} · ${fight.kill ? 'Kill' : 'Wipe'} · ${formatSecondsToMMSS(Math.round((fight.endTime - fight.startTime) / 1000))}`;
-  document.getElementById('timeline-pull-title').textContent =
-    `${fight.name} — ${fight.kill ? 'Kill' : (fight.fightPercentage != null ? fight.fightPercentage.toFixed(1) + '% remaining' : 'Wipe')} (${formatSecondsToMMSS(Math.round((fight.endTime - fight.startTime) / 1000))})`;
   jumpToCurrentPullStart();
   loadDeathsForFight(fightId);
   loadTimelineEventsForFight(fightId);
