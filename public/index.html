@@ -419,6 +419,7 @@ let trackedAbilityDurations = {};
 let trackedAbilityImages = {};
 let plannedUsages = {}; // encounterId -> abilityKey -> [{ id, time }]
 let planningZoom = 1;
+let planningPlayheadSeconds = null;
 let hiddenMechanicNames = [];
 let mechanicCategories = {};
 let customMitigationNames = [];
@@ -2245,6 +2246,27 @@ function renderCuratedPlanningTimeline(encounter, container) {
 
   const root = document.createElement('div');
   root.style.cssText = `position:relative;width:${totalWidth}px;`;
+  const playheadLines = [];
+  const positionPlanningPlayhead = seconds => {
+    planningPlayheadSeconds = secondsAt(seconds);
+    playheadLines.forEach(line => {
+      line.style.left = `${xAt(planningPlayheadSeconds)}px`;
+      line.classList.remove('hidden');
+    });
+  };
+  const addPlanningPlayhead = track => {
+    const line = document.createElement('div');
+    line.className = 'absolute top-0 bottom-0 z-20 w-0.5 -translate-x-1/2 bg-ffcyan-400 shadow-[0_0_4px_#22d3ee] pointer-events-none hidden';
+    if (planningPlayheadSeconds != null) {
+      line.style.left = `${xAt(planningPlayheadSeconds)}px`;
+      line.classList.remove('hidden');
+    }
+    playheadLines.push(line);
+    track.appendChild(line);
+    track.addEventListener('click', event => {
+      positionPlanningPlayhead(event.clientX - track.getBoundingClientRect().left);
+    });
+  };
 
   // Axis row
   const axisRow = document.createElement('div');
@@ -2263,6 +2285,7 @@ function renderCuratedPlanningTimeline(encounter, container) {
     tick.textContent = formatSecondsToMMSS(t);
     axisTrack.appendChild(tick);
   }
+  addPlanningPlayhead(axisTrack);
   axisRow.append(axisLabel, axisTrack);
   root.appendChild(axisRow);
 
@@ -2305,6 +2328,7 @@ function renderCuratedPlanningTimeline(encounter, container) {
       mechTrack.appendChild(chip);
     });
   });
+  addPlanningPlayhead(mechTrack);
   mechRow.append(mechLabel, mechTrack);
   root.appendChild(mechRow);
 
@@ -2321,7 +2345,9 @@ function renderCuratedPlanningTimeline(encounter, container) {
     roleName.textContent = group.name;
     roleLabel.append(roleName, createTrackResetButton(encounterId, group.name, group.jobs));
     const roleTrack = document.createElement('div');
+    roleTrack.className = 'relative';
     roleTrack.style.cssText = `width:${trackWidth}px; height:22px; background:rgba(51,65,85,0.15);`;
+    addPlanningPlayhead(roleTrack);
     roleRow.append(roleLabel, roleTrack);
     root.appendChild(roleRow);
 
@@ -2337,7 +2363,9 @@ function renderCuratedPlanningTimeline(encounter, container) {
       jobName.textContent = job;
       jobLabel.append(jobName, createTrackResetButton(encounterId, job, [job]));
       const jobTrack = document.createElement('div');
+      jobTrack.className = 'relative';
       jobTrack.style.cssText = `width:${trackWidth}px; height:20px; background:${color}10;`;
+      addPlanningPlayhead(jobTrack);
       jobRow.append(jobLabel, jobTrack);
       root.appendChild(jobRow);
 
@@ -2384,6 +2412,7 @@ function renderCuratedPlanningTimeline(encounter, container) {
           const rect = abilityTrack.getBoundingClientRect();
           addPlannedUsage(encounterId, name, secondsAt(event.clientX - rect.left), job);
         });
+        addPlanningPlayhead(abilityTrack);
 
         getPlannedUsages(encounterId, name, job).forEach(usage => {
           abilityTrack.appendChild(buildPlannedChip(encounterId, name, job, usage, { color, imageUrl, cooldownSeconds, abilityDurationSeconds: Number(trackedAbilityDurations[key]) || 0, pxPerSecond, durationSeconds, rowHeight: ABILITY_ROW_H, chipSize: ABILITY_CHIP }));
