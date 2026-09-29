@@ -105,7 +105,7 @@
           <select id="boss-filter" class="hidden bg-slate-950 border border-slate-800 rounded px-2 py-1 text-slate-200 max-w-32" aria-label="Filter by boss">
             <option value="">All bosses</option>
           </select>
-          <select id="phase-filter" class="bg-slate-950 border border-slate-800 rounded px-2 py-1 text-slate-200 max-w-32" aria-label="Filter by phase">
+          <select id="phase-filter" class="hidden bg-slate-950 border border-slate-800 rounded px-2 py-1 text-slate-200 max-w-32" aria-label="Filter by phase">
             <option value="">Any phase</option>
           </select>
         </div>
@@ -1532,7 +1532,11 @@ function populateBossFilter() {
 function populatePhaseFilter() {
   const select = document.getElementById('phase-filter');
   select.innerHTML = '<option value="">Any phase</option>';
-  if (!report) return;
+  if (!report) {
+    select.classList.add('hidden');
+    selectedPhaseFilter = '';
+    return;
+  }
   const encounterIds = new Set(report.fights.map(fight => Number(fight.encounterID)));
   (report.phases || []).filter(group => encounterIds.has(Number(group.encounterID))).forEach(group => {
     const fight = report.fights.find(item => Number(item.encounterID) === Number(group.encounterID));
@@ -1547,6 +1551,12 @@ function populatePhaseFilter() {
     });
     if (optionGroup.children.length) select.appendChild(optionGroup);
   });
+  const hasPhases = select.options.length > 1;
+  select.classList.toggle('hidden', !hasPhases);
+  if (!hasPhases || ![...select.options].some(option => option.value === selectedPhaseFilter)) {
+    selectedPhaseFilter = '';
+    select.value = '';
+  }
 }
 
 function getFightReachedPhaseId(fight) {
