@@ -2229,7 +2229,7 @@ function renderCuratedPlanningTimeline(encounter, container) {
   const gridBg = `repeating-linear-gradient(to right, rgba(30,41,59,0.9) 0, rgba(30,41,59,0.9) 1px, transparent 1px, transparent ${pxPerSecond * 30}px)`;
   const encounterId = String(encounter.encounterID || activePlanningEncounterId || '');
 
-  const MECHANIC_CHIP = 20, MECHANIC_LANE_HEIGHT = 26, MECHANIC_HEADER_HEIGHT = 18;
+  const MECHANIC_CHIP_WIDTH = 88, MECHANIC_CHIP_HEIGHT = 24, MECHANIC_LANE_HEIGHT = 32, MECHANIC_HEADER_HEIGHT = 18;
   const mechanicLaneByColor = new Map();
   const mechanicCategoriesByColor = new Map();
   filteredMechanics.forEach(mechanic => {
@@ -2268,7 +2268,7 @@ function renderCuratedPlanningTimeline(encounter, container) {
 
   // Mechanics row
   const mechRow = document.createElement('div');
-  mechRow.className = 'flex border-b border-slate-800';
+  mechRow.className = 'flex sticky top-[22px] z-20 border-b border-slate-800';
   mechRow.style.height = MECHANIC_ROW_H + 'px';
   const mechLabel = document.createElement('div');
   mechLabel.className = 'relative shrink-0 px-2.5 border-r border-l-4 border-amber-500 border-slate-800 sticky left-0 z-10';
@@ -2298,8 +2298,9 @@ function renderCuratedPlanningTimeline(encounter, container) {
       const x = xAt(seconds);
       const markerCenterY = MECHANIC_HEADER_HEIGHT + lane * MECHANIC_LANE_HEIGHT + MECHANIC_LANE_HEIGHT / 2;
       const chip = document.createElement('div');
-      chip.className = 'absolute rounded-[4px] border border-slate-950/70 shadow';
-      chip.style.cssText = `left:${x - MECHANIC_CHIP / 2}px; top:${markerCenterY - MECHANIC_CHIP / 2}px; width:${MECHANIC_CHIP}px; height:${MECHANIC_CHIP}px; background:${color};`;
+      chip.className = 'absolute flex items-center justify-center overflow-hidden whitespace-nowrap rounded-[4px] border border-slate-950/70 px-1 text-[9px] font-bold text-slate-950 shadow';
+      chip.style.cssText = `left:${x - MECHANIC_CHIP_WIDTH / 2}px; top:${markerCenterY - MECHANIC_CHIP_HEIGHT / 2}px; width:${MECHANIC_CHIP_WIDTH}px; height:${MECHANIC_CHIP_HEIGHT}px; background:${color};`;
+      chip.textContent = name.length > 12 ? `${name.slice(0, 11)}…` : name;
       chip.title = `${name} observed at ${formatSecondsToMMSS(seconds)}`;
       mechTrack.appendChild(chip);
     });
