@@ -446,6 +446,7 @@ let pollTimer = null;
    ========================================================================= */
 window.addEventListener('DOMContentLoaded', async () => {
   await applySharedConfig();
+  startSharedConfigWatcher();
   loadDefaultTrackedAbilities();
   try { mechanicCategories = JSON.parse(localStorage.getItem('fflogs_vod_mechanic_categories')) || {}; } catch (e) { mechanicCategories = {}; }
   try { hiddenMechanicNames = JSON.parse(localStorage.getItem('fflogs_vod_hidden_mechanics_default')) || []; } catch (e) { hiddenMechanicNames = []; }
@@ -517,15 +518,47 @@ const ENCOUNTER_MECHANICS_KEY = 'fflogs_vod_encounter_mechanics';
 const SAVE_PASSWORD_KEY = 'fflogs_vod_save_password';
 const CONFIG_EXCLUDE = new Set(['fflogs_vod_auth', 'fflogs_vod_config_applied', 'fflogs_vod_bottom_panel_h', SAVE_PASSWORD_KEY]);
 
-async function applySharedConfig() {
+function startSharedConfigWatcher() {
+  window.setInterval(checkForSharedConfigUpdate, 15000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') checkForSharedConfigUpdate();
+  });
+}
+
+let sharedConfigCheckPending = false;
+
+async function checkForSharedConfigUpdate() {
+  if (sharedConfigCheckPending) return;
+  sharedConfigCheckPending = true;
   try {
-    const res = await fetch(SHARED_CONFIG_API_URL, { cache: 'no-store' });
-    if (!res.ok) return;
+    const appliedStamp = localStorage.getItem('fflogs_vod_config_applied') || '';
+    const headers = appliedStamp ? { 'If-None-Match': `"${appliedStamp}"` } : {};
+    const res = await fetch(SHARED_CONFIG_API_URL, { cache: 'no-store', headers });
+    if (res.status === 304 || !res.ok) return;
     const cfg = await res.json();
-    if (!cfg || typeof cfg !== 'object' || !cfg.storage || typeof cfg.storage !== 'object') return;
+    const remoteTime = Date.parse(String(cfg && cfg.updatedAt || ''));
+    const appliedTime = Date.parse(appliedStamp);
+    if (!Number.isFinite(remoteTime) || Number.isFinite(appliedTime) && remoteTime <= appliedTime) return;
+    if (await applySharedConfig(cfg)) {
+      refreshSharedConfigState();
+      showToast('Shared setup updated.', 'success');
+    }
+  } catch (e) { /* live updates are best-effort */ }
+  finally { sharedConfigCheckPending = false; }
+}
+
+async function applySharedConfig(config = null) {
+  try {
+    let cfg = config;
+    if (!cfg) {
+      const res = await fetch(SHARED_CONFIG_API_URL, { cache: 'no-store' });
+      if (!res.ok) return false;
+      cfg = await res.json();
+    }
+    if (!cfg || typeof cfg !== 'object' || !cfg.storage || typeof cfg.storage !== 'object') return false;
     const stamp = String(cfg.updatedAt || '');
     const alreadyApplied = stamp && localStorage.getItem('fflogs_vod_config_applied') === stamp;
-    if (alreadyApplied) return;
+    if (alreadyApplied) return false;
     Object.entries(cfg.storage).forEach(([key, value]) => {
       if (!key.startsWith('fflogs_vod_') || CONFIG_EXCLUDE.has(key)) return;
       if (!stamp && localStorage.getItem(key) !== null) return; // no version stamp: only fill gaps
@@ -542,7 +575,34 @@ async function applySharedConfig() {
       localStorage.setItem(key, JSON.stringify(value));
     });
     if (stamp) localStorage.setItem('fflogs_vod_config_applied', stamp);
-  } catch (e) { /* no shared config published - that's fine */ }
+    return true;
+  } catch (e) { return false; /* no shared config published - that's fine */ }
+}
+
+function refreshSharedConfigState() {
+  const readStored = (key, fallback) => {
+    try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch (e) { return fallback; }
+  };
+  mechanicCategories = readStored('fflogs_vod_mechanic_categories', {});
+  customMitigationNames = readStored('fflogs_vod_custom_mitigations', []);
+  plannedUsages = readStored('fflogs_vod_planned_usages', {});
+  planningZoom = Number(localStorage.getItem('fflogs_vod_planning_zoom')) || 1;
+  if (report) {
+    loadReportLocalData();
+    if (!povs.some(pov => pov.id === activePovId)) activePovId = povs.length ? povs[0].id : null;
+  } else {
+    loadDefaultTrackedAbilities();
+    hiddenMechanicNames = readStored('fflogs_vod_hidden_mechanics_default', []);
+    mechanicRecastIgnoreSeconds = readStored('fflogs_vod_mechanic_recast_ignore_default', {});
+  }
+  renderAbilityCount();
+  renderAbilityList();
+  renderPOVTabs();
+  renderPOVModalBody();
+  renderNotes();
+  renderLogPlayerChips();
+  renderMechanicsList();
+  renderTimeline();
 }
 
 function mergeEncounterMechanicDatasets(existing, incoming) {
@@ -707,7 +767,7 @@ async function saveSharedSetup() {
     }
     localStorage.setItem(SAVE_PASSWORD_KEY, password);
     localStorage.setItem('fflogs_vod_config_applied', data.updatedAt);
-    showToast('Saved — everyone opening the site now gets this setup.', 'success');
+    showToast('Saved — other open pages will update automatically.', 'success');
   } catch (e) {
     showToast('Could not save shared setup: ' + (e && e.message || e), 'error');
   }

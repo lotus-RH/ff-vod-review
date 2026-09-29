@@ -90,7 +90,16 @@ async function handleConfig(request, env) {
   if (request.method === 'GET') {
     if (env.VOD_CONFIG) {
       const stored = await env.VOD_CONFIG.get(CONFIG_KV_KEY, 'json');
-      if (stored) return json(stored);
+      if (stored) {
+        const etag = stored.updatedAt ? `"${stored.updatedAt}"` : '';
+        if (etag && request.headers.get('If-None-Match') === etag) {
+          return new Response(null, { status: 304, headers: { ETag: etag, 'Cache-Control': 'no-store' } });
+        }
+        const response = json(stored);
+        if (etag) response.headers.set('ETag', etag);
+        response.headers.set('Cache-Control', 'no-store');
+        return response;
+      }
     }
     return env.ASSETS.fetch(new Request(new URL('/vod-review-config.json', request.url), request));
   }
