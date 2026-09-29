@@ -1866,16 +1866,21 @@ function renderDeathRecap(fightId) {
       </button>
       <button class="death-time bg-slate-800 hover:bg-slate-700 text-ffcyan-400 px-1.5 py-1 rounded font-mono font-bold" title="Jump to this moment in the video"><i class="fa-solid fa-play text-[8px]"></i> ${formatSecondsToMMSS(Math.round(d.timeMs / 1000))}</button>`;
     card.querySelector('.death-name').onclick = () => {
-      openDeathInTab(fightId, d);
+      openDeathInTab(fightId, d, true);
     };
-    card.querySelector('.death-time').onclick = () => jumpToSpecificOffsetMs(d.timeMs);
+    card.querySelector('.death-time').onclick = () => openDeathInTab(fightId, d, true);
     container.appendChild(card);
   });
 }
 
 function openDeathInTab(fightId, death, seekToDeath = false) {
   selectedDeathKey = `${fightId}_${death.targetID}_${death.timeMs}`;
-  if (seekToDeath) jumpToSpecificOffsetMs(death.timeMs);
+  if (seekToDeath) {
+    const playerName = String(death.player || '').trim().toLocaleLowerCase();
+    const deathPov = povs.find(pov => String(pov.player || '').trim().toLocaleLowerCase() === playerName);
+    if (deathPov && deathPov.id !== activePovId) selectPOV(deathPov.id);
+    jumpToSpecificOffsetMs(death.timeMs);
+  }
   switchBottomTab('deaths');
   showDeathDetail(fightId, death);
 }
