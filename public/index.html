@@ -3621,16 +3621,18 @@ function renderCombatTimeline(fight, container, planningMode = false) {
     spans.forEach(span => {
       const x = xAt(span.start);
       const endX = xAt(span.end);
-      const rect = add('rect', { x, y: centerY + 1, width: Math.max(2, endX - x), height: 10, rx: 2, fill: planningMode ? row.color : '#34d399', opacity: 0.72, class: 'cursor-pointer' });
+      const spanHeight = planningMode ? 10 : 20;
+      const rect = add('rect', { x, y: centerY - spanHeight / 2, width: Math.max(2, endX - x), height: spanHeight, rx: 2, fill: planningMode ? row.color : '#34d399', opacity: 0.72, class: 'cursor-pointer' });
       const seconds = Math.max(0, (span.end - span.start) / 1000);
       rect.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${span.name} on ${actorNames.get(span.targetID) || 'target'} for ${seconds.toFixed(1)}s`;
       if (!planningMode) rect.addEventListener('click', () => jumpToSpecificOffsetMs(span.start - fight.startTime));
     });
     casts.forEach(event => {
       const x = xAt(event.timestamp);
+      const markerSize = planningMode ? 16 : 20;
       const marker = abilityImageUrl
-        ? add('image', { x: x - 8, y: centerY - 8, width: 16, height: 16, href: abilityImageUrl, preserveAspectRatio: 'xMidYMid meet', class: 'cursor-pointer' })
-        : add('rect', { x: x - 5, y: centerY - 5, width: 10, height: 10, fill: planningMode ? row.color : '#38bdf8', stroke: '#0f172a', 'stroke-width': 1, class: 'cursor-pointer' });
+        ? add('image', { x: x - markerSize / 2, y: centerY - markerSize / 2, width: markerSize, height: markerSize, href: abilityImageUrl, preserveAspectRatio: 'xMidYMid meet', class: 'cursor-pointer' })
+        : add('rect', { x: x - markerSize / 2, y: centerY - markerSize / 2, width: markerSize, height: markerSize, fill: planningMode ? row.color : '#38bdf8', stroke: '#0f172a', 'stroke-width': 1, class: 'cursor-pointer' });
       marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${eventAbilityName(event)} pressed by ${actorNames.get(String(event.sourceID)) || 'player'} at ${formatSecondsToMMSS((event.timestamp - start) / 1000)}`;
       if (!planningMode) marker.addEventListener('click', () => jumpToSpecificOffsetMs(event.timestamp - start));
     });
