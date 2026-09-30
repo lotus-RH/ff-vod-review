@@ -275,14 +275,14 @@
           </div>
           <div class="p-3 space-y-3">
             <div class="grid grid-cols-[auto_minmax(0,1fr)_minmax(9rem,auto)] items-center gap-2">
-              <input id="planning-import-use-main" type="checkbox" class="accent-emerald-500" onchange="renderPlanningCastImportClasses()" aria-label="Import from the main report">
+              <input id="planning-import-use-main" type="checkbox" class="accent-emerald-500" onchange="selectPlanningCastImportSource('main')" aria-label="Import from the main report">
               <label for="planning-import-use-main" class="min-w-0 text-[11px] text-slate-300">Main report <span id="planning-import-main-title" class="block truncate text-[10px] text-slate-500">No report loaded</span></label>
               <select id="planning-import-main-fight" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-[11px] text-slate-200" onchange="renderPlanningCastImportClasses()" disabled>
                 <option value="">Load a report first</option>
               </select>
             </div>
             <div class="grid grid-cols-[auto_minmax(0,1fr)_minmax(9rem,auto)] items-center gap-2">
-              <input id="planning-import-use-separate" type="checkbox" class="accent-emerald-500" onchange="renderPlanningCastImportClasses()" aria-label="Import from the separate report">
+              <input id="planning-import-use-separate" type="checkbox" class="accent-emerald-500" onchange="selectPlanningCastImportSource('separate')" aria-label="Import from the separate report">
               <div class="min-w-0 flex items-center gap-1">
                 <label for="planning-import-report" class="sr-only">Separate FFLogs report</label>
                 <input id="planning-import-report" type="text" placeholder="Separate log URL or code" class="min-w-0 w-full bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-[11px] text-slate-200" oninput="clearPlanningImportReport()">
@@ -295,8 +295,7 @@
             </div>
             <section class="border-t border-slate-800 pt-2" aria-label="Classes to import">
               <div class="flex items-center gap-2 mb-2">
-                <input id="planning-import-all-classes" type="checkbox" class="accent-emerald-500" onchange="toggleAllPlanningImportClasses()" disabled>
-                <label for="planning-import-all-classes" class="text-[11px] font-semibold text-slate-200">All classes</label>
+                <button id="planning-import-all-classes" type="button" onclick="toggleAllPlanningImportClasses()" aria-pressed="false" class="flex items-center gap-1 text-[10px] font-semibold px-2 py-1 border rounded transition disabled:opacity-50 disabled:cursor-not-allowed" disabled><i class="fa-solid fa-eye-slash" aria-hidden="true"></i><span>All Classes</span></button>
                 <span id="planning-import-class-count" class="ml-auto text-[10px] text-slate-500"></span>
               </div>
               <div id="planning-import-class-options" class="space-y-2 text-[11px]"></div>
@@ -2439,25 +2438,37 @@ function renderPlanningCastImportMenu() {
   setPlanningImportFightOptions(mainSelect, mainFights, 'Load a report first', activeFightId);
   mainTitle.textContent = report ? report.title || report.code : 'No report loaded';
   mainCheckbox.disabled = !report || !mainFights.length;
+  document.getElementById('planning-import-use-separate').disabled = !planningImportReport || !planningImportReport.fights.length;
   if (!report || !mainFights.length) {
     mainCheckbox.checked = false;
     planningImportMainReportCode = '';
   } else if (planningImportMainReportCode !== report.code) {
     mainCheckbox.checked = true;
+    document.getElementById('planning-import-use-separate').checked = false;
     planningImportMainReportCode = report.code;
   }
   renderPlanningCastImportClasses();
 }
 
+function selectPlanningCastImportSource(source) {
+  const mainCheckbox = document.getElementById('planning-import-use-main');
+  const separateCheckbox = document.getElementById('planning-import-use-separate');
+  if (source === 'main' && mainCheckbox.checked) separateCheckbox.checked = false;
+  if (source === 'separate' && separateCheckbox.checked) mainCheckbox.checked = false;
+  renderPlanningCastImportClasses();
+}
+
 function getSelectedPlanningCastSources() {
   const sources = [];
+  const mainSelected = document.getElementById('planning-import-use-main').checked;
+  const separateSelected = document.getElementById('planning-import-use-separate').checked && !mainSelected;
   const mainFightSelect = document.getElementById('planning-import-main-fight');
-  if (document.getElementById('planning-import-use-main').checked && report) {
+  if (mainSelected && report) {
     const fight = report.fights.find(item => String(item.id) === mainFightSelect.value);
     if (fight) sources.push({ report, fight, label: `main report · ${fight.name}` });
   }
   const separateFightSelect = document.getElementById('planning-import-fight');
-  if (document.getElementById('planning-import-use-separate').checked && planningImportReport) {
+  if (separateSelected && planningImportReport) {
     const fight = planningImportReport.fights.find(item => String(item.id) === separateFightSelect.value);
     if (fight) sources.push({ report: planningImportReport, fight, label: `${planningImportReport.title || planningImportReport.code} · ${fight.name}` });
   }
@@ -2490,13 +2501,19 @@ function renderPlanningCastImportClasses() {
   }
   planningCastAvailableJobs = availableJobs;
 
-  const allCheckbox = document.getElementById('planning-import-all-classes');
+  const allButton = document.getElementById('planning-import-all-classes');
   const classList = document.getElementById('planning-import-class-options');
   const count = document.getElementById('planning-import-class-count');
   const selectedCount = planningCastSelectedJobs.size;
-  allCheckbox.disabled = !availableJobs.length;
-  allCheckbox.checked = availableJobs.length > 0 && selectedCount === availableJobs.length;
-  allCheckbox.indeterminate = selectedCount > 0 && selectedCount < availableJobs.length;
+  const allSelected = availableJobs.length > 0 && selectedCount === availableJobs.length;
+  allButton.disabled = !availableJobs.length;
+  allButton.setAttribute('aria-pressed', String(allSelected));
+  allButton.setAttribute('aria-label', allSelected ? 'Exclude all classes' : 'Include all classes');
+  allButton.title = allSelected ? 'Exclude all classes' : 'Include all classes';
+  allButton.innerHTML = `<i class="fa-solid ${allSelected ? 'fa-eye' : 'fa-eye-slash'}" aria-hidden="true"></i><span>All Classes</span>`;
+  allButton.style.color = allSelected ? '#34d399' : '#64748b';
+  allButton.style.borderColor = allSelected ? '#34d39999' : '#334155';
+  allButton.style.backgroundColor = allSelected ? '#34d39918' : 'transparent';
   count.textContent = availableJobs.length ? `${selectedCount}/${availableJobs.length} selected` : '';
   classList.replaceChildren();
 
@@ -2526,21 +2543,24 @@ function renderPlanningCastImportClasses() {
       heading.textContent = group.name;
       row.appendChild(heading);
       groupJobs.forEach(job => {
-        const label = document.createElement('label');
-        label.className = 'inline-flex items-center gap-1 text-slate-300';
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.checked = planningCastSelectedJobs.has(job);
-        checkbox.className = 'accent-emerald-500';
-        checkbox.addEventListener('change', () => {
-          if (checkbox.checked) planningCastSelectedJobs.add(job);
-          else planningCastSelectedJobs.delete(job);
+        const enabled = planningCastSelectedJobs.has(job);
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'flex items-center gap-1 text-[10px] font-semibold px-2 py-1 border rounded transition';
+        button.innerHTML = `<i class="fa-solid ${enabled ? 'fa-eye' : 'fa-eye-slash'}" aria-hidden="true"></i><span>${job}</span>`;
+        button.setAttribute('aria-pressed', String(enabled));
+        button.setAttribute('aria-label', `${enabled ? 'Exclude' : 'Include'} ${job} casts`);
+        button.title = `${enabled ? 'Exclude' : 'Include'} ${job} casts`;
+        const color = JOB_COLORS[job] || '#38bdf8';
+        button.style.color = enabled ? color : '#64748b';
+        button.style.borderColor = enabled ? `${color}99` : '#334155';
+        button.style.backgroundColor = enabled ? `${color}18` : 'transparent';
+        button.addEventListener('click', () => {
+          if (enabled) planningCastSelectedJobs.delete(job);
+          else planningCastSelectedJobs.add(job);
           renderPlanningCastImportClasses();
         });
-        const name = document.createElement('span');
-        name.textContent = job;
-        label.append(checkbox, name);
-        row.appendChild(label);
+        row.appendChild(button);
       });
       classList.appendChild(row);
     });
@@ -2550,7 +2570,7 @@ function renderPlanningCastImportClasses() {
 }
 
 function toggleAllPlanningImportClasses() {
-  const selectAll = document.getElementById('planning-import-all-classes').checked;
+  const selectAll = planningCastSelectedJobs.size !== planningCastAvailableJobs.length;
   planningCastSelectedJobs = new Set(selectAll ? planningCastAvailableJobs : []);
   renderPlanningCastImportClasses();
 }
@@ -2583,6 +2603,7 @@ async function loadPlanningImportReport() {
     if (!fights.length) {
       throw new Error('No encounter pulls were found in that report.');
     }
+    document.getElementById('planning-import-use-separate').disabled = false;
     if (!report) document.getElementById('planning-import-use-separate').checked = true;
     renderPlanningCastImportClasses();
     showToast(`Loaded ${source.title || code}; choose a pull to import.`, 'success');
@@ -2599,7 +2620,11 @@ function clearPlanningImportReport() {
   const fightSelect = document.getElementById('planning-import-fight');
   fightSelect.replaceChildren(new Option('Load a log first', ''));
   fightSelect.disabled = true;
-  document.getElementById('planning-import-use-separate').checked = false;
+  const separateRadio = document.getElementById('planning-import-use-separate');
+  separateRadio.checked = false;
+  separateRadio.disabled = true;
+  const mainRadio = document.getElementById('planning-import-use-main');
+  mainRadio.checked = Boolean(report && report.fights.length);
   renderPlanningCastImportClasses();
 }
 
