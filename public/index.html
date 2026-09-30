@@ -173,14 +173,6 @@
         <div class="flex space-x-1">
           <button onclick="switchBottomTab('timeline')" id="tab-btn-timeline" class="bottom-tab-btn active px-4 py-2 text-xs font-semibold border-b-2 border-ffpurple-500 text-ffpurple-400 flex items-center gap-1.5"><i class="fa-solid fa-chart-line"></i> Timeline</button>
           <button onclick="switchBottomTab('deaths')" id="tab-btn-deaths" class="bottom-tab-btn px-4 py-2 text-xs font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-1.5"><i class="fa-solid fa-skull-crossbones"></i> Deaths (<span id="pull-death-count">0</span>)</button>
-          <button onclick="switchBottomTab('notes')" id="tab-btn-notes" class="bottom-tab-btn px-4 py-2 text-xs font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-1.5"><i class="fa-solid fa-bookmark"></i> Notes (<span id="notes-count">0</span>)</button>
-        </div>
-        <div class="flex items-center gap-2">
-          <button onclick="exportNotesJSON()" title="Export notes as JSON" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded border border-slate-700"><i class="fa-solid fa-file-export"></i></button>
-          <label title="Import notes JSON" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded border border-slate-700 cursor-pointer">
-            <i class="fa-solid fa-file-import"></i>
-            <input type="file" accept="application/json" class="hidden" onchange="importNotesFile(event)">
-          </label>
         </div>
       </div>
 
@@ -209,38 +201,6 @@
         </div>
       </div>
 
-      <div id="tab-content-notes" class="bottom-tab-content hidden flex-1 p-3 overflow-y-auto flex flex-col gap-2">
-        <div class="flex items-center justify-between">
-          <span class="text-[11px] text-slate-500" id="notes-scope-label">Showing notes for this pull</span>
-          <label class="flex items-center gap-1.5 text-[11px] text-slate-400 cursor-pointer select-none">
-            <input type="checkbox" id="notes-scope-toggle" checked onchange="renderNotes()">
-            This pull only
-          </label>
-        </div>
-        <div class="flex items-end gap-2 bg-slate-950 p-2 rounded-lg border border-slate-800">
-          <div class="flex flex-col gap-0.5">
-            <label class="text-[10px] text-slate-500 uppercase">Log time (MM:SS)</label>
-            <input id="note-time-input" type="text" placeholder="03:15" class="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs w-20 font-mono">
-          </div>
-          <div class="flex flex-col gap-0.5">
-            <label class="text-[10px] text-slate-500 uppercase">Category</label>
-            <select id="note-category-input" class="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs">
-              <option value="mitigation">Mitigation</option>
-              <option value="positioning">Positioning</option>
-              <option value="mechanic">Mechanic</option>
-              <option value="cooldowns">Cooldowns</option>
-              <option value="general">General</option>
-            </select>
-          </div>
-          <div class="flex flex-col gap-0.5 flex-1">
-            <label class="text-[10px] text-slate-500 uppercase">Note</label>
-            <input id="note-text-input" type="text" placeholder="What happened here?" class="bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs w-full">
-          </div>
-          <button onclick="useCurrentTimeForNote()" title="Use current video position" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1.5 rounded border border-slate-700"><i class="fa-solid fa-crosshairs"></i></button>
-          <button onclick="addNoteFromForm()" class="text-xs bg-ffpurple-600 hover:bg-ffpurple-500 text-white font-medium px-3 py-1.5 rounded"><i class="fa-solid fa-plus"></i> Add</button>
-        </div>
-        <div id="notes-list-container" class="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 content-start"></div>
-      </div>
     </div>
   </div>
 </main>
@@ -335,8 +295,8 @@
 
       <div class="border-t border-slate-800 pt-3 mt-1">
         <h3 class="font-bold text-sm flex items-center gap-2 mb-1.5"><i class="fa-solid fa-share-nodes text-ffcyan-400"></i> Shared setup for everyone</h3>
-        <p class="text-slate-400 leading-relaxed">Tracked abilities, mechanic categories, planned cooldown placements, POVs and notes live in each browser, so a private window starts blank. Hit Save and it's live for everyone opening the site — no repo upload needed.</p>
-        <label class="flex items-center gap-1.5 mt-2 text-slate-400 cursor-pointer select-none"><input type="checkbox" id="share-include-reports" checked> Include POVs &amp; notes for every log</label>
+        <p class="text-slate-400 leading-relaxed">Tracked abilities, mechanic categories, planned cooldown placements and POVs live in each browser, so a private window starts blank. Hit Save and it's live for everyone opening the site — no repo upload needed.</p>
+        <label class="flex items-center gap-1.5 mt-2 text-slate-400 cursor-pointer select-none"><input type="checkbox" id="share-include-reports" checked> Include POVs for every log</label>
         <div class="flex justify-end gap-2 mt-2">
           <button onclick="exportSharedSetup()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded border border-slate-700" title="Download a backup copy of the current setup"><i class="fa-solid fa-file-arrow-down"></i> Download backup</button>
           <button onclick="saveSharedSetup()" class="bg-ffpurple-600 hover:bg-ffpurple-500 text-white font-medium px-3 py-1.5 rounded"><i class="fa-solid fa-cloud-arrow-up"></i> Save for everyone</button>
@@ -452,7 +412,6 @@ const DEFAULT_MECHANIC_RECAST_IGNORE_SECONDS = 5;
    ========================================================================= */
 let report = null;        // { code, title, zoneName, startTime, endTime, fights: [], actors: [] }
 let povs = [];             // [{ id, player, job, color, segments:[{id,videoId,label,startAbsMs}] }]
-let notes = [];            // [{ id, fightId, logSeconds, author, text, category }]
 let deathsCache = {};      // fightId -> [{time, player, ability}]
 let reportDeathsByPlayer = null;
 let reportDeathsPromise = null;
@@ -519,7 +478,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   switchBottomTab('timeline');
   renderPullList();
   renderPOVTabs();
-  renderNotes();
   renderAbilityCount();
   document.getElementById('ability-add-form').addEventListener('submit', event => {
     event.preventDefault();
@@ -665,7 +623,6 @@ function refreshSharedConfigState() {
   renderAbilityList();
   renderPOVTabs();
   renderPOVModalBody();
-  renderNotes();
   renderLogPlayerChips();
   renderMechanicsList();
   renderTimeline();
@@ -806,7 +763,7 @@ function collectSharedSetupStorage(includeReports) {
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
     if (!key || !key.startsWith('fflogs_vod_') || CONFIG_EXCLUDE.has(key)) continue;
-    if (!includeReports && /^fflogs_vod_(povs|notes)_/.test(key)) continue;
+    if (/^fflogs_vod_notes_/.test(key) || (!includeReports && /^fflogs_vod_povs_/.test(key))) continue;
     try { storage[key] = JSON.parse(localStorage.getItem(key)); } catch (e) {}
   }
   return storage;
@@ -870,10 +827,8 @@ function onYouTubeIframeAPIReady() {
    ========================================================================= */
 
 function povsKey() { return `fflogs_vod_povs_${report ? report.code : 'none'}`; }
-function notesKey() { return `fflogs_vod_notes_${report ? report.code : 'none'}`; }
 function loadReportLocalData() {
   try { povs = JSON.parse(localStorage.getItem(povsKey())) || []; } catch (e) { povs = []; }
-  try { notes = JSON.parse(localStorage.getItem(notesKey())) || []; } catch (e) { notes = []; }
   loadDefaultTrackedAbilities();
   hiddenMechanicNames = readJsonWithDefault(hiddenMechanicNamesKey(), 'fflogs_vod_hidden_mechanics_default', []);
   mechanicRecastIgnoreSeconds = readJsonWithDefault(mechanicRecastIgnoreKey(), 'fflogs_vod_mechanic_recast_ignore_default', {});
@@ -890,7 +845,6 @@ function loadDefaultTrackedAbilities() {
   trackedAbilityImages = readDefault('fflogs_vod_ability_images_default', {});
 }
 function persistPOVs() { localStorage.setItem(povsKey(), JSON.stringify(povs)); }
-function persistNotes() { localStorage.setItem(notesKey(), JSON.stringify(notes)); }
 function abilityNamesKey() { return `fflogs_vod_ability_names_${report ? report.code : 'none'}`; }
 function abilityClassesKey() { return `fflogs_vod_ability_classes_${report ? report.code : 'none'}`; }
 function abilityCooldownsKey() { return `fflogs_vod_ability_cooldowns_${report ? report.code : 'none'}`; }
@@ -1438,7 +1392,6 @@ async function loadReport(code) {
     renderPullList();
     renderPOVTabs();
     renderLogPlayerChips();
-    renderNotes();
     if (activeFightId) selectPull(activeFightId);
     showToast(`Loaded "${r.title}" (${report.fights.length} pulls).`, 'success');
   } catch (e) {
@@ -1692,7 +1645,6 @@ function selectPull(fightId) {
   loadDeathsForFight(fightId);
   loadTimelineEventsForFight(fightId);
   renderLogPlayerChips();
-  renderNotes();
 }
 function getActiveFight() {
   return report ? report.fights.find(f => f.id === activeFightId) : null;
@@ -3469,11 +3421,10 @@ function renderCombatTimeline(fight, container, planningMode = false) {
   const actorNames = new Map(report.actors.map(actor => [String(actor.id), actor.name]));
   const mechanicRows = planningMode ? [] : getMechanicRows(fight).filter(row => !hiddenMechanicNames.includes(row.name));
   const abilityRows = planningMode ? getPlanningAbilityRows(events, fight) : getReviewAbilityRows(events, fight);
-  const fightNotes = planningMode ? [] : notes.filter(note => note.fightId === fight.id);
   const deaths = planningMode ? [] : (deathsCache[fight.id] || []);
   const rowHeight = planningMode ? 30 : 24;
   const pinnedTrackHeight = planningMode ? 30 : 24;
-  const scrollRowCount = (fightNotes.length ? 1 : 0) + abilityRows.length;
+  const scrollRowCount = abilityRows.length;
   const height = Math.max(40, 8 + scrollRowCount * rowHeight);
   const svgNS = 'http://www.w3.org/2000/svg';
   const previousScrollLeft = container.scrollLeft;
@@ -3578,18 +3529,6 @@ function renderCombatTimeline(fight, container, planningMode = false) {
     });
   }
   let rowIndex = 0;
-  if (fightNotes.length) {
-    const notesY = 4 + rowIndex++ * rowHeight;
-    const centerY = notesY + rowHeight / 2;
-    add('text', { x: 4, y: centerY + 3, fill: '#22d3ee', 'font-size': 10 }, 'Notes');
-    add('line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b', 'stroke-width': 1 });
-    fightNotes.forEach(note => {
-      const noteMs = note.logSeconds * 1000;
-      const marker = add('rect', { x: xAt(start + noteMs) - 4, y: centerY - 4, width: 8, height: 8, fill: '#22d3ee', stroke: '#0f172a', 'stroke-width': 1, class: 'cursor-pointer' });
-      marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `Note at ${formatSecondsToMMSS(note.logSeconds)}: ${note.text}`;
-      marker.addEventListener('click', () => jumpToSpecificOffsetMs(noteMs));
-    });
-  }
   abilityRows.forEach(row => {
     const y = 4 + rowIndex++ * rowHeight;
     const centerY = y + rowHeight / 2;
@@ -3617,7 +3556,8 @@ function renderCombatTimeline(fight, container, planningMode = false) {
       const labelX = abilityImageUrl ? 44 : 24;
       add('text', { x: labelX, y: centerY + 3, fill: '#cbd5e1', 'font-size': 10 }, abilityName.length > 11 ? abilityName.slice(0, 10) + '…' : abilityName);
     }
-    add('line', { x1: left, y1: centerY + 5, x2: right, y2: centerY + 5, stroke: '#1e293b', 'stroke-width': 1 });
+    const laneDividerY = planningMode ? centerY + 5 : y + rowHeight - 1;
+    add('line', { x1: left, y1: laneDividerY, x2: right, y2: laneDividerY, stroke: '#1e293b', 'stroke-width': 1 });
     spans.forEach(span => {
       const x = xAt(span.start);
       const endX = xAt(span.end);
@@ -3908,96 +3848,6 @@ function renderPOVModalBody() {
       });
     });
   });
-}
-
-/* =========================================================================
-   NOTES
-   ========================================================================= */
-function useCurrentTimeForNote() {
-  const el = document.getElementById('log-time-display');
-  document.getElementById('note-time-input').value = el.textContent;
-}
-function addNoteFromForm() {
-  const fight = getActiveFight();
-  if (!fight) { showToast('Select a pull first.', 'error'); return; }
-  const timeStr = document.getElementById('note-time-input').value;
-  const text = document.getElementById('note-text-input').value.trim();
-  const category = document.getElementById('note-category-input').value;
-  const secs = parseMMSSorHHMMSS(timeStr);
-  if (secs == null) { showToast('Enter a valid log time (MM:SS).', 'error'); return; }
-  if (!text) { showToast('Write a note.', 'error'); return; }
-  notes.push({ id: Date.now(), fightId: fight.id, logSeconds: secs, author: 'Reviewer', text, category });
-  persistNotes();
-  document.getElementById('note-text-input').value = '';
-  renderNotes();
-  renderTimeline();
-}
-function deleteNote(id) {
-  notes = notes.filter(n => n.id !== id);
-  persistNotes();
-  renderNotes();
-  renderTimeline();
-}
-function renderNotes() {
-  const container = document.getElementById('notes-list-container');
-  const scopeToggle = document.getElementById('notes-scope-toggle');
-  const scopeLabel = document.getElementById('notes-scope-label');
-  const thisPullOnly = scopeToggle ? scopeToggle.checked : false;
-  const fight = getActiveFight();
-  const visibleNotes = (thisPullOnly && fight) ? notes.filter(n => n.fightId === fight.id) : notes;
-  container.innerHTML = '';
-  document.getElementById('notes-count').textContent = notes.length;
-  if (scopeLabel) {
-    scopeLabel.textContent = thisPullOnly
-      ? (fight ? `Showing notes for ${fight.name} (Pull ${report.fights.indexOf(fight) + 1})` : 'Select a pull to see its notes')
-      : `Showing all ${notes.length} notes across every pull`;
-  }
-  if (!visibleNotes.length) {
-    container.innerHTML = `<div class="text-xs text-slate-500 italic col-span-full text-center py-4">${thisPullOnly ? 'No notes for this pull yet.' : 'No notes yet.'}</div>`;
-    return;
-  }
-  visibleNotes.slice().sort((a, b) => b.id - a.id).forEach(n => {
-    const noteFight = report ? report.fights.find(f => f.id === n.fightId) : null;
-    const card = document.createElement('div');
-    card.className = 'bg-slate-950 p-2.5 rounded-lg border border-slate-800 flex flex-col justify-between text-xs space-y-1.5';
-    card.innerHTML = `
-      <div>
-        <div class="flex justify-between items-center mb-1">
-          <span class="font-bold font-mono text-ffcyan-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800 cursor-pointer"><i class="fa-solid fa-clock text-[10px]"></i> ${formatSecondsToMMSS(n.logSeconds)}</span>
-          <span class="text-[10px] text-slate-500 uppercase font-semibold">${escapeHTML(n.category)}</span>
-        </div>
-        <p class="text-slate-300">${escapeHTML(n.text)}</p>
-        <p class="text-[10px] text-slate-600 mt-1">${noteFight ? escapeHTML(noteFight.name) : 'Unknown pull'}</p>
-      </div>
-      <div class="flex justify-between items-center pt-1 border-t border-slate-900 text-[10px] text-slate-500">
-        <span>By: ${escapeHTML(n.author)}</span>
-        <button class="note-del text-rose-400 hover:text-rose-300"><i class="fa-solid fa-trash-can"></i></button>
-      </div>`;
-    card.querySelector('.font-mono').addEventListener('click', () => { if (n.fightId !== activeFightId) selectPull(n.fightId); jumpToSpecificOffsetMs(n.logSeconds * 1000); });
-    card.querySelector('.note-del').addEventListener('click', () => deleteNote(n.id));
-    container.appendChild(card);
-  });
-}
-function exportNotesJSON() {
-  const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(notes, null, 2));
-  const a = document.createElement('a');
-  a.setAttribute('href', dataStr);
-  a.setAttribute('download', `VOD_Review_Notes_${report ? report.code : 'export'}.json`);
-  document.body.appendChild(a); a.click(); a.remove();
-}
-function importNotesFile(evt) {
-  const file = evt.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      const parsed = JSON.parse(e.target.result);
-      if (Array.isArray(parsed)) { notes = parsed; persistNotes(); renderNotes(); renderTimeline(); showToast('Notes imported.', 'success'); }
-      else showToast('Invalid notes file.', 'error');
-    } catch (err) { showToast('Invalid JSON file.', 'error'); }
-  };
-  reader.readAsText(file);
-  evt.target.value = '';
 }
 
 /* =========================================================================
