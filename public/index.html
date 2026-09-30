@@ -3471,7 +3471,7 @@ function renderCombatTimeline(fight, container, planningMode = false) {
   const abilityRows = planningMode ? getPlanningAbilityRows(events, fight) : getReviewAbilityRows(events, fight);
   const fightNotes = planningMode ? [] : notes.filter(note => note.fightId === fight.id);
   const deaths = planningMode ? [] : (deathsCache[fight.id] || []);
-  const rowHeight = planningMode ? 30 : 27;
+  const rowHeight = planningMode ? 30 : 24;
   const pinnedTrackHeight = planningMode ? 30 : 24;
   const scrollRowCount = (fightNotes.length ? 1 : 0) + abilityRows.length;
   const height = Math.max(40, 8 + scrollRowCount * rowHeight);
