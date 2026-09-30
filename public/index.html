@@ -186,6 +186,7 @@
           </div>
         </div>
         <div id="timeline-visualization" class="w-full flex-1 min-h-0 overflow-hidden bg-slate-950 rounded-lg border border-slate-800 px-2 flex flex-col"></div>
+        <div class="text-[11px] text-slate-500 mt-1.5 shrink-0" id="timeline-help">Enter one or more ability names to show their casts and buff durations in this pull.</div>
       </div>
 
       <div id="tab-content-deaths" class="bottom-tab-content hidden flex-1 min-h-0 p-3">
@@ -3337,27 +3338,34 @@ function getPlanningAbilityRows(events, fight) {
       const actorNames = rowActors.map(actor => actor.name);
       const abilityId = eventAbilityId(abilityCasts[0] || casts.find(event => eventAbilityName(event).toLocaleLowerCase() === abilityName.toLocaleLowerCase()) || {});
       const sourceIds = new Set(abilityCasts.map(event => String(event.sourceID)));
-      const timelineSpans = [];
-      const isApply = type => /^(applybuff|applybuffstack|refreshbuff)$/.test(type);
-      const isRemove = type => /^(removebuff|removebuffstack)$/.test(type);
-      const activeSpans = new Map();
-      (events.buffs || [])
-        .filter(event => sourceIds.has(String(event.sourceID)) && eventAbilityName(event).toLocaleLowerCase() === abilityName.toLocaleLowerCase())
-        .sort((a, b) => a.timestamp - b.timestamp)
-        .forEach(event => {
-          const type = String(event.type).toLowerCase();
-          const key = `${event.sourceID}:${event.targetID}`;
-          if (isApply(type)) {
-            if (!activeSpans.has(key)) activeSpans.set(key, { start: event.timestamp, targetID: String(event.targetID) });
-          } else if (isRemove(type) && activeSpans.has(key)) {
-            const open = activeSpans.get(key);
-            activeSpans.delete(key);
-            timelineSpans.push({ start: open.start, end: event.timestamp, name: abilityName, targetID: open.targetID });
+      const spans = [];
+      const activeByTarget = new Map();
+      (events.buffs || []).filter(event => sourceIds.has(String(event.sourceID)) &&
+        eventAbilityName(event).toLocaleLowerCase() === abilityName.toLocaleLowerCase())
+        .sort((a, b) => a.timestamp - b.timestamp).forEach(event => {
+          const key = `${event.targetID}:${eventAbilityId(event) || eventAbilityName(event)}`;
+          if (/^(applybuff|applybuffstack|refreshbuff)$/.test(event.type)) {
+            const previous = activeByTarget.get(key);
+            if (previous) previous.end = event.timestamp;
+            const span = { start: event.timestamp, end: fight.endTime, targetID: event.targetID, name: eventAbilityName(event) };
+            spans.push(span);
+            activeByTarget.set(key, span);
+          } else if (/^(removebuff|removebuffstack)$/.test(event.type)) {
+            const active = activeByTarget.get(key);
+            if (active) {
+              active.end = event.timestamp;
+              activeByTarget.delete(key);
+            }
           }
         });
-      activeSpans.forEach(open => {
-        timelineSpans.push({ start: open.start, end: fight.endTime, name: abilityName, targetID: open.targetID });
-      });
+      const manualDuration = Number(trackedAbilityDurations[abilityCooldownKey(abilityName)]) || 0;
+      const durationAnchors = abilityCasts.length ? abilityCasts : spans;
+      const timelineSpans = manualDuration > 0
+        ? durationAnchors.map(anchor => {
+          const start = abilityCasts.length ? anchor.timestamp : anchor.start;
+          return { start, end: Math.min(fight.endTime, start + manualDuration * 1000), targetID: anchor.targetID, name: abilityName };
+        })
+        : spans;
       jobs.get(jobKey).push({
         type: 'ability',
         job: jobKey,
@@ -3414,7 +3422,7 @@ function renderCombatTimeline(fight, container, planningMode = false) {
   const mechanicRows = planningMode ? [] : getMechanicRows(fight).filter(row => !hiddenMechanicNames.includes(row.name));
   const abilityRows = planningMode ? getPlanningAbilityRows(events, fight) : getReviewAbilityRows(events, fight);
   const deaths = planningMode ? [] : (deathsCache[fight.id] || []);
-  const rowHeight = planningMode ? 30 : 27;
+  const rowHeight = planningMode ? 30 : 24;
   const pinnedTrackHeight = planningMode ? 30 : 24;
   const scrollRowCount = abilityRows.length;
   const height = Math.max(40, 8 + scrollRowCount * rowHeight);
