@@ -2671,6 +2671,9 @@ async function importSelectedPlanningCasts() {
       showToast('No tracked casts were found for the selected classes; existing plans were left unchanged.', 'info');
       return;
     }
+    const importedJobs = new Set([...plansByEncounter.values()].flatMap(plan =>
+      Object.keys(plan).map(key => key.match(/^planned:([^:]+):/)?.[1]).filter(Boolean)));
+    hiddenPlanningClasses = new Set([...getPlanningClassJobs()].filter(job => !importedJobs.has(job)));
     recordPlanningHistory(serializePlanningUsages());
     plansByEncounter.forEach((plan, encounterId) => { plannedUsages[encounterId] = plan; });
     persistPlannedUsages();
