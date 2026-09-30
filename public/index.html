@@ -3414,7 +3414,7 @@ function renderCombatTimeline(fight, container, planningMode = false) {
   const mechanicRows = planningMode ? [] : getMechanicRows(fight).filter(row => !hiddenMechanicNames.includes(row.name));
   const abilityRows = planningMode ? getPlanningAbilityRows(events, fight) : getReviewAbilityRows(events, fight);
   const deaths = planningMode ? [] : (deathsCache[fight.id] || []);
-  const rowHeight = planningMode ? 30 : 24;
+  const rowHeight = planningMode ? 30 : 27;
   const pinnedTrackHeight = planningMode ? 30 : 24;
   const scrollRowCount = abilityRows.length;
   const height = Math.max(40, 8 + scrollRowCount * rowHeight);
