@@ -266,16 +266,44 @@
         <input id="planning-mechanic-category-filter" type="search" list="planning-mechanic-category-options" placeholder="Filter categories" class="bg-transparent text-xs text-slate-200 w-36" oninput="renderTimeline()">
         <datalist id="planning-mechanic-category-options"></datalist>
       </div>
-      <button onclick="importReviewCastsToPlanning()" title="Import tracked ability casts from the selected Review pull" class="text-xs bg-emerald-800 hover:bg-emerald-700 border border-emerald-700 rounded px-2.5 py-1.5 text-emerald-100"><i class="fa-solid fa-file-import mr-1"></i> Import Review casts</button>
-      <div class="flex flex-wrap items-center gap-1.5">
-        <label for="planning-import-report" class="sr-only">Separate FFLogs report</label>
-        <input id="planning-import-report" type="text" placeholder="Other FFLogs report URL/code" class="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-200 w-44" oninput="clearPlanningImportReport()">
-        <button onclick="loadPlanningImportReport()" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-2.5 py-1.5 text-slate-200"><i class="fa-solid fa-download mr-1"></i> Load log</button>
-        <label for="planning-import-fight" class="sr-only">Pull in the separate report</label>
-        <select id="planning-import-fight" class="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-200 max-w-48" disabled>
-          <option value="">Load a log first</option>
-        </select>
-        <button onclick="importPlanningLogCasts()" title="Import tracked ability casts from the selected separate-log pull" class="text-xs bg-emerald-800 hover:bg-emerald-700 border border-emerald-700 rounded px-2.5 py-1.5 text-emerald-100"><i class="fa-solid fa-file-import mr-1"></i> Import log casts</button>
+      <div id="planning-cast-import-popover" class="relative">
+        <button id="planning-cast-import-toggle" onclick="togglePlanningCastImportMenu()" aria-expanded="false" aria-controls="planning-cast-import-menu" class="text-xs bg-emerald-800 hover:bg-emerald-700 border border-emerald-700 rounded px-2.5 py-1.5 text-emerald-100"><i class="fa-solid fa-file-import mr-1"></i> Import Casts</button>
+        <div id="planning-cast-import-menu" class="hidden absolute right-0 top-full mt-2 z-40 w-[min(92vw,32rem)] bg-slate-900 border border-slate-700 rounded-lg shadow-2xl">
+          <div class="flex items-center justify-between px-3 py-2 border-b border-slate-800">
+            <h3 class="text-xs font-semibold text-slate-100">Import ability casts</h3>
+            <button onclick="closePlanningCastImportMenu()" title="Close" aria-label="Close import menu" class="text-slate-400 hover:text-white px-1"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+          <div class="p-3 space-y-3">
+            <div class="grid grid-cols-[auto_minmax(0,1fr)_minmax(9rem,auto)] items-center gap-2">
+              <input id="planning-import-use-main" type="checkbox" class="accent-emerald-500" onchange="renderPlanningCastImportClasses()" aria-label="Import from the main report">
+              <label for="planning-import-use-main" class="min-w-0 text-[11px] text-slate-300">Main report <span id="planning-import-main-title" class="block truncate text-[10px] text-slate-500">No report loaded</span></label>
+              <select id="planning-import-main-fight" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-[11px] text-slate-200" onchange="renderPlanningCastImportClasses()" disabled>
+                <option value="">Load a report first</option>
+              </select>
+            </div>
+            <div class="grid grid-cols-[auto_minmax(0,1fr)_minmax(9rem,auto)] items-center gap-2">
+              <input id="planning-import-use-separate" type="checkbox" class="accent-emerald-500" onchange="renderPlanningCastImportClasses()" aria-label="Import from the separate report">
+              <div class="min-w-0 flex items-center gap-1">
+                <label for="planning-import-report" class="sr-only">Separate FFLogs report</label>
+                <input id="planning-import-report" type="text" placeholder="Separate log URL or code" class="min-w-0 w-full bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-[11px] text-slate-200" oninput="clearPlanningImportReport()">
+                <button onclick="loadPlanningImportReport()" title="Load separate log" aria-label="Load separate log" class="shrink-0 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-2 py-1.5 text-[11px] text-slate-200"><i class="fa-solid fa-download"></i></button>
+              </div>
+              <label class="sr-only" for="planning-import-fight">Separate report pull</label>
+              <select id="planning-import-fight" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-[11px] text-slate-200" onchange="renderPlanningCastImportClasses()" disabled>
+                <option value="">Load a log first</option>
+              </select>
+            </div>
+            <section class="border-t border-slate-800 pt-2" aria-label="Classes to import">
+              <div class="flex items-center gap-2 mb-2">
+                <input id="planning-import-all-classes" type="checkbox" class="accent-emerald-500" onchange="toggleAllPlanningImportClasses()" disabled>
+                <label for="planning-import-all-classes" class="text-[11px] font-semibold text-slate-200">All classes</label>
+                <span id="planning-import-class-count" class="ml-auto text-[10px] text-slate-500"></span>
+              </div>
+              <div id="planning-import-class-options" class="space-y-2 text-[11px]"></div>
+            </section>
+            <button id="planning-import-submit" onclick="importSelectedPlanningCasts()" class="w-full bg-emerald-700 hover:bg-emerald-600 disabled:bg-slate-800 disabled:text-slate-500 text-white text-xs font-semibold rounded px-3 py-2" disabled><i class="fa-solid fa-file-import mr-1"></i> Import selected casts</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -283,6 +311,10 @@
     <span id="planning-ability-summary" class="text-slate-500">Abilities are grouped by class.</span>
     <div class="flex items-center gap-2">
       <span class="text-slate-600">Double-click a track, or use +, to place a chip · drag to move</span>
+      <div class="flex items-center gap-1 bg-slate-950 border border-slate-700 rounded px-1 py-1">
+        <button id="planning-undo-button" onclick="undoPlanningChange()" title="Undo (Ctrl+Z)" aria-label="Undo planning change" class="text-slate-300 hover:text-white disabled:text-slate-600 disabled:cursor-not-allowed px-1.5 py-0.5 rounded hover:bg-slate-800" disabled><i class="fa-solid fa-rotate-left"></i></button>
+        <button id="planning-redo-button" onclick="redoPlanningChange()" title="Redo (Ctrl+Y)" aria-label="Redo planning change" class="text-slate-300 hover:text-white disabled:text-slate-600 disabled:cursor-not-allowed px-1.5 py-0.5 rounded hover:bg-slate-800" disabled><i class="fa-solid fa-rotate-right"></i></button>
+      </div>
       <div class="flex items-center gap-1 bg-slate-950 border border-slate-700 rounded px-1 py-1" title="Timeline zoom (100% shows 5 minutes)">
         <button onclick="adjustPlanningZoom(-0.25)" class="text-slate-300 hover:text-white px-1.5 py-0.5 rounded hover:bg-slate-800" title="Zoom out"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
         <span id="planning-zoom-label" class="text-[10px] font-mono text-slate-400 w-9 text-center">100%</span>
@@ -432,7 +464,13 @@ let trackedAbilityCooldowns = {};
 let trackedAbilityDurations = {};
 let trackedAbilityImages = {};
 let plannedUsages = {}; // encounterId -> abilityKey -> [{ id, time }]
+let planningUndoStack = [];
+let planningRedoStack = [];
 let planningImportReport = null;
+let planningImportMainReportCode = '';
+let planningCastClassSelectionKey = '';
+let planningCastAvailableJobs = [];
+let planningCastSelectedJobs = new Set();
 let planningZoom = 1;
 let planningPlayheadSeconds = null;
 let timelinePlayheadOffsetMs = 0;
@@ -502,6 +540,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     updateAllFilterButton();
     renderPullList();
   });
+  document.addEventListener('keydown', handlePlanningHistoryShortcut);
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') closePlanningCastImportMenu();
+  });
+  updatePlanningHistoryControls();
 });
 
 
@@ -2352,23 +2395,164 @@ function loadPlanningEncounter() {
   renderTimeline();
 }
 
-async function importReviewCastsToPlanning() {
-  if (!report || !activeFightId) {
-    showToast('Load a log and select a pull in Review before importing casts.', 'error');
+function togglePlanningCastImportMenu() {
+  const menu = document.getElementById('planning-cast-import-menu');
+  const toggle = document.getElementById('planning-cast-import-toggle');
+  const opening = menu.classList.contains('hidden');
+  menu.classList.toggle('hidden', !opening);
+  toggle.setAttribute('aria-expanded', String(opening));
+  if (opening) renderPlanningCastImportMenu();
+}
+
+function closePlanningCastImportMenu() {
+  const menu = document.getElementById('planning-cast-import-menu');
+  const toggle = document.getElementById('planning-cast-import-toggle');
+  if (!menu || !toggle) return;
+  menu.classList.add('hidden');
+  toggle.setAttribute('aria-expanded', 'false');
+}
+
+function setPlanningImportFightOptions(select, fights, emptyLabel, preferredFightId) {
+  select.replaceChildren();
+  if (!fights.length) {
+    select.add(new Option(emptyLabel, ''));
+    select.disabled = true;
     return;
   }
-  const reportCode = report.code;
-  const fightId = activeFightId;
-  const fight = getActiveFight();
-  if (!window.confirm(`Replace all planned ability markers for ${fight.name} with casts from this Review pull?`)) return;
-  if (!timelineEventsCache[fightId]) await loadTimelineEventsForFight(fightId);
-  if (!report || report.code !== reportCode || activeFightId !== fightId) {
-    showToast('The selected log or pull changed before the cast import finished.', 'error');
-    return;
+  fights.forEach((fight, index) => {
+    const option = document.createElement('option');
+    option.value = String(fight.id);
+    option.textContent = `Pull ${index + 1} · ${fight.name} · ${formatSecondsToMMSS((fight.endTime - fight.startTime) / 1000)}`;
+    select.appendChild(option);
+  });
+  select.disabled = false;
+  select.value = fights.some(fight => String(fight.id) === String(preferredFightId))
+    ? String(preferredFightId)
+    : String(fights[0].id);
+}
+
+function renderPlanningCastImportMenu() {
+  const mainSelect = document.getElementById('planning-import-main-fight');
+  const mainCheckbox = document.getElementById('planning-import-use-main');
+  const mainTitle = document.getElementById('planning-import-main-title');
+  const mainFights = report ? report.fights || [] : [];
+  setPlanningImportFightOptions(mainSelect, mainFights, 'Load a report first', activeFightId);
+  mainTitle.textContent = report ? report.title || report.code : 'No report loaded';
+  mainCheckbox.disabled = !report || !mainFights.length;
+  if (!report || !mainFights.length) {
+    mainCheckbox.checked = false;
+    planningImportMainReportCode = '';
+  } else if (planningImportMainReportCode !== report.code) {
+    mainCheckbox.checked = true;
+    planningImportMainReportCode = report.code;
   }
-  const casts = (timelineEventsCache[fightId] && timelineEventsCache[fightId].casts || [])
-    .filter(event => String(event.type).toLowerCase() === 'cast');
-  importCastsToPlanning(report, fight, casts, `Pull ${report.fights.indexOf(fight) + 1}`);
+  renderPlanningCastImportClasses();
+}
+
+function getSelectedPlanningCastSources() {
+  const sources = [];
+  const mainFightSelect = document.getElementById('planning-import-main-fight');
+  if (document.getElementById('planning-import-use-main').checked && report) {
+    const fight = report.fights.find(item => String(item.id) === mainFightSelect.value);
+    if (fight) sources.push({ report, fight, label: `main report · ${fight.name}` });
+  }
+  const separateFightSelect = document.getElementById('planning-import-fight');
+  if (document.getElementById('planning-import-use-separate').checked && planningImportReport) {
+    const fight = planningImportReport.fights.find(item => String(item.id) === separateFightSelect.value);
+    if (fight) sources.push({ report: planningImportReport, fight, label: `${planningImportReport.title || planningImportReport.code} · ${fight.name}` });
+  }
+  return sources;
+}
+
+function getPlanningCastJobsForSources(sources) {
+  const jobs = new Set();
+  sources.forEach(({ report: sourceReport, fight }) => {
+    const friendlyPlayers = new Set((fight.friendlyPlayers || []).map(String));
+    sourceReport.actors.forEach(actor => {
+      if (friendlyPlayers.size && !friendlyPlayers.has(String(actor.id))) return;
+      const job = jobCodeForSubType(actor.subType);
+      if (job) jobs.add(job);
+    });
+  });
+  return jobs;
+}
+
+function renderPlanningCastImportClasses() {
+  const sources = getSelectedPlanningCastSources();
+  const jobs = getPlanningCastJobsForSources(sources);
+  const availableJobs = [...jobs].sort(compareJobsByRole);
+  const selectionKey = sources.map(source => `${source.report.code}:${source.fight.id}`).join('|');
+  if (selectionKey !== planningCastClassSelectionKey) {
+    planningCastClassSelectionKey = selectionKey;
+    planningCastSelectedJobs = new Set(availableJobs);
+  } else {
+    planningCastSelectedJobs = new Set([...planningCastSelectedJobs].filter(job => jobs.has(job)));
+  }
+  planningCastAvailableJobs = availableJobs;
+
+  const allCheckbox = document.getElementById('planning-import-all-classes');
+  const classList = document.getElementById('planning-import-class-options');
+  const count = document.getElementById('planning-import-class-count');
+  const selectedCount = planningCastSelectedJobs.size;
+  allCheckbox.disabled = !availableJobs.length;
+  allCheckbox.checked = availableJobs.length > 0 && selectedCount === availableJobs.length;
+  allCheckbox.indeterminate = selectedCount > 0 && selectedCount < availableJobs.length;
+  count.textContent = availableJobs.length ? `${selectedCount}/${availableJobs.length} selected` : '';
+  classList.replaceChildren();
+
+  if (!sources.length) {
+    const message = document.createElement('p');
+    message.className = 'text-slate-500';
+    message.textContent = 'Select a report and pull to see its classes.';
+    classList.appendChild(message);
+  } else if (!availableJobs.length) {
+    const message = document.createElement('p');
+    message.className = 'text-slate-500';
+    message.textContent = 'No player classes found in the selected pull.';
+    classList.appendChild(message);
+  } else {
+    const roleGroups = [
+      { name: 'Tanks', jobs: PLANNING_CLASS_GROUPS[0].jobs },
+      { name: 'Healers', jobs: PLANNING_CLASS_GROUPS[1].jobs },
+      { name: 'DPS', jobs: PLANNING_CLASS_GROUPS.slice(2).flatMap(group => group.jobs) }
+    ];
+    roleGroups.forEach(group => {
+      const groupJobs = group.jobs.filter(job => jobs.has(job));
+      if (!groupJobs.length) return;
+      const row = document.createElement('div');
+      row.className = 'flex flex-wrap items-center gap-x-3 gap-y-1';
+      const heading = document.createElement('span');
+      heading.className = 'w-14 shrink-0 text-[9px] uppercase tracking-wide text-slate-500';
+      heading.textContent = group.name;
+      row.appendChild(heading);
+      groupJobs.forEach(job => {
+        const label = document.createElement('label');
+        label.className = 'inline-flex items-center gap-1 text-slate-300';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = planningCastSelectedJobs.has(job);
+        checkbox.className = 'accent-emerald-500';
+        checkbox.addEventListener('change', () => {
+          if (checkbox.checked) planningCastSelectedJobs.add(job);
+          else planningCastSelectedJobs.delete(job);
+          renderPlanningCastImportClasses();
+        });
+        const name = document.createElement('span');
+        name.textContent = job;
+        label.append(checkbox, name);
+        row.appendChild(label);
+      });
+      classList.appendChild(row);
+    });
+  }
+  const submit = document.getElementById('planning-import-submit');
+  submit.disabled = !sources.length || !selectedCount;
+}
+
+function toggleAllPlanningImportClasses() {
+  const selectAll = document.getElementById('planning-import-all-classes').checked;
+  planningCastSelectedJobs = new Set(selectAll ? planningCastAvailableJobs : []);
+  renderPlanningCastImportClasses();
 }
 
 async function loadPlanningImportReport() {
@@ -2395,18 +2579,12 @@ async function loadPlanningImportReport() {
       abilityNames: new Map(((source.masterData && source.masterData.abilities) || []).map(ability => [Number(ability.gameID), ability.name]))
     };
     const fightSelect = document.getElementById('planning-import-fight');
-    fightSelect.replaceChildren();
-    fights.forEach((fight, index) => {
-      const option = document.createElement('option');
-      option.value = String(fight.id);
-      option.textContent = `Pull ${index + 1} · ${fight.name} · ${formatSecondsToMMSS((fight.endTime - fight.startTime) / 1000)}`;
-      fightSelect.appendChild(option);
-    });
-    fightSelect.disabled = fights.length === 0;
+    setPlanningImportFightOptions(fightSelect, fights, 'No encounter pulls found', fights[0] && fights[0].id);
     if (!fights.length) {
-      fightSelect.add(new Option('No encounter pulls found', ''));
       throw new Error('No encounter pulls were found in that report.');
     }
+    if (!report) document.getElementById('planning-import-use-separate').checked = true;
+    renderPlanningCastImportClasses();
     showToast(`Loaded ${source.title || code}; choose a pull to import.`, 'success');
   } catch (error) {
     planningImportReport = null;
@@ -2421,66 +2599,95 @@ function clearPlanningImportReport() {
   const fightSelect = document.getElementById('planning-import-fight');
   fightSelect.replaceChildren(new Option('Load a log first', ''));
   fightSelect.disabled = true;
+  document.getElementById('planning-import-use-separate').checked = false;
+  renderPlanningCastImportClasses();
 }
 
-async function importPlanningLogCasts() {
-  const sourceReport = planningImportReport;
-  const fightSelect = document.getElementById('planning-import-fight');
-  const fight = sourceReport && sourceReport.fights.find(item => String(item.id) === fightSelect.value);
-  if (!sourceReport || !fight) {
-    showToast('Load a separate log and select one of its pulls first.', 'error');
+async function importSelectedPlanningCasts() {
+  const sources = getSelectedPlanningCastSources();
+  if (!sources.length || !planningCastSelectedJobs.size) {
+    showToast('Select at least one log, pull, and class to import.', 'error');
     return;
   }
-  if (!window.confirm(`Replace all planned ability markers for ${fight.name} with casts from ${sourceReport.title || sourceReport.code}?`)) return;
+  const selectionKey = JSON.stringify({ sources: sources.map(source => [source.report.code, source.fight.id]), jobs: [...planningCastSelectedJobs].sort() });
+  const destinationIds = [...new Set(sources.map(source => String(source.fight.encounterID)))];
+  const destinationLabel = destinationIds.length === 1 ? sources[0].fight.name : `${destinationIds.length} encounters`;
+  const sourceLabel = sources.map(source => source.label).join(' + ');
+  if (!window.confirm(`Replace planned ability markers for ${destinationLabel} with selected classes from ${sourceLabel}?`)) return;
+  const submit = document.getElementById('planning-import-submit');
+  submit.disabled = true;
   try {
-    const data = await fflogsQuery(TIMELINE_EVENTS_QUERY, { code: sourceReport.code, fightID: Number(fight.id) });
-    if (planningImportReport !== sourceReport || fightSelect.value !== String(fight.id)) {
-      showToast('The selected separate log or pull changed before the cast import finished.', 'error');
+    const fetchedSources = await Promise.all(sources.map(async source => {
+      const data = await fflogsQuery(TIMELINE_EVENTS_QUERY, { code: source.report.code, fightID: Number(source.fight.id) });
+      const events = data.reportData.report;
+      return { ...source, casts: (events.casts && events.casts.data || []).filter(event => String(event.type).toLowerCase() === 'cast') };
+    }));
+    const currentSources = getSelectedPlanningCastSources();
+    const currentKey = JSON.stringify({ sources: currentSources.map(source => [source.report.code, source.fight.id]), jobs: [...planningCastSelectedJobs].sort() });
+    if (currentKey !== selectionKey) {
+      showToast('The selected logs, pulls, or classes changed before the import finished.', 'error');
       return;
     }
-    const events = data.reportData.report;
-    const casts = (events.casts && events.casts.data || []).filter(event => String(event.type).toLowerCase() === 'cast');
-    importCastsToPlanning(sourceReport, fight, casts, `${sourceReport.title || sourceReport.code} · ${fight.name}`);
+    const plansByEncounter = new Map();
+    let importedCount = 0;
+    fetchedSources.forEach(source => {
+      const imported = buildPlanningCastUsages(source.report, source.fight, source.casts, planningCastSelectedJobs);
+      if (!imported.count) return;
+      const encounterId = String(source.fight.encounterID);
+      if (!plansByEncounter.has(encounterId)) plansByEncounter.set(encounterId, {});
+      const combinedPlan = plansByEncounter.get(encounterId);
+      Object.entries(imported.usages).forEach(([key, usages]) => {
+        if (!Array.isArray(combinedPlan[key])) combinedPlan[key] = [];
+        combinedPlan[key].push(...usages);
+      });
+      importedCount += imported.count;
+    });
+    if (!importedCount) {
+      showToast('No tracked casts were found for the selected classes; existing plans were left unchanged.', 'info');
+      return;
+    }
+    recordPlanningHistory(serializePlanningUsages());
+    plansByEncounter.forEach((plan, encounterId) => { plannedUsages[encounterId] = plan; });
+    persistPlannedUsages();
+    renderTimeline();
+    closePlanningCastImportMenu();
+    showToast(`Imported ${importedCount} cast${importedCount === 1 ? '' : 's'} from ${sourceLabel}.`, 'success');
   } catch (error) {
     showToast('Could not import casts: ' + (error && error.message || error), 'error');
+  } finally {
+    submit.disabled = false;
+    renderPlanningCastImportClasses();
   }
 }
 
-function importCastsToPlanning(sourceReport, fight, casts, sourceLabel) {
+function buildPlanningCastUsages(sourceReport, fight, casts, selectedJobs) {
   const trackedAbilities = new Map(getTimelineAbilityNames().map(name => [name.toLocaleLowerCase(), name]));
   const actorsById = new Map(sourceReport.actors.map(actor => [String(actor.id), actor]));
   const povJobsByName = new Map(povs.map(pov => [String(pov.player || '').toLocaleLowerCase(), jobCodeForSubType(pov.job)]));
-  const encounterId = String(fight.encounterID);
-  let importedCount = 0;
-  const importedUsages = {};
+  let count = 0;
+  const usages = {};
   casts.forEach(event => {
     const abilityName = trackedAbilities.get(eventAbilityName(event, sourceReport).toLocaleLowerCase());
     const actor = actorsById.get(String(event.sourceID));
     if (!abilityName || !actor) return;
     const job = jobCodeForSubType(actor.subType) || povJobsByName.get(String(actor.name || '').toLocaleLowerCase());
-    if (!job) return;
+    if (!job || !selectedJobs.has(job)) return;
     const key = `planned:${job}:${abilityCooldownKey(abilityName)}`;
-    if (!Array.isArray(importedUsages[key])) importedUsages[key] = [];
+    if (!Array.isArray(usages[key])) usages[key] = [];
     const sourceID = String(event.sourceID);
     const sourceTimeMs = Number(event.timestamp);
-    if (importedUsages[key].some(usage => String(usage.sourceID) === sourceID && Number(usage.sourceTimeMs) === sourceTimeMs)) return;
-    importedUsages[key].push({
+    if (usages[key].some(usage => String(usage.sourceID) === sourceID && Number(usage.sourceTimeMs) === sourceTimeMs)) return;
+    usages[key].push({
       id: uid('imported-cast'),
       time: Math.max(0, (sourceTimeMs - fight.startTime) / 1000),
       importedFightId: fight.id,
+      importedReportCode: sourceReport.code,
       sourceID,
       sourceTimeMs
     });
-    importedCount++;
+    count++;
   });
-  if (!importedCount) {
-    showToast('No tracked player casts were found; the existing plan was left unchanged.', 'info');
-    return;
-  }
-  plannedUsages[encounterId] = importedUsages;
-  persistPlannedUsages();
-  renderTimeline();
-  showToast(`Imported ${importedCount} cast${importedCount === 1 ? '' : 's'} from ${sourceLabel}.`, 'success');
+  return { usages, count };
 }
 
 function getPlanningClassJobs() {
@@ -2937,6 +3144,7 @@ function resetPlannedUsagesForJobs(encounterId, label, jobs) {
     showToast(`No planned placements for ${label}.`, 'info');
     return;
   }
+  const previousState = serializePlanningUsages();
   let removedAny = false;
   Object.keys(encounterPlan).forEach(key => {
     const match = key.match(/^planned:([^:]+):/);
@@ -2962,6 +3170,7 @@ function resetPlannedUsagesForJobs(encounterId, label, jobs) {
     showToast(`No planned placements for ${label}.`, 'info');
     return;
   }
+  recordPlanningHistory(previousState);
   persistPlannedUsages();
   renderTimeline();
   showToast(`Reset planned placements for ${label}.`, 'success');
@@ -2970,14 +3179,19 @@ function getPlannedUsages(encounterId, name, job) {
   return plannedUsagesForKey(encounterId, name, job).slice().sort((a, b) => a.time - b.time);
 }
 function addPlannedUsage(encounterId, name, time, job) {
+  const previousState = serializePlanningUsages();
   plannedUsagesForKey(encounterId, name, job).push({ id: `pu_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, time: Math.max(0, time) });
+  recordPlanningHistory(previousState);
   persistPlannedUsages();
   renderTimeline();
 }
 function removePlannedUsage(encounterId, name, job, id) {
+  const previousState = serializePlanningUsages();
   const usages = plannedUsagesForKey(encounterId, name, job);
   const index = usages.findIndex(usage => usage.id === id);
-  if (index >= 0) usages.splice(index, 1);
+  if (index < 0) return;
+  usages.splice(index, 1);
+  recordPlanningHistory(previousState);
   persistPlannedUsages();
   renderTimeline();
 }
@@ -2988,6 +3202,50 @@ function updatePlannedUsageTime(encounterId, name, job, id, time) {
 }
 function persistPlannedUsages() {
   try { localStorage.setItem('fflogs_vod_planned_usages', JSON.stringify(plannedUsages)); } catch (e) {}
+}
+function serializePlanningUsages() {
+  return JSON.stringify(plannedUsages);
+}
+function recordPlanningHistory(previousState) {
+  planningUndoStack.push(previousState);
+  if (planningUndoStack.length > 100) planningUndoStack.shift();
+  planningRedoStack = [];
+  updatePlanningHistoryControls();
+}
+function restorePlanningUsages(state) {
+  plannedUsages = JSON.parse(state);
+  persistPlannedUsages();
+  renderTimeline();
+  updatePlanningHistoryControls();
+}
+function undoPlanningChange() {
+  if (!planningUndoStack.length) return;
+  planningRedoStack.push(serializePlanningUsages());
+  restorePlanningUsages(planningUndoStack.pop());
+}
+function redoPlanningChange() {
+  if (!planningRedoStack.length) return;
+  planningUndoStack.push(serializePlanningUsages());
+  restorePlanningUsages(planningRedoStack.pop());
+}
+function updatePlanningHistoryControls() {
+  const undoButton = document.getElementById('planning-undo-button');
+  const redoButton = document.getElementById('planning-redo-button');
+  if (undoButton) undoButton.disabled = planningUndoStack.length === 0;
+  if (redoButton) redoButton.disabled = planningRedoStack.length === 0;
+}
+function handlePlanningHistoryShortcut(event) {
+  const planningWorkspace = document.getElementById('planning-workspace');
+  const target = event.target;
+  if (!planningWorkspace || planningWorkspace.classList.contains('hidden') || (!event.ctrlKey && !event.metaKey) || event.altKey || (target.closest && target.closest('input, textarea, select, [contenteditable="true"]'))) return;
+  const key = event.key.toLocaleLowerCase();
+  if (key === 'z') {
+    event.preventDefault();
+    if (event.shiftKey) redoPlanningChange(); else undoPlanningChange();
+  } else if (key === 'y' && !event.shiftKey) {
+    event.preventDefault();
+    redoPlanningChange();
+  }
 }
 function buildPlannedChip(encounterId, name, job, usage, opts) {
   const { color, imageUrl, cooldownSeconds, abilityDurationSeconds, pxPerSecond, durationSeconds, rowHeight, chipSize } = opts;
@@ -3035,11 +3293,12 @@ function buildPlannedChip(encounterId, name, job, usage, opts) {
     removePlannedUsage(encounterId, name, job, usage.id);
   });
 
-  let dragging = false, startX = 0, startTime = usage.time;
+  let dragging = false, startX = 0, startTime = usage.time, dragStartState = null;
   chip.addEventListener('pointerdown', event => {
     dragging = true;
     startX = event.clientX;
     startTime = usage.time;
+    dragStartState = serializePlanningUsages();
     chip.setPointerCapture(event.pointerId);
     event.stopPropagation();
   });
@@ -3053,6 +3312,7 @@ function buildPlannedChip(encounterId, name, job, usage, opts) {
   const endDrag = () => {
     if (!dragging) return;
     dragging = false;
+    if (usage.time !== startTime) recordPlanningHistory(dragStartState);
     updatePlannedUsageTime(encounterId, name, job, usage.id, usage.time);
   };
   chip.addEventListener('pointerup', endDrag);
