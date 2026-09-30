@@ -3337,53 +3337,32 @@ function getPlanningAbilityRows(events, fight) {
       const actorNames = rowActors.map(actor => actor.name);
       const abilityId = eventAbilityId(abilityCasts[0] || casts.find(event => eventAbilityName(event).toLocaleLowerCase() === abilityName.toLocaleLowerCase()) || {});
       const sourceIds = new Set(abilityCasts.map(event => String(event.sourceID)));
-      const spans = [];
-      const plot = { left: 34, right: 966, width: 1000, collisionWidth: 10, pointGap: 8 };
-      const pileCounts = new Map();
-      let highestPoint = 0;
-      let lowestPoint = 0;
-      const points = playerDeaths.map((item, index) => {
-        const pullIndex = report.fights.findIndex(pull => String(pull.id) === String(item.fightId));
-        const pull = report.fights[pullIndex];
-        if (!pull) return null;
-        const durationMs = Math.max(1, pull.endTime - pull.startTime);
-        const progress = Math.max(0, Math.min(1, item.timeMs / durationMs));
-        const x = plot.left + progress * (plot.right - plot.left);
-        const bucket = Math.round(x / plot.collisionWidth);
-        const pileIndex = pileCounts.get(bucket) || 0;
-        pileCounts.set(bucket, pileIndex + 1);
-        const yOffset = pileIndex === 0 ? 0 : (pileIndex % 2 ? -1 : 1) * Math.ceil(pileIndex / 2) * plot.pointGap;
-        highestPoint = Math.max(highestPoint, -yOffset);
-        lowestPoint = Math.max(lowestPoint, yOffset);
-        return { item, index, pull, pullIndex, x, yOffset };
-      }).filter(Boolean);
-      const baselineY = 28 + highestPoint;
-      const height = baselineY + lowestPoint + 24;
-      const ticks = [0, 25, 50, 75, 100].map(percent => {
-        const x = plot.left + (percent / 100) * (plot.right - plot.left);
-        return `<line x1="${x}" y1="22" x2="${x}" y2="${height - 16}" stroke="#334155" stroke-width="1" />
-          <text x="${x}" y="13" fill="#64748b" font-size="10" text-anchor="${percent === 0 ? 'start' : percent === 100 ? 'end' : 'middle'}">${percent}%</text>`;
-      }).join('');
-      const markers = points.map(({ item, index, pull, pullIndex, x, yOffset }) => {
-        const time = formatSecondsToMMSS(Math.round(item.timeMs / 1000));
-        const title = `Pull ${pullIndex + 1} · ${pull.name} · ${time} · ${item.ability}`;
-        return `<circle class="report-death-point cursor-pointer" data-death-index="${index}" cx="${x}" cy="${baselineY + yOffset}" r="4.5" fill="#fb7185" fill-opacity="0.9" stroke="#450a0a" stroke-width="1" tabindex="0" role="button" aria-label="${escapeHTML(title)}"><title>${escapeHTML(title)}</title></circle>`;
-      }).join('');
-      container.innerHTML = `<div class="max-h-80 overflow-y-auto pr-1">
-        <div class="text-[9px] text-slate-500 mb-1">${points.length} death${points.length === 1 ? '' : 's'} · normalized pull progress</div>
-        <svg class="w-full h-auto" viewBox="0 0 ${plot.width} ${height}" role="group" aria-label="${escapeHTML(death.player)} deaths by pull progress">
-          ${ticks}
-          <line x1="${plot.left}" y1="${baselineY}" x2="${plot.right}" y2="${baselineY}" stroke="#475569" stroke-width="1" />
-          ${markers}
-        </svg>
-      </div>`;
-      container.querySelectorAll('.report-death-point').forEach(marker => {
-        const openDeath = () => openDeathInTab(playerDeaths[Number(marker.getAttribute('data-death-index'))].fightId, playerDeaths[Number(marker.getAttribute('data-death-index'))], true);
-        marker.addEventListener('click', openDeath);
-        marker.addEventListener('keydown', event => {
-          if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openDeath(); }
+      const timelineSpans = [];
+      const isApply = type => /^(applybuff|applybuffstack|refreshbuff)$/.test(type);
+      const isRemove = type => /^(removebuff|removebuffstack)$/.test(type);
+      const activeSpans = new Map();
+      (events.buffs || [])
+        .filter(event => sourceIds.has(String(event.sourceID)) && eventAbilityName(event).toLocaleLowerCase() === abilityName.toLocaleLowerCase())
+        .sort((a, b) => a.timestamp - b.timestamp)
+        .forEach(event => {
+          const type = String(event.type).toLowerCase();
+          const key = `${event.sourceID}:${event.targetID}`;
+          if (isApply(type)) {
+            if (!activeSpans.has(key)) activeSpans.set(key, { start: event.timestamp, targetID: String(event.targetID) });
+          } else if (isRemove(type) && activeSpans.has(key)) {
+            const open = activeSpans.get(key);
+            activeSpans.delete(key);
+            timelineSpans.push({ start: open.start, end: event.timestamp, name: abilityName, targetID: open.targetID });
+          }
         });
+      activeSpans.forEach(open => {
+        timelineSpans.push({ start: open.start, end: fight.endTime, name: abilityName, targetID: open.targetID });
       });
+      jobs.get(jobKey).push({
+        type: 'ability',
+        job: jobKey,
+        abilityName,
+        abilityId,
         actorNames,
         color: JOB_COLORS[jobKey] || '#38bdf8',
         casts: abilityCasts,
