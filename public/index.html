@@ -298,6 +298,7 @@
         <p class="text-slate-400 leading-relaxed">Tracked abilities, mechanic categories, planned cooldown placements and POVs live in each browser, so a private window starts blank. Hit Save and it's live for everyone opening the site — no repo upload needed.</p>
         <label class="flex items-center gap-1.5 mt-2 text-slate-400 cursor-pointer select-none"><input type="checkbox" id="share-include-reports" checked> Include POVs for every log</label>
         <div class="flex justify-end gap-2 mt-2">
+          <button id="reload-shared-setup-button" onclick="reloadLocalStorageFromServerConfig()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded border border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed" title="Replace shared setup values in this browser with the server config"><i class="fa-solid fa-rotate"></i> Reload from server</button>
           <button onclick="exportSharedSetup()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded border border-slate-700" title="Download a backup copy of the current setup"><i class="fa-solid fa-file-arrow-down"></i> Download backup</button>
           <button onclick="saveSharedSetup()" class="bg-ffpurple-600 hover:bg-ffpurple-500 text-white font-medium px-3 py-1.5 rounded"><i class="fa-solid fa-cloud-arrow-up"></i> Save for everyone</button>
         </div>
@@ -571,7 +572,7 @@ async function checkForSharedConfigUpdate() {
   finally { sharedConfigCheckPending = false; }
 }
 
-async function applySharedConfig(config = null) {
+async function applySharedConfig(config = null, replaceLocal = false) {
   try {
     let cfg = config;
     if (!cfg) {
@@ -582,16 +583,16 @@ async function applySharedConfig(config = null) {
     if (!cfg || typeof cfg !== 'object' || !cfg.storage || typeof cfg.storage !== 'object') return false;
     const stamp = String(cfg.updatedAt || '');
     const alreadyApplied = stamp && localStorage.getItem('fflogs_vod_config_applied') === stamp;
-    if (alreadyApplied) return false;
+    if (alreadyApplied && !replaceLocal) return false;
     Object.entries(cfg.storage).forEach(([key, value]) => {
       if (!key.startsWith('fflogs_vod_') || CONFIG_EXCLUDE.has(key)) return;
-      if (!stamp && localStorage.getItem(key) !== null) return; // no version stamp: only fill gaps
-      if (key === ENCOUNTER_MECHANICS_KEY) {
+      if (!replaceLocal && !stamp && localStorage.getItem(key) !== null) return; // no version stamp: only fill gaps
+      if (!replaceLocal && key === ENCOUNTER_MECHANICS_KEY) {
         let local = {};
         try { local = JSON.parse(localStorage.getItem(key)) || {}; } catch (e) {}
         value = mergeEncounterMechanicDatasets(local, value);
       }
-      if (key === 'fflogs_vod_settings') {
+      if (!replaceLocal && key === 'fflogs_vod_settings') {
         let local = {};
         try { local = JSON.parse(localStorage.getItem(key)) || {}; } catch (e) {}
         value = { ...local, ...value };
@@ -675,8 +676,11 @@ function loadEncounterMechanicsDataset() {
 
 function saveObservedEncounterMechanics(fight, enemyCasts) {
   if (!fight || !fight.encounterID) return false;
+  const encounterId = String(fight.encounterID);
+  const current = loadEncounterMechanicsDataset();
+  if (Object.prototype.hasOwnProperty.call(current, encounterId)) return false;
   const incoming = {
-    [String(fight.encounterID)]: {
+    [encounterId]: {
       encounterID: Number(fight.encounterID),
       name: fight.name || '',
       durationSeconds: Math.max(0, Math.ceil((fight.endTime - fight.startTime) / 1000)),
@@ -695,8 +699,7 @@ function saveObservedEncounterMechanics(fight, enemyCasts) {
     const offsets = byAbility.get(key).castOffsets;
     if (!offsets.includes(offset)) offsets.push(offset);
   });
-  incoming[String(fight.encounterID)].mechanics = [...byAbility.values()];
-  const current = loadEncounterMechanicsDataset();
+  incoming[encounterId].mechanics = [...byAbility.values()];
   const merged = mergeEncounterMechanicDatasets(current, incoming);
   if (JSON.stringify(current) === JSON.stringify(merged)) return false;
   localStorage.setItem(ENCOUNTER_MECHANICS_KEY, JSON.stringify(merged));
@@ -767,6 +770,24 @@ function collectSharedSetupStorage(includeReports) {
     try { storage[key] = JSON.parse(localStorage.getItem(key)); } catch (e) {}
   }
   return storage;
+}
+
+async function reloadLocalStorageFromServerConfig() {
+  if (!window.confirm('Replace this browser\'s shared setup values with those from the server config? Local-only values not included on the server will be kept.')) return;
+  const button = document.getElementById('reload-shared-setup-button');
+  if (button) button.disabled = true;
+  try {
+    const res = await fetch(SHARED_CONFIG_API_URL, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`Could not load server config (${res.status}).`);
+    const config = await res.json();
+    if (!await applySharedConfig(config, true)) throw new Error('The server config is empty or invalid.');
+    refreshSharedConfigState();
+    showToast('Local setup reloaded from server config.', 'success');
+  } catch (e) {
+    showToast('Could not reload server config: ' + (e && e.message || e), 'error');
+  } finally {
+    if (button) button.disabled = false;
+  }
 }
 
 async function saveSharedSetup() {
@@ -1232,7 +1253,7 @@ async function reloadMechanicsFromActivePull() {
   const fightId = fight.id;
   if (button) button.disabled = true;
   try {
-    const data = await fflogsQuery(TIMELINE_EVENTS_QUERY, { code: reportCode, fightID: fightId });
+    const data = await fflogsQuery(TIMELINE_EVENTS_QUERY(true), { code: reportCode, fightID: fightId });
     if (!report || report.code !== reportCode || String(activeFightId) !== String(fightId)) {
       throw new Error('The selected report or pull changed before the reload finished.');
     }
@@ -1784,13 +1805,13 @@ query ($code: String!, $fightIDs: [Int!]!) {
   }
 }`;
 
-const TIMELINE_EVENTS_QUERY = `
+const TIMELINE_EVENTS_QUERY = includeEnemyCasts => `
 query ($code: String!, $fightID: Int!) {
   reportData {
     report(code: $code) {
       buffs: events(fightIDs: [$fightID], dataType: Buffs, startTime: 0, endTime: 999999999) { data }
       casts: events(fightIDs: [$fightID], dataType: Casts, startTime: 0, endTime: 999999999) { data }
-      enemyCasts: events(fightIDs: [$fightID], dataType: Casts, hostilityType: Enemies, startTime: 0, endTime: 999999999) { data }
+      ${includeEnemyCasts ? 'enemyCasts: events(fightIDs: [$fightID], dataType: Casts, hostilityType: Enemies, startTime: 0, endTime: 999999999) { data }' : ''}
     }
   }
 }`;
@@ -1798,7 +1819,11 @@ query ($code: String!, $fightID: Int!) {
 async function loadTimelineEventsForFight(fightId) {
   if (!report || timelineEventsCache[fightId]) { renderTimeline(); return; }
   try {
-    const data = await fflogsQuery(TIMELINE_EVENTS_QUERY, { code: report.code, fightID: fightId });
+    const fight = report.fights.find(item => item.id === fightId);
+    const mechanicsDataset = loadEncounterMechanicsDataset();
+    const hasSavedEncounter = fight && Object.prototype.hasOwnProperty.call(mechanicsDataset, String(fight.encounterID));
+    const includeEnemyCasts = !hasSavedEncounter;
+    const data = await fflogsQuery(TIMELINE_EVENTS_QUERY(includeEnemyCasts), { code: report.code, fightID: fightId });
     const events = data.reportData.report;
     const buffEvents = events.buffs && events.buffs.data || [];
     const castEvents = events.casts && events.casts.data || [];
@@ -1808,7 +1833,6 @@ async function loadTimelineEventsForFight(fightId) {
       casts: castEvents,
       enemyCasts: enemyCastEvents
     };
-    const fight = report.fights.find(item => item.id === fightId);
     const datasetChanged = saveObservedEncounterMechanics(fight, enemyCastEvents);
     renderAbilityNameSuggestions([...buffEvents, ...castEvents]);
     if (datasetChanged && String(fightId) === String(activeFightId) && !document.getElementById('planning-workspace').classList.contains('hidden')) {
@@ -2595,7 +2619,7 @@ async function importSelectedPlanningCasts() {
   submit.disabled = true;
   try {
     const fetchedSources = await Promise.all(sources.map(async source => {
-      const data = await fflogsQuery(TIMELINE_EVENTS_QUERY, { code: source.report.code, fightID: Number(source.fight.id) });
+      const data = await fflogsQuery(TIMELINE_EVENTS_QUERY(false), { code: source.report.code, fightID: Number(source.fight.id) });
       const events = data.reportData.report;
       return { ...source, casts: (events.casts && events.casts.data || []).filter(event => String(event.type).toLowerCase() === 'cast') };
     }));
