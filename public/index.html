@@ -1892,6 +1892,7 @@ async function loadReportDeathsByPlayer() {
       if (!byPlayer.has(targetKey)) byPlayer.set(targetKey, []);
       byPlayer.get(targetKey).push({
         fightId: fight.id,
+        phase: Number.isFinite(Number(event.phase)) ? Number(event.phase) : null,
         timeMs: event.timestamp - fight.startTime,
         targetID: event.targetID,
         player: actorMap.get(targetKey) || 'Unknown',
@@ -2314,20 +2315,46 @@ async function renderDeathHeatmap(death, selectedFight) {
       container.innerHTML = '<div class="text-slate-500 italic py-3">No deaths for this player in this encounter.</div>';
       return;
     }
+    const phaseGroup = (report.phases || []).find(group => Number(group.encounterID) === Number(selectedFight.encounterID));
+    const phaseDefinitions = phaseGroup && Array.isArray(phaseGroup.phases) ? phaseGroup.phases : [];
+    const phaseRows = phaseDefinitions.map(phase => ({ phase, deaths: [] }));
+    const unclassifiedRow = { phase: null, deaths: [] };
+    const phaseForDeath = item => {
+      if (item.phase == null || !Number.isFinite(Number(item.phase))) return null;
+      const phaseNumber = Number(item.phase);
+      return phaseDefinitions.find(phase => Number(phase.id) === phaseNumber)
+        || (Number.isInteger(phaseNumber) && phaseNumber >= 0 ? phaseDefinitions[phaseNumber] : null);
+    };
+    encounterDeaths.forEach(item => {
+      const phase = phaseForDeath(item);
+      const row = phaseRows.find(candidate => candidate.phase === phase);
+      (row || unclassifiedRow).deaths.push(item);
+    });
+    if (unclassifiedRow.deaths.length || !phaseRows.length) phaseRows.push(unclassifiedRow);
     const pullsById = new Map(report.fights.map((pull, index) => [String(pull.id), { pull, index }]));
     const furthestTimeMs = Math.max(...encounterFights.map(pull => pull.endTime - pull.startTime));
-    const deathPoints = encounterDeaths.map(item => {
-      const entry = pullsById.get(String(item.fightId));
-      if (!entry) return '';
-      const { pull, index } = entry;
-      const fightTimeMs = Math.max(0, Math.min(furthestTimeMs, item.timeMs));
-      const position = fightTimeMs / furthestTimeMs * 100;
-      const title = `Pull ${index + 1} · ${pull.name} · ${formatSecondsToMMSS(item.timeMs / 1000)} · ${item.ability}`;
-      return `<span class="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 h-3 w-3 rounded-full border-2 border-slate-950 bg-rose-400 ring-1 ring-rose-300 cursor-help" style="left:${position}%" title="${escapeHTML(title)}" aria-label="${escapeHTML(title)}"></span>`;
+    const rowsHtml = phaseRows.map(row => {
+      const deathPoints = row.deaths.map(item => {
+        const entry = pullsById.get(String(item.fightId));
+        if (!entry) return '';
+        const { pull, index } = entry;
+        const fightTimeMs = Math.max(0, Math.min(furthestTimeMs, item.timeMs));
+        const position = fightTimeMs / furthestTimeMs * 100;
+        const title = `Pull ${index + 1} · ${pull.name} · ${formatSecondsToMMSS(item.timeMs / 1000)} · ${item.ability}`;
+        return `<span class="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 h-3 w-3 rounded-full border-2 border-slate-950 bg-rose-400 ring-1 ring-rose-300 cursor-help" style="left:${position}%" title="${escapeHTML(title)}" aria-label="${escapeHTML(title)}"></span>`;
+      }).join('');
+      const phaseLabel = row.phase ? formatPhaseLabel(row.phase.id, row.phase.name) : 'Unclassified';
+      return `<div class="grid grid-cols-[minmax(0,5rem)_minmax(0,1fr)_2rem] gap-2 items-center py-1">
+        <span class="truncate text-[9px] text-slate-400" title="${escapeHTML(phaseLabel)}">${escapeHTML(phaseLabel)}</span>
+        <div class="relative h-5"><div class="absolute inset-x-0 top-1/2 h-px bg-slate-700"></div>${deathPoints}</div>
+        <span class="text-right text-[9px] font-mono ${row.deaths.length ? 'text-rose-300' : 'text-slate-600'}">${row.deaths.length}</span>
+      </div>`;
     }).join('');
-    container.innerHTML = `<div class="space-y-1 px-1">
-      <div class="flex justify-between text-[8px] text-slate-600 uppercase"><span>00:00</span><span class="text-rose-300">${encounterDeaths.length} deaths</span><span>${formatSecondsToMMSS(furthestTimeMs / 1000)}</span></div>
-      <div class="relative h-6 mx-1"><div class="absolute inset-x-0 top-1/2 h-px bg-slate-700"></div>${deathPoints}</div>
+    container.innerHTML = `<div class="max-h-80 overflow-y-auto px-1">
+      <div class="grid grid-cols-[minmax(0,5rem)_minmax(0,1fr)_2rem] gap-2 items-center text-[8px] text-slate-600 uppercase pb-1">
+        <span>Phase</span><span class="flex justify-between"><span>00:00</span><span>${formatSecondsToMMSS(furthestTimeMs / 1000)}</span></span><span class="text-right">Deaths</span>
+      </div>
+      ${rowsHtml}
     </div>`;
   } catch (e) {
     if (selectedDeathKey === selectionKey) container.innerHTML = `<div class="text-rose-400 italic py-3">Could not load report deaths: ${escapeHTML(e.message)}</div>`;
