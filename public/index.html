@@ -2080,7 +2080,7 @@ function effectChips(names, kind) {
     : kind === 'shield'
       ? 'bg-cyan-950/50 text-cyan-300 border-cyan-700/40'
       : 'bg-emerald-950/50 text-emerald-300 border-emerald-700/40';
-  return names.map(n => `<span class="${cls} border rounded px-1.5 py-0.5 text-[10px]">${escapeHTML(n)}${kind === 'debuff' ? ' <span class="opacity-60">(on boss)</span>' : kind === 'shield' ? ' <span class="opacity-60">(shield)</span>' : ''}</span>`).join('');
+  return names.map(n => `<span class="${cls} border rounded px-1.5 py-0.5 text-[10px]">${escapeHTML(n)}${kind === 'debuff' ? ' <span class="opacity-60">(on enemy)</span>' : kind === 'shield' ? ' <span class="opacity-60">(shield)</span>' : ''}</span>`).join('');
 }
 
 // Which effects were on the player (and which debuffs on the attacker) at a given moment.
@@ -2124,8 +2124,10 @@ function makeEffectTracker(result) {
         targetBuffNames.add(resolveEffectName(buff));
       }
     });
-    const debuffNames = new Set();
-    debuffActive.forEach(({ event, name }) => { if (attackerId == null || String(event.targetID) === String(attackerId)) debuffNames.add(name); });
+    const activeDebuffs = [...debuffActive.values()];
+    const attackerDebuffs = attackerId == null ? [] : activeDebuffs.filter(({ event }) => String(event.targetID) === String(attackerId));
+    const relevantDebuffs = attackerDebuffs.some(({ name }) => isMitigationName(name)) ? attackerDebuffs : activeDebuffs;
+    const debuffNames = new Set(relevantDebuffs.map(({ name }) => name));
     const allBuffs = [...targetBuffNames].sort(), allDebuffs = [...debuffNames].sort();
     return {
       allBuffs,
@@ -2273,7 +2275,7 @@ function renderDeathDetail(result, death, fight) {
         ${(fx.mitBuffs.length || fx.shieldBuffs.length || fx.mitDebuffs.length) ? `<div class="flex flex-wrap gap-1 mt-1 pl-9">${effectChips(fx.mitBuffs, 'buff')}${effectChips(fx.shieldBuffs, 'shield')}${effectChips(fx.mitDebuffs, 'debuff')}</div>` : ''}
       </div>`;
     }).join('')}</div>` : `<div class="text-slate-500 italic text-[11px]">No damage or healing data found in this window.</div>`}
-    <div class="text-[10px] text-slate-600 mt-2">Mitigation % excludes shield absorption; absorbed damage is shown separately. Green chips are defensives on the player; cyan chips are shields; blue chips are debuffs on the attacker. ${anyRealHp ? '' : 'FFLogs did not include HP snapshots here, so HP could not be shown.'}</div>
+    <div class="text-[10px] text-slate-600 mt-2">Mitigation % excludes shield absorption; absorbed damage is shown separately. Green chips are defensives on the player; cyan chips are shields; blue chips are mitigation debuffs active on an enemy. ${anyRealHp ? '' : 'FFLogs did not include HP snapshots here, so HP could not be shown.'}</div>
     <details class="mt-1"><summary class="text-[10px] text-slate-600 cursor-pointer hover:text-slate-400 select-none">Debug info</summary>
       <div class="text-[10px] text-slate-500 font-mono mt-1 break-words">damage events: ${(result.damage || []).length} · heals: ${(result.heals || []).length} · buff events across targets: ${(result.buffs || []).length} · enemy debuff events: ${(result.debuffs || []).length} · resource events: ${(result.resources || []).length}<br>damage event fields: ${escapeHTML(Object.keys((result.damage || [])[0] || {}).join(', ') || 'none')}<br>resource event fields: ${escapeHTML(Object.keys((result.resources || [])[0] || {}).join(', ') || 'none')}</div></details>
   </div>
@@ -2348,7 +2350,7 @@ async function renderDeathHeatmap(death, selectedFight) {
         const title = `Pull ${index + 1} · ${pull.name} · ${formatSecondsToMMSS(item.timeMs / 1000)} · ${item.ability}`;
         return `<span class="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 h-3 w-3 rounded-full border-2 border-slate-950 bg-rose-400 ring-1 ring-rose-300 cursor-help" style="left:${position}%" title="${escapeHTML(title)}" aria-label="${escapeHTML(title)}"></span>`;
       }).join('');
-      const phaseLabel = row.phase ? formatPhaseLabel(row.phase.id, row.phase.name) : 'Unclassified';
+      const phaseLabel = row.phase ? formatPhaseLabel(row.phase.id, row.phase.name) : phaseDefinitions.length ? 'Unclassified' : selectedFight.name || 'Encounter';
       return `<div class="grid grid-cols-[minmax(0,5rem)_minmax(0,1fr)_2rem] gap-2 items-center py-1">
         <span class="truncate text-[9px] text-slate-400" title="${escapeHTML(phaseLabel)}">${escapeHTML(phaseLabel)}</span>
         <div class="relative h-5"><div class="absolute inset-x-0 top-1/2 h-px bg-slate-700"></div>${deathPoints}</div>
@@ -2357,7 +2359,7 @@ async function renderDeathHeatmap(death, selectedFight) {
     }).join('');
     container.innerHTML = `<div class="max-h-80 overflow-y-auto px-1">
       <div class="grid grid-cols-[minmax(0,5rem)_minmax(0,1fr)_2rem] gap-2 items-center text-[8px] text-slate-600 uppercase pb-1">
-        <span>Phase</span><span class="flex justify-between"><span>00:00</span><span>${formatSecondsToMMSS(furthestTimeMs / 1000)}</span></span><span class="text-right">Deaths</span>
+        <span>${phaseDefinitions.length ? 'Phase' : 'Encounter'}</span><span class="flex justify-between"><span>00:00</span><span>${formatSecondsToMMSS(furthestTimeMs / 1000)}</span></span><span class="text-right">Deaths</span>
       </div>
       ${rowsHtml}
     </div>`;
