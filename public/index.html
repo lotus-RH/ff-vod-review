@@ -1993,6 +1993,7 @@ function isShieldName(name) {
 function isMitigationName(name) {
   const key = String(name || '').toLocaleLowerCase();
   if (!key || /^ability #?\d+$/.test(key)) return false;
+  if (key === 'well fed') return false;
   if (isShieldName(key)) return false;
   if (MITIGATION_NAMES.has(key)) return true;
   if (customMitigationNames.some(n => String(n).toLocaleLowerCase() === key)) return true;
