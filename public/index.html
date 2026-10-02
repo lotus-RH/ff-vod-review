@@ -3300,7 +3300,20 @@ function buildPlannedChip(encounterId, name, job, usage, opts) {
   wrap.className = 'absolute group';
   wrap.style.cssText = `top:${(rowHeight - chipSize) / 2}px; height:${chipSize}px; left:${usage.time * pxPerSecond}px;`;
   const setLeft = time => { wrap.style.left = (time * pxPerSecond) + 'px'; };
-  const tooltipFor = time => `${name} used at ${formatSecondsToMMSS(time)}${abilityDurationSeconds ? ` · duration ${abilityDurationSeconds}s` : ''}${cooldownSeconds ? ` · ready again at ${formatSecondsToMMSS(time + cooldownSeconds)}` : ''}`;
+  const tooltipFor = time => {
+    const details = [`${name} used at ${formatSecondsToMMSS(time)}`];
+    if (cooldownSeconds) details.push(`ready again at ${formatSecondsToMMSS(time + cooldownSeconds)}`);
+    if (abilityDurationSeconds > 0) {
+      const coveredMechanics = mechanics.flatMap(mechanic => (mechanic.castOffsets || [])
+        .filter(offset => offset >= time && offset <= time + abilityDurationSeconds)
+        .map(offset => `${mechanic.name} at ${formatSecondsToMMSS(offset)}`));
+      details.push(`duration ${abilityDurationSeconds}s`);
+      details.push(coveredMechanics.length ? `covers ${coveredMechanics.join(', ')}` : 'covers no mechanics');
+    } else {
+      details.push('duration not configured; mechanic coverage unavailable');
+    }
+    return details.join(' · ');
+  };
 
   if (cooldownSeconds > 0) {
     const bar = document.createElement('div');
@@ -3313,7 +3326,7 @@ function buildPlannedChip(encounterId, name, job, usage, opts) {
     const visibleDuration = Math.min(abilityDurationSeconds, Math.max(0, durationSeconds - usage.time));
     bar.className = 'absolute rounded-r pointer-events-none';
     bar.style.cssText = `left:${chipSize}px; top:${chipSize / 2 + 3}px; height:4px; width:${visibleDuration * pxPerSecond}px; background:#34d399;`;
-    bar.title = `${name} duration: ${abilityDurationSeconds}s`;
+    bar.title = tooltipFor(usage.time);
     wrap.appendChild(bar);
   }
 
