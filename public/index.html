@@ -3457,7 +3457,9 @@ function renderCombatTimeline(fight, container, planningMode = false) {
   const events = timelineEventsCache[fight.id] || { buffs: [], casts: [] };
   const isLoading = !timelineEventsCache[fight.id];
   const actorNames = new Map(report.actors.map(actor => [String(actor.id), actor.name]));
-  const mechanicRows = planningMode ? [] : getMechanicRows(fight, true).filter(row => !hiddenMechanicNames.includes(row.name));
+  const mechanicRows = planningMode ? [] : getMechanicRows(fight, true)
+    .map(row => ({ ...row, casts: row.casts.filter(event => event.timestamp <= fight.endTime) }))
+    .filter(row => row.casts.length && !hiddenMechanicNames.includes(row.name));
   const abilityRows = planningMode ? getPlanningAbilityRows(events, fight) : getReviewAbilityRows(events, fight);
   const deaths = planningMode ? [] : (deathsCache[fight.id] || []);
   const rowHeight = planningMode ? 30 : 24;
