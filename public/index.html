@@ -2058,7 +2058,8 @@ function resolveAbilityName(abilityGameID) {
 function eventMitigationPct(ev) {
   const unmitigated = Number(ev.unmitigatedAmount), amount = Number(ev.amount);
   const absorbed = Math.max(0, Number(ev.absorbed) || 0);
-  if (unmitigated > 0 && Number.isFinite(amount)) return (1 - (amount + absorbed) / unmitigated) * 100;
+  const overkill = Math.max(0, Number(ev.overkill) || 0);
+  if (unmitigated > 0 && Number.isFinite(amount)) return (1 - (amount + absorbed + overkill) / unmitigated) * 100;
   if (ev.multiplier != null && Number.isFinite(Number(ev.multiplier))) return (1 - Number(ev.multiplier)) * 100;
   return null;
 }
@@ -2223,7 +2224,8 @@ function renderDeathDetail(result, death, fight) {
       <button class="jump-death bg-slate-800 hover:bg-slate-700 text-ffcyan-400 px-2.5 py-1 rounded font-mono font-bold flex items-center gap-1 shrink-0"><i class="fa-solid fa-play text-[9px]"></i> Jump to death</button>
     </div>
     ${killingBlow ? `<div class="mt-2 text-[11px] text-slate-400 flex flex-wrap gap-x-3 gap-y-0.5">
-      <span>Final hit <span class="text-amber-400 font-mono">${Number(killingBlow.amount || 0).toLocaleString()}</span></span>
+      <span>HP lost <span class="text-amber-400 font-mono">${Number(killingBlow.amount || 0).toLocaleString()}</span></span>
+      ${Number(killingBlow.overkill) > 0 ? `<span class="text-slate-500">+ ${Number(killingBlow.overkill).toLocaleString()} overkill</span>` : ''}
       ${killMit != null ? `<span class="${killMit > 0.5 ? 'text-emerald-400' : (killMit < -0.5 ? 'text-rose-300' : 'text-slate-500')}">${killMit > 0.5 ? Math.round(killMit) + '% mitigated' : (killMit < -0.5 ? Math.round(-killMit) + '% extra damage taken' : 'no mitigation')}</span>` : ''}
       ${Number(killingBlow.absorbed) > 0 ? `<span class="text-sky-300">${Number(killingBlow.absorbed).toLocaleString()} absorbed</span>` : ''}
       ${hpBeforeKill ? `<span>HP before: <span class="text-slate-200 font-mono">${Math.round(hpBeforeKill.hp / hpBeforeKill.max * 100)}%</span> <span class="text-slate-500">(${fmtHp(hpBeforeKill.hp)} / ${fmtHp(hpBeforeKill.max)})</span></span>` : ''}
