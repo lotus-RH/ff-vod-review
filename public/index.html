@@ -2306,21 +2306,26 @@ async function renderDeathHeatmap(death, selectedFight) {
       container.innerHTML = '<div class="text-slate-500 italic py-3">No deaths for this player in the report.</div>';
       return;
     }
+    const encounterFights = report.fights.filter(pull => Number(pull.encounterID) === Number(selectedFight.encounterID));
+    const encounterFightIds = new Set(encounterFights.map(pull => String(pull.id)));
+    const encounterDeaths = playerDeaths.filter(item => encounterFightIds.has(String(item.fightId)));
+    if (!encounterDeaths.length) {
+      container.innerHTML = '<div class="text-slate-500 italic py-3">No deaths for this player in this encounter.</div>';
+      return;
+    }
     const pullsById = new Map(report.fights.map((pull, index) => [String(pull.id), { pull, index }]));
-    const reportStart = Math.min(...report.fights.map(pull => pull.startTime));
-    const reportEnd = Math.max(...report.fights.map(pull => pull.endTime));
-    const reportDuration = Math.max(1, reportEnd - reportStart);
-    const deathPoints = playerDeaths.map(item => {
+    const furthestTimeMs = Math.max(...encounterFights.map(pull => pull.endTime - pull.startTime));
+    const deathPoints = encounterDeaths.map(item => {
       const entry = pullsById.get(String(item.fightId));
       if (!entry) return '';
       const { pull, index } = entry;
-      const timestamp = Math.max(pull.startTime, Math.min(pull.endTime, pull.startTime + item.timeMs));
-      const position = Math.max(0, Math.min(100, (timestamp - reportStart) / reportDuration * 100));
+      const fightTimeMs = Math.max(0, Math.min(furthestTimeMs, item.timeMs));
+      const position = fightTimeMs / furthestTimeMs * 100;
       const title = `Pull ${index + 1} · ${pull.name} · ${formatSecondsToMMSS(item.timeMs / 1000)} · ${item.ability}`;
       return `<span class="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 h-3 w-3 rounded-full border-2 border-slate-950 bg-rose-400 ring-1 ring-rose-300 cursor-help" style="left:${position}%" title="${escapeHTML(title)}" aria-label="${escapeHTML(title)}"></span>`;
     }).join('');
     container.innerHTML = `<div class="space-y-1 px-1">
-      <div class="flex justify-between text-[8px] text-slate-600 uppercase"><span>Report start</span><span class="text-rose-300">${playerDeaths.length} deaths</span><span>Report end</span></div>
+      <div class="flex justify-between text-[8px] text-slate-600 uppercase"><span>00:00</span><span class="text-rose-300">${encounterDeaths.length} deaths</span><span>${formatSecondsToMMSS(furthestTimeMs / 1000)}</span></div>
       <div class="relative h-6 mx-1"><div class="absolute inset-x-0 top-1/2 h-px bg-slate-700"></div>${deathPoints}</div>
     </div>`;
   } catch (e) {
