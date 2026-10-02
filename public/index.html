@@ -3136,7 +3136,7 @@ function renderCuratedPlanningTimeline(encounter, container) {
         addPlanningPlayhead(abilityTrack);
 
         getPlannedUsages(encounterId, name, job).forEach(usage => {
-          abilityTrack.appendChild(buildPlannedChip(encounterId, name, job, usage, { color, imageUrl, cooldownSeconds, abilityDurationSeconds: Number(trackedAbilityDurations[key]) || 0, pxPerSecond, durationSeconds, rowHeight: ABILITY_ROW_H, chipSize: ABILITY_CHIP }));
+          abilityTrack.appendChild(buildPlannedChip(encounterId, name, job, usage, { color, imageUrl, cooldownSeconds, abilityDurationSeconds: Number(trackedAbilityDurations[key]) || 0, mechanics, pxPerSecond, durationSeconds, rowHeight: ABILITY_ROW_H, chipSize: ABILITY_CHIP }));
         });
 
         abilityRow.append(abilityLabel, abilityTrack);
@@ -3295,7 +3295,7 @@ function handlePlanningHistoryShortcut(event) {
   }
 }
 function buildPlannedChip(encounterId, name, job, usage, opts) {
-  const { color, imageUrl, cooldownSeconds, abilityDurationSeconds, pxPerSecond, durationSeconds, rowHeight, chipSize } = opts;
+  const { color, imageUrl, cooldownSeconds, abilityDurationSeconds, mechanics, pxPerSecond, durationSeconds, rowHeight, chipSize } = opts;
   const wrap = document.createElement('div');
   wrap.className = 'absolute group';
   wrap.style.cssText = `top:${(rowHeight - chipSize) / 2}px; height:${chipSize}px; left:${usage.time * pxPerSecond}px;`;
