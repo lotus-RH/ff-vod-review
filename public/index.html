@@ -1706,12 +1706,13 @@ function jumpToCurrentPullStart() {
   if (!fight) return;
   seekToAbsTime(pullAbsStartMs(fight));
 }
+function offsetBeforeDeath(offsetMs) { return Math.max(0, (Number(offsetMs) || 0) - 2000); }
 function jumpToDeathTime() {
   const fight = getActiveFight();
   if (!fight) return;
   const deaths = deathsCache[fight.id];
   if (deaths && deaths.length) {
-    seekToAbsTime(pullAbsStartMs(fight) + deaths[0].timeMs);
+    seekToAbsTime(pullAbsStartMs(fight) + offsetBeforeDeath(deaths[0].timeMs));
   } else {
     showToast('No deaths recorded (or not loaded yet) for this pull.', 'info');
     jumpToCurrentPullStart();
@@ -1942,7 +1943,8 @@ function openDeathInTab(fightId, death, seekToDeath = false) {
   if (seekToDeath) {
     const playerName = String(death.player || '').trim().toLocaleLowerCase();
     const fight = report && report.fights.find(item => String(item.id) === String(fightId));
-    const deathAbsMs = fight ? pullAbsStartMs(fight) + death.timeMs : null;
+    const seekOffsetMs = offsetBeforeDeath(death.timeMs);
+    const deathAbsMs = fight ? pullAbsStartMs(fight) + seekOffsetMs : null;
     const isUsableAtDeath = pov => deathAbsMs != null && Boolean(resolveSegmentForAbsTime(pov, deathAbsMs));
     const deathPov = povs.find(pov => String(pov.player || '').trim().toLocaleLowerCase() === playerName && isUsableAtDeath(pov));
     const currentPov = povs.find(pov => pov.id === activePovId && isUsableAtDeath(pov));
@@ -1951,7 +1953,7 @@ function openDeathInTab(fightId, death, seekToDeath = false) {
       activePovId = usablePov.id;
       renderPOVTabs();
     }
-    jumpToSpecificOffsetMs(death.timeMs);
+    jumpToSpecificOffsetMs(seekOffsetMs);
   }
   switchBottomTab('deaths');
   showDeathDetail(fightId, death);
@@ -2287,7 +2289,7 @@ function renderDeathDetail(result, death, fight) {
   </div>`;
 
   body.innerHTML = html;
-  body.querySelector('.jump-death').addEventListener('click', () => jumpToSpecificOffsetMs(death.timeMs));
+  body.querySelector('.jump-death').addEventListener('click', () => jumpToSpecificOffsetMs(offsetBeforeDeath(death.timeMs)));
   body.querySelectorAll('.death-row').forEach(row => {
     row.addEventListener('click', () => jumpToSpecificOffsetMs(Number(row.getAttribute('data-ms'))));
   });
