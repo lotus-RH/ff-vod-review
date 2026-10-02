@@ -2319,19 +2319,24 @@ async function renderDeathHeatmap(death, selectedFight) {
     const phaseDefinitions = phaseGroup && Array.isArray(phaseGroup.phases) ? phaseGroup.phases : [];
     const phaseRows = phaseDefinitions.map(phase => ({ phase, deaths: [] }));
     const unclassifiedRow = { phase: null, deaths: [] };
-    const phaseForDeath = item => {
-      if (item.phase == null || !Number.isFinite(Number(item.phase))) return null;
-      const phaseNumber = Number(item.phase);
-      return phaseDefinitions.find(phase => Number(phase.id) === phaseNumber)
-        || (Number.isInteger(phaseNumber) && phaseNumber >= 0 ? phaseDefinitions[phaseNumber] : null);
+    const pullsById = new Map(report.fights.map((pull, index) => [String(pull.id), { pull, index }]));
+    const phaseForDeath = (item, pull) => {
+      if (item.phase != null && Number.isFinite(Number(item.phase))) {
+        const phaseNumber = Number(item.phase);
+        const eventPhase = phaseDefinitions.find(phase => Number(phase.id) === phaseNumber)
+          || (Number.isInteger(phaseNumber) && phaseNumber >= 0 ? phaseDefinitions[phaseNumber] : null);
+        if (eventPhase) return eventPhase;
+      }
+      const furthestPhaseId = getFightReachedPhaseId(pull);
+      return phaseDefinitions.find(phase => Number(phase.id) === furthestPhaseId) || null;
     };
     encounterDeaths.forEach(item => {
-      const phase = phaseForDeath(item);
+      const entry = pullsById.get(String(item.fightId));
+      const phase = entry && phaseForDeath(item, entry.pull);
       const row = phaseRows.find(candidate => candidate.phase === phase);
       (row || unclassifiedRow).deaths.push(item);
     });
     if (unclassifiedRow.deaths.length || !phaseRows.length) phaseRows.push(unclassifiedRow);
-    const pullsById = new Map(report.fights.map((pull, index) => [String(pull.id), { pull, index }]));
     const furthestTimeMs = Math.max(...encounterFights.map(pull => pull.endTime - pull.startTime));
     const rowsHtml = phaseRows.map(row => {
       const deathPoints = row.deaths.map(item => {
