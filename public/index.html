@@ -3055,19 +3055,20 @@ function renderCuratedPlanningTimeline(encounter, container) {
     const lane = mechanicLaneByColor.get(color);
     mechanic.castOffsets.forEach(seconds => {
       const x = xAt(seconds);
+      const markerLeft = Math.max(0, x - MECHANIC_CHIP_WIDTH);
       const markerCenterY = MECHANIC_HEADER_HEIGHT + lane * MECHANIC_LANE_HEIGHT + MECHANIC_LANE_HEIGHT / 2;
       const coveringAbilities = [...new Map(plannedAbilityCoverage
         .filter(ability => seconds >= ability.time && seconds <= ability.time + ability.duration)
         .map(ability => [`${ability.name.toLocaleLowerCase()}:${ability.time}`, ability])).values()];
       const marker = document.createElement('div');
       marker.className = 'absolute';
-      marker.style.cssText = `left:${x}px; top:${markerCenterY - MECHANIC_CHIP_HEIGHT / 2}px; width:${MECHANIC_CHIP_WIDTH}px; height:${MECHANIC_CHIP_HEIGHT}px;`;
+      marker.style.cssText = `left:${markerLeft}px; top:${markerCenterY - MECHANIC_CHIP_HEIGHT / 2}px; width:${MECHANIC_CHIP_WIDTH}px; height:${MECHANIC_CHIP_HEIGHT}px;`;
       if (coveringAbilities.length) {
         const coverageIcons = document.createElement('div');
-        coverageIcons.className = 'absolute -top-2 left-0 z-10 flex max-w-full gap-px overflow-hidden';
+        coverageIcons.className = 'absolute -top-3 left-0 z-10 flex max-w-full gap-px overflow-hidden';
         coveringAbilities.forEach(ability => {
           const icon = document.createElement(ability.imageUrl ? 'img' : 'span');
-          icon.className = 'shrink-0 w-3 h-3 rounded-sm border border-slate-950 shadow-sm';
+          icon.className = 'shrink-0 w-3.5 h-3.5 rounded-sm border border-slate-950 shadow-sm';
           icon.title = `${ability.name} · used at ${formatSecondsToMMSS(ability.time)} · covers ${name}`;
           if (ability.imageUrl) {
             icon.src = ability.imageUrl;
@@ -3076,7 +3077,7 @@ function renderCuratedPlanningTimeline(encounter, container) {
             icon.onerror = () => icon.remove();
           } else {
             icon.textContent = ability.name.slice(0, 1).toLocaleUpperCase();
-            icon.style.cssText += `background:${ability.color};color:#020617;font-size:8px;font-weight:700;text-align:center;line-height:10px;`;
+            icon.style.cssText += `background:${ability.color};color:#020617;font-size:9px;font-weight:700;text-align:center;line-height:12px;`;
           }
           coverageIcons.appendChild(icon);
         });
