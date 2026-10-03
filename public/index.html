@@ -90,13 +90,16 @@
 <main id="main-workspace" class="flex-1 flex overflow-hidden">
 
   <!-- SIDEBAR -->
-  <aside class="w-80 bg-slate-900/90 border-r border-slate-800 flex flex-col shrink-0 z-10">
+  <aside id="review-pull-sidebar" class="w-80 bg-slate-900/90 border-r border-slate-800 flex flex-col shrink-0 z-10">
     <div class="p-3 border-b border-slate-800 bg-slate-900/50">
       <div class="flex justify-between items-center mb-2">
         <span class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
           <i class="fa-solid fa-list-check text-ffpurple-400"></i> Pull History
         </span>
-        <span id="pull-count-badge" class="text-[11px] font-mono bg-ffpurple-900/60 text-ffpurple-300 px-2 py-0.5 rounded-full border border-ffpurple-600/40">0 pulls</span>
+        <div class="flex items-center gap-1.5">
+          <span id="pull-count-badge" class="text-[11px] font-mono bg-ffpurple-900/60 text-ffpurple-300 px-2 py-0.5 rounded-full border border-ffpurple-600/40">0 pulls</span>
+          <button id="review-pulls-toggle" type="button" onclick="toggleReviewPullHistory()" class="text-[10px] text-slate-300 hover:text-white px-2 py-1 rounded border border-slate-700 hover:bg-slate-800 whitespace-nowrap" aria-controls="review-pull-sidebar" aria-expanded="true" title="Hide pull history"><i class="fa-solid fa-list-check mr-1" aria-hidden="true"></i><span>Hide</span></button>
+        </div>
       </div>
 
       <div class="flex flex-wrap items-center gap-2 mt-2.5 pb-1 text-[11px]">
@@ -131,8 +134,8 @@
   <!-- CENTER -->
   <div class="flex-1 flex flex-col overflow-hidden bg-slate-950">
 
-    <div class="flex-1 min-h-0 flex flex-col bg-slate-900/30 border-b border-slate-800 p-3 overflow-y-auto">
-      <div class="flex flex-wrap items-center justify-between gap-2 mb-2 pb-2 border-b border-slate-800/80">
+    <div class="flex-1 min-h-0 flex flex-col bg-slate-900/30 border-b border-slate-800 overflow-hidden">
+      <div class="shrink-0 mx-3 mt-3 mb-2 pb-2 flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80">
         <div class="flex items-center gap-2 flex-wrap">
           <span class="text-xs font-semibold text-slate-400 flex items-center gap-1"><i class="fa-solid fa-video text-ffcyan-400"></i> POV:</span>
           <div id="pov-tabs-container" class="flex flex-wrap items-center gap-1.5"></div>
@@ -146,7 +149,7 @@
         </div>
       </div>
 
-      <div class="relative w-full flex-1 min-h-[240px] bg-black rounded-lg overflow-hidden border border-slate-800 shadow-2xl flex items-center justify-center group">
+      <div class="relative w-full flex-1 min-h-0 bg-black overflow-hidden flex items-center justify-center group">
         <div id="player-container" class="w-full h-full flex items-center justify-center">
           <div id="yt-player-el" class="w-full h-full"></div>
           <div id="no-video-placeholder" class="absolute inset-0 flex flex-col items-center justify-center text-slate-600 gap-2 pointer-events-none">
@@ -174,6 +177,7 @@
           <button onclick="switchBottomTab('timeline')" id="tab-btn-timeline" class="bottom-tab-btn active px-4 py-2 text-xs font-semibold border-b-2 border-ffpurple-500 text-ffpurple-400 flex items-center gap-1.5"><i class="fa-solid fa-chart-line"></i> Timeline</button>
           <button onclick="switchBottomTab('deaths')" id="tab-btn-deaths" class="bottom-tab-btn px-4 py-2 text-xs font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-1.5"><i class="fa-solid fa-skull-crossbones"></i> Deaths (<span id="pull-death-count">0</span>)</button>
         </div>
+        <button id="review-timeline-toggle" type="button" onclick="toggleReviewTimeline()" class="text-[10px] text-slate-300 hover:text-white px-2 py-1 rounded border border-slate-700 hover:bg-slate-800 whitespace-nowrap" aria-controls="bottom-panel" aria-expanded="true" title="Hide timeline and deaths"><i class="fa-solid fa-chart-line mr-1" aria-hidden="true"></i><span>Hide</span></button>
       </div>
 
       <div id="tab-content-timeline" class="bottom-tab-content flex-1 min-h-0 p-3 flex flex-col overflow-hidden">
@@ -476,6 +480,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   try { plannedUsages = JSON.parse(localStorage.getItem('fflogs_vod_planned_usages')) || {}; } catch (e) { plannedUsages = {}; }
   try { planningZoom = Number(localStorage.getItem('fflogs_vod_planning_zoom')) || 1; } catch (e) { planningZoom = 1; }
   initPanelResizer();
+  initReviewRegionToggles();
   switchBottomTab('timeline');
   renderPullList();
   renderPOVTabs();
@@ -534,6 +539,56 @@ function initPanelResizer() {
   handle.addEventListener('pointercancel', end);
 }
 
+function initReviewRegionToggles() {
+  const sidebar = document.getElementById('review-pull-sidebar');
+  if (sidebar) {
+    sidebar.style.transition = 'width 180ms ease, flex-basis 180ms ease';
+    sidebar.addEventListener('transitionend', event => {
+      if (event.propertyName === 'width') renderTimeline();
+    });
+  }
+  setReviewPullHistoryCollapsed(localStorage.getItem(REVIEW_PULLS_COLLAPSED_KEY) === 'true', false);
+  setReviewTimelineCollapsed(localStorage.getItem(REVIEW_TIMELINE_COLLAPSED_KEY) === 'true', false);
+}
+
+function setReviewPullHistoryCollapsed(collapsed, persist = true) {
+  const sidebar = document.getElementById('review-pull-sidebar');
+  const button = document.getElementById('review-pulls-toggle');
+  if (!sidebar || !button) return;
+  sidebar.style.width = collapsed ? '0px' : '';
+  sidebar.style.flexBasis = collapsed ? '0px' : '';
+  sidebar.style.borderRightWidth = collapsed ? '0px' : '';
+  sidebar.style.overflow = collapsed ? 'hidden' : '';
+  button.setAttribute('aria-expanded', String(!collapsed));
+  button.title = `${collapsed ? 'Show' : 'Hide'} pull history`;
+  button.querySelector('span').textContent = collapsed ? 'Show' : 'Hide';
+  if (persist) localStorage.setItem(REVIEW_PULLS_COLLAPSED_KEY, String(collapsed));
+}
+
+function toggleReviewPullHistory() {
+  const collapsed = document.getElementById('review-pull-sidebar').style.width === '0px';
+  setReviewPullHistoryCollapsed(!collapsed);
+}
+
+function setReviewTimelineCollapsed(collapsed, persist = true) {
+  const panel = document.getElementById('bottom-panel');
+  const resizer = document.getElementById('panel-resizer');
+  const button = document.getElementById('review-timeline-toggle');
+  if (!panel || !resizer || !button) return;
+  panel.classList.toggle('hidden', collapsed);
+  resizer.classList.toggle('hidden', collapsed);
+  button.setAttribute('aria-expanded', String(!collapsed));
+  button.title = `${collapsed ? 'Show' : 'Hide'} timeline and deaths`;
+  button.querySelector('span').textContent = collapsed ? 'Show' : 'Hide';
+  if (persist) localStorage.setItem(REVIEW_TIMELINE_COLLAPSED_KEY, String(collapsed));
+  renderTimeline();
+}
+
+function toggleReviewTimeline() {
+  const collapsed = document.getElementById('bottom-panel').classList.contains('hidden');
+  setReviewTimelineCollapsed(!collapsed);
+}
+
 /* =========================================================================
    SHARED SETUP (config file next to index.html)
    ========================================================================= */
@@ -541,7 +596,9 @@ const SHARED_CONFIG_URL = 'vod-review-config.json';
 const SHARED_CONFIG_API_URL = '/api/config';
 const ENCOUNTER_MECHANICS_KEY = 'fflogs_vod_encounter_mechanics';
 const SAVE_PASSWORD_KEY = 'fflogs_vod_save_password';
-const CONFIG_EXCLUDE = new Set(['fflogs_vod_auth', 'fflogs_vod_config_applied', 'fflogs_vod_bottom_panel_h', SAVE_PASSWORD_KEY]);
+const REVIEW_PULLS_COLLAPSED_KEY = 'fflogs_vod_review_pulls_collapsed';
+const REVIEW_TIMELINE_COLLAPSED_KEY = 'fflogs_vod_review_timeline_collapsed';
+const CONFIG_EXCLUDE = new Set(['fflogs_vod_auth', 'fflogs_vod_config_applied', 'fflogs_vod_bottom_panel_h', REVIEW_PULLS_COLLAPSED_KEY, REVIEW_TIMELINE_COLLAPSED_KEY, SAVE_PASSWORD_KEY]);
 
 function startSharedConfigWatcher() {
   window.setInterval(checkForSharedConfigUpdate, 15000);
