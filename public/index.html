@@ -468,6 +468,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   await applySharedConfig();
   startSharedConfigWatcher();
   loadDefaultTrackedAbilities();
+  loadPOVsForCurrentContext();
   try { mechanicCategories = JSON.parse(localStorage.getItem('fflogs_vod_mechanic_categories')) || {}; } catch (e) { mechanicCategories = {}; }
   try { hiddenMechanicNames = JSON.parse(localStorage.getItem('fflogs_vod_hidden_mechanics_default')) || []; } catch (e) { hiddenMechanicNames = []; }
   try { mechanicRecastIgnoreSeconds = JSON.parse(localStorage.getItem('fflogs_vod_mechanic_recast_ignore_default')) || {}; } catch (e) { mechanicRecastIgnoreSeconds = {}; }
@@ -847,8 +848,12 @@ function onYouTubeIframeAPIReady() {
    ========================================================================= */
 
 function povsKey() { return `fflogs_vod_povs_${report ? report.code : 'none'}`; }
-function loadReportLocalData() {
+function loadPOVsForCurrentContext() {
   try { povs = JSON.parse(localStorage.getItem(povsKey())) || []; } catch (e) { povs = []; }
+  if (!povs.some(pov => pov.id === activePovId)) activePovId = povs.length ? povs[0].id : null;
+}
+function loadReportLocalData() {
+  loadPOVsForCurrentContext();
   loadDefaultTrackedAbilities();
   hiddenMechanicNames = readJsonWithDefault(hiddenMechanicNamesKey(), 'fflogs_vod_hidden_mechanics_default', []);
   mechanicRecastIgnoreSeconds = readJsonWithDefault(mechanicRecastIgnoreKey(), 'fflogs_vod_mechanic_recast_ignore_default', {});
@@ -1732,6 +1737,24 @@ function getTimelinePlaybackOffsetMs(fight) {
 }
 function getLoadedPOVSegment(pov) {
   return pov && pov.segments.find(segment => segment.id === currentLoadedSegmentId && segment.videoId === currentLoadedVideoId && segment.startAbsMs != null);
+}
+function getCurrentPOVAbsoluteTime() {
+  const segment = getLoadedPOVSegment(getActivePOV());
+  if (!segment || !ytReady || !ytPlayer || !ytPlayer.getCurrentTime) return null;
+  return absMsForSegVideoSeconds(segment, ytPlayer.getCurrentTime());
+}
+function seekPOVToAbsoluteTime(pov, absoluteMs = null) {
+  if (!pov) return false;
+  const segment = (absoluteMs != null ? resolveSegmentForAbsTime(pov, absoluteMs) : null)
+    || pov.segments.find(item => item.videoId && item.startAbsMs != null)
+    || pov.segments.find(item => item.videoId);
+  if (!segment) return false;
+  const targetAbsMs = absoluteMs != null && segment.startAbsMs != null ? absoluteMs : segment.startAbsMs;
+  const seconds = targetAbsMs != null && segment.startAbsMs != null
+    ? videoSecondsForSeg(segment, targetAbsMs)
+    : 0;
+  loadAndSeek(segment.videoId, seconds, segment.id);
+  return true;
 }
 function updateTimelinePlayhead(offsetMs) {
   const fight = getActiveFight();
@@ -3766,9 +3789,11 @@ function selectPOV(id) {
   const fight = getActiveFight();
   const playbackOffsetMs = fight ? getTimelinePlaybackOffsetMs(fight) : null;
   const offsetMs = playbackOffsetMs != null ? playbackOffsetMs : timelinePlayheadOffsetMs;
+  const playbackAbsMs = fight ? null : getCurrentPOVAbsoluteTime();
   activePovId = id;
   renderPOVTabs();
   if (fight) seekToAbsTime(pullAbsStartMs(fight) + offsetMs);
+  else seekPOVToAbsoluteTime(getActivePOV(), playbackAbsMs);
 }
 function addSegment(povId) {
   const pov = povs.find(p => p.id === povId);
@@ -3823,7 +3848,11 @@ async function tryAutoSyncSegment(pov, seg, row) {
     persistPOVs();
     showToast('Synced automatically from YouTube.', 'success');
     renderPOVModalBody();
-    if (getActivePOV() && getActivePOV().id === pov.id) jumpToCurrentPullStart();
+    if (getActivePOV() && getActivePOV().id === pov.id) {
+      const fight = getActiveFight();
+      if (fight) jumpToCurrentPullStart();
+      else seekPOVToAbsoluteTime(pov, getCurrentPOVAbsoluteTime() ?? seg.startAbsMs);
+    }
   } catch (e) {
     if (seg.syncAttemptId !== attemptId) return;
     statusEl.className = 'text-[10px] text-rose-400 seg-status';
