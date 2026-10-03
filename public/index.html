@@ -84,6 +84,9 @@
   </div>
 
   <div class="flex items-center gap-2 shrink-0">
+    <button id="no-log-button" onclick="loadNoLogPOVs()" class="page-switch active text-xs text-slate-200 border border-transparent px-2.5 py-1.5 rounded-md transition" aria-pressed="true" title="Switch to standalone POVs without a report">
+      <i class="fa-solid fa-video mr-1"></i> No Log
+    </button>
     <button onclick="openPOVModal()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1.5 rounded-md border border-slate-700 transition">
       <i class="fa-solid fa-video"></i> <span class="hidden lg:inline">POVs</span>
     </button>
@@ -1429,6 +1432,54 @@ async function loadReportFromInput() {
   await loadReport(code);
 }
 
+function setNoLogButtonActive(active) {
+  const button = document.getElementById('no-log-button');
+  if (!button) return;
+  button.classList.toggle('active', active);
+  button.setAttribute('aria-pressed', String(active));
+}
+
+function loadNoLogPOVs() {
+  const playbackAbsMs = getCurrentPOVAbsoluteTime();
+  report = null;
+  activeFightId = null;
+  activePovId = null;
+  deathsCache = {};
+  reportDeathsByPlayer = null;
+  reportDeathsPromise = null;
+  timelineEventsCache = {};
+  deathDetailCache = {};
+  selectedPhaseFilter = '';
+  selectedEncounterFilter = '';
+  minimumFightDurationMinutes = 0;
+  timelinePlayheadOffsetMs = 0;
+  selectedDeathKey = '';
+  lastDeathDetail = null;
+  loadReportLocalData();
+
+  const logTitle = document.getElementById('active-log-title');
+  logTitle.textContent = 'No Log · Standalone POVs';
+  logTitle.classList.remove('hidden');
+  document.getElementById('fight-time-input').value = '0';
+  document.getElementById('fight-time-range').value = '0';
+  document.getElementById('log-time-display').textContent = '--:--';
+  document.getElementById('death-detail-title').textContent = 'Select a death';
+  document.getElementById('death-detail-body').innerHTML = '<div class="text-slate-500 italic text-center py-8">Load a report to inspect deaths.</div>';
+  document.getElementById('deaths-list-container').replaceChildren();
+  document.getElementById('pull-death-count').textContent = '0';
+  setNoLogButtonActive(true);
+  populateBossFilter();
+  populatePhaseFilter();
+  updateAllFilterButton();
+  renderPullList();
+  renderPOVTabs();
+  renderLogPlayerChips();
+  switchPage('review');
+  switchBottomTab('timeline');
+  if (activePovId) seekPOVToAbsoluteTime(getActivePOV(), playbackAbsMs);
+  showToast('Standalone POVs loaded.', 'success');
+}
+
 const REPORT_QUERY = `
 query ($code: String!) {
   reportData {
@@ -1468,6 +1519,7 @@ async function loadReport(code) {
       actors: (r.masterData && r.masterData.players) || [],
       abilityNames: new Map(((r.masterData && r.masterData.abilities) || []).map(ability => [Number(ability.gameID), ability.name]))
     };
+    setNoLogButtonActive(false);
     deathsCache = {};
     reportDeathsByPlayer = null;
     reportDeathsPromise = null;
