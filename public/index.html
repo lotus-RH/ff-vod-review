@@ -3354,14 +3354,16 @@ function buildPlannedChip(encounterId, name, job, usage, opts) {
   if (cooldownSeconds > 0) {
     const bar = document.createElement('div');
     bar.className = 'absolute rounded-r pointer-events-none';
-    bar.style.cssText = `left:${chipSize}px; top:${chipSize / 2 - 3}px; height:6px; width:${cooldownSeconds * pxPerSecond}px; background:${color};`;
+    const cooldownWidth = Math.max(0, cooldownSeconds * pxPerSecond - chipSize);
+    bar.style.cssText = `left:${chipSize}px; top:${chipSize / 2 - 3}px; height:6px; width:${cooldownWidth}px; background:${color};`;
     wrap.appendChild(bar);
   }
   if (abilityDurationSeconds > 0) {
     const bar = document.createElement('div');
     const visibleDuration = Math.min(abilityDurationSeconds, Math.max(0, durationSeconds - usage.time));
+    const durationWidth = Math.max(0, visibleDuration * pxPerSecond - chipSize);
     bar.className = 'absolute rounded-r pointer-events-none';
-    bar.style.cssText = `left:${chipSize}px; top:${chipSize / 2 + 3}px; height:4px; width:${visibleDuration * pxPerSecond}px; background:#34d399;`;
+    bar.style.cssText = `left:${chipSize}px; top:${chipSize / 2 + 3}px; height:4px; width:${durationWidth}px; background:#34d399;`;
     bar.title = tooltipFor(usage.time);
     wrap.appendChild(bar);
   }
@@ -3624,12 +3626,13 @@ function renderCombatTimeline(fight, container, planningMode = false) {
       createSvgElement(track, 'line', { x1: left, y1: pinnedTrackHeight - 1, x2: right, y2: pinnedTrackHeight - 1, stroke: '#334155', 'stroke-width': 1 });
       mechanicEvents.filter(event => getMechanicCategory(event.mechanicName) === category).forEach(event => {
         const x = xAt(event.timestamp);
+        const markerLeft = Math.max(left, x - 88);
         const color = categoryColor(category);
         const marker = createSvgElement(track, 'g', { class: 'cursor-pointer' });
         const sourceName = event.sourceName || actorNames.get(String(event.sourceID)) || 'Enemy';
         marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${event.mechanicName} · ${category} · cast by ${sourceName} at ${formatSecondsToMMSS((event.timestamp - start) / 1000)}`;
-        createSvgElement(marker, 'rect', { x, y: 2, width: 88, height: 20, rx: 4, fill: color, stroke: '#0f172a', 'stroke-width': 1 });
-        createSvgElement(marker, 'text', { x: x + 44, y: 15, fill: '#0f172a', 'font-size': 8, 'font-weight': 700, 'text-anchor': 'middle', 'pointer-events': 'none' }, event.mechanicName.length > 13 ? `${event.mechanicName.slice(0, 12)}…` : event.mechanicName);
+        createSvgElement(marker, 'rect', { x: markerLeft, y: 2, width: 88, height: 20, rx: 4, fill: color, stroke: '#0f172a', 'stroke-width': 1 });
+        createSvgElement(marker, 'text', { x: markerLeft + 44, y: 15, fill: '#0f172a', 'font-size': 8, 'font-weight': 700, 'text-anchor': 'middle', 'pointer-events': 'none' }, event.mechanicName.length > 13 ? `${event.mechanicName.slice(0, 12)}…` : event.mechanicName);
         marker.addEventListener('click', () => jumpToSpecificOffsetMs(event.timestamp - start));
       });
     });
