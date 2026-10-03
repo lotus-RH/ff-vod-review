@@ -3033,6 +3033,21 @@ function renderCuratedPlanningTimeline(encounter, container) {
   const mechTrack = document.createElement('div');
   mechTrack.className = 'relative';
   mechTrack.style.cssText = `width:${trackWidth}px;height:${MECHANIC_ROW_H}px;overflow:hidden;background:#1c1206;background-image:${gridBg};`;
+  const plannedAbilityCoverage = [];
+  classRows.forEach((abilities, job) => abilities.forEach(abilityName => {
+    const abilityKey = abilityCooldownKey(abilityName);
+    const abilityDurationSeconds = Number(trackedAbilityDurations[abilityKey]) || 0;
+    if (abilityDurationSeconds <= 0) return;
+    getPlannedUsages(encounterId, abilityName, job).forEach(usage => {
+      plannedAbilityCoverage.push({
+        name: abilityName,
+        time: Number(usage.time) || 0,
+        duration: abilityDurationSeconds,
+        imageUrl: trackedAbilityImages[abilityKey] || '',
+        color: JOB_COLORS[job] || '#38bdf8'
+      });
+    });
+  }));
   filteredMechanics.forEach(mechanic => {
     const name = String(mechanic.name || `Ability ${mechanic.abilityId || ''}`);
     const category = getMechanicCategory(name) || 'Uncategorized';
@@ -3041,12 +3056,40 @@ function renderCuratedPlanningTimeline(encounter, container) {
     mechanic.castOffsets.forEach(seconds => {
       const x = xAt(seconds);
       const markerCenterY = MECHANIC_HEADER_HEIGHT + lane * MECHANIC_LANE_HEIGHT + MECHANIC_LANE_HEIGHT / 2;
+      const coveringAbilities = [...new Map(plannedAbilityCoverage
+        .filter(ability => seconds >= ability.time && seconds <= ability.time + ability.duration)
+        .map(ability => [`${ability.name.toLocaleLowerCase()}:${ability.time}`, ability])).values()];
+      const marker = document.createElement('div');
+      marker.className = 'absolute';
+      marker.style.cssText = `left:${x}px; top:${markerCenterY - MECHANIC_CHIP_HEIGHT / 2}px; width:${MECHANIC_CHIP_WIDTH}px; height:${MECHANIC_CHIP_HEIGHT}px;`;
+      if (coveringAbilities.length) {
+        const coverageIcons = document.createElement('div');
+        coverageIcons.className = 'absolute -top-2 left-0 z-10 flex max-w-full gap-px overflow-hidden';
+        coveringAbilities.forEach(ability => {
+          const icon = document.createElement(ability.imageUrl ? 'img' : 'span');
+          icon.className = 'shrink-0 w-3 h-3 rounded-sm border border-slate-950 shadow-sm';
+          icon.title = `${ability.name} · used at ${formatSecondsToMMSS(ability.time)} · covers ${name}`;
+          if (ability.imageUrl) {
+            icon.src = ability.imageUrl;
+            icon.alt = ability.name;
+            icon.style.objectFit = 'cover';
+            icon.onerror = () => icon.remove();
+          } else {
+            icon.textContent = ability.name.slice(0, 1).toLocaleUpperCase();
+            icon.style.cssText += `background:${ability.color};color:#020617;font-size:8px;font-weight:700;text-align:center;line-height:10px;`;
+          }
+          coverageIcons.appendChild(icon);
+        });
+        marker.appendChild(coverageIcons);
+      }
       const chip = document.createElement('div');
-      chip.className = 'absolute flex items-center justify-center overflow-hidden whitespace-nowrap rounded-[4px] border border-slate-950/70 px-1 text-[9px] font-bold text-slate-950 shadow';
-      chip.style.cssText = `left:${x}px; top:${markerCenterY - MECHANIC_CHIP_HEIGHT / 2}px; width:${MECHANIC_CHIP_WIDTH}px; height:${MECHANIC_CHIP_HEIGHT}px; background:${color};`;
+      chip.className = 'relative flex items-center justify-center overflow-hidden whitespace-nowrap rounded-[4px] border border-slate-950/70 px-1 text-[9px] font-bold text-slate-950 shadow';
+      chip.style.cssText = `width:${MECHANIC_CHIP_WIDTH}px; height:${MECHANIC_CHIP_HEIGHT}px; background:${color};`;
       chip.textContent = name.length > 12 ? `${name.slice(0, 11)}…` : name;
-      chip.title = `${name} observed at ${formatSecondsToMMSS(seconds)}`;
-      mechTrack.appendChild(chip);
+      const coverageTitle = coveringAbilities.map(ability => ability.name).join(', ');
+      chip.title = `${name} observed at ${formatSecondsToMMSS(seconds)}${coverageTitle ? ` · covered by ${coverageTitle}` : ''}`;
+      marker.appendChild(chip);
+      mechTrack.appendChild(marker);
     });
   });
   addPlanningPlayhead(mechTrack);
@@ -3136,7 +3179,7 @@ function renderCuratedPlanningTimeline(encounter, container) {
         addPlanningPlayhead(abilityTrack);
 
         getPlannedUsages(encounterId, name, job).forEach(usage => {
-          abilityTrack.appendChild(buildPlannedChip(encounterId, name, job, usage, { color, imageUrl, cooldownSeconds, abilityDurationSeconds: Number(trackedAbilityDurations[key]) || 0, mechanics, pxPerSecond, durationSeconds, rowHeight: ABILITY_ROW_H, chipSize: ABILITY_CHIP }));
+          abilityTrack.appendChild(buildPlannedChip(encounterId, name, job, usage, { color, imageUrl, cooldownSeconds, abilityDurationSeconds: Number(trackedAbilityDurations[key]) || 0, mechanics: filteredMechanics, pxPerSecond, durationSeconds, rowHeight: ABILITY_ROW_H, chipSize: ABILITY_CHIP }));
         });
 
         abilityRow.append(abilityLabel, abilityTrack);
@@ -3303,15 +3346,7 @@ function buildPlannedChip(encounterId, name, job, usage, opts) {
   const tooltipFor = time => {
     const details = [`${name} used at ${formatSecondsToMMSS(time)}`];
     if (cooldownSeconds) details.push(`ready again at ${formatSecondsToMMSS(time + cooldownSeconds)}`);
-    if (abilityDurationSeconds > 0) {
-      const coveredMechanics = mechanics.flatMap(mechanic => (mechanic.castOffsets || [])
-        .filter(offset => offset >= time && offset <= time + abilityDurationSeconds)
-        .map(offset => `${mechanic.name} at ${formatSecondsToMMSS(offset)}`));
-      details.push(`duration ${abilityDurationSeconds}s`);
-      details.push(coveredMechanics.length ? `covers ${coveredMechanics.join(', ')}` : 'covers no mechanics');
-    } else {
-      details.push('duration not configured; mechanic coverage unavailable');
-    }
+    if (abilityDurationSeconds > 0) details.push(`duration ${abilityDurationSeconds}s`);
     return details.join(' · ');
   };
 
