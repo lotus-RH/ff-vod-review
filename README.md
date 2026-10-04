@@ -89,3 +89,10 @@ app and click **Save for everyone** — that writes straight to the KV
 namespace, live, with no git push or redeploy needed. The bundled
 `public/vod-review-config.json` is just the initial/fallback copy used
 before anyone has saved anything (or if the KV binding isn't set up yet).
+
+The **Helper** page has separate **Create** and **Use** modes. Create reusable
+scenarios by defining button groups and mapping state combinations to titled
+reminders or callouts; in Use mode, click the buttons to show matching output.
+Scenarios are saved locally in that browser; use JSON import/export to move
+them between browsers or share them with teammates. Use mode can also be
+popped out into its own window.

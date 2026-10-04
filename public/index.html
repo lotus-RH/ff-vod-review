@@ -45,12 +45,13 @@
   #review-pull-sidebar.review-collapsed #review-pulls-toggle i { margin-right:0; }
   #review-pull-sidebar.review-collapsed #review-pulls-toggle span,
   #bottom-panel.review-collapsed > .bottom-tab-content { display:none; }
+  body.scenario-helper-popout > #app-header { display:none; }
 </style>
 </head>
 <body class="h-screen flex flex-col bg-slate-950 text-slate-100 overflow-hidden">
 
 <!-- HEADER -->
-<header class="h-14 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-3 z-30 shrink-0">
+<header id="app-header" class="h-14 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-3 z-30 shrink-0">
   <div class="flex items-center gap-3 min-w-0">
     <div class="flex items-center gap-2 shrink-0">
       <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-ffpurple-600 to-ffcyan-500 flex items-center justify-center font-bold text-white glow-purple">
@@ -65,6 +66,9 @@
       </button>
       <button id="page-btn-planning" onclick="switchPage('planning')" class="page-switch text-xs text-slate-400 border border-transparent px-3 py-1.5 rounded-md transition" aria-pressed="false">
         <i class="fa-solid fa-calendar-days mr-1"></i> Planning
+      </button>
+      <button id="page-btn-helper" onclick="switchPage('helper')" class="page-switch text-xs text-slate-400 border border-transparent px-3 py-1.5 rounded-md transition" aria-label="Scenario helper" title="Scenario helper" aria-pressed="false">
+        <i class="fa-solid fa-list-ol mr-1"></i><span class="hidden sm:inline">Helper</span>
       </button>
     </nav>
 
@@ -300,6 +304,80 @@
   <div id="planning-timeline-visualization" class="flex-1 min-h-0 overflow-auto bg-slate-950 px-2" style="scrollbar-gutter:stable;"></div>
 </main>
 
+<main id="scenario-helper-workspace" class="hidden flex-1 min-h-0 flex flex-col overflow-hidden bg-slate-950">
+  <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-slate-800 bg-slate-900/70 shrink-0">
+    <div class="min-w-0">
+      <h2 class="text-sm font-semibold text-slate-100 flex items-center gap-2"><i class="fa-solid fa-list-ol text-ffcyan-400"></i> Scenario helper</h2>
+      <p class="text-[11px] text-slate-500 mt-0.5">Create button-based helpers, then use them to get matching reminders and callouts.</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <div class="flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-950 p-1" aria-label="Helper mode">
+        <button id="scenario-helper-mode-use" onclick="setScenarioHelperMode('use')" class="page-switch active text-xs text-slate-400 border border-transparent px-3 py-1.5 rounded-md" aria-pressed="true"><i class="fa-solid fa-hand-pointer mr-1"></i>Use</button>
+        <button id="scenario-helper-mode-create" onclick="setScenarioHelperMode('create')" class="page-switch text-xs text-slate-400 border border-transparent px-3 py-1.5 rounded-md" aria-pressed="false"><i class="fa-solid fa-screwdriver-wrench mr-1"></i>Create</button>
+      </div>
+      <label for="scenario-helper-select" class="sr-only">Choose a scenario</label>
+      <select id="scenario-helper-select" onchange="selectScenarioHelper(this.value)" class="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-200 max-w-56"></select>
+      <div id="scenario-helper-create-actions" class="flex flex-wrap items-center gap-2">
+        <button onclick="createScenarioHelper()" class="text-xs bg-ffpurple-600 hover:bg-ffpurple-500 text-white px-2.5 py-1.5 rounded"><i class="fa-solid fa-plus mr-1"></i>New</button>
+        <button onclick="duplicateScenarioHelper()" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-2.5 py-1.5 rounded" title="Make a copy of this scenario"><i class="fa-regular fa-copy"></i><span class="hidden sm:inline ml-1">Duplicate</span></button>
+        <button onclick="deleteScenarioHelper()" class="text-xs bg-slate-800 hover:bg-rose-900/60 border border-slate-700 hover:border-rose-800 text-slate-300 hover:text-rose-200 px-2.5 py-1.5 rounded" title="Delete this scenario"><i class="fa-solid fa-trash-can"></i></button>
+        <span class="h-6 border-l border-slate-700 mx-1"></span>
+        <button onclick="exportScenarioHelper()" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-2.5 py-1.5 rounded"><i class="fa-solid fa-file-arrow-down mr-1"></i>Export</button>
+        <button onclick="document.getElementById('scenario-helper-import-file').click()" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-2.5 py-1.5 rounded"><i class="fa-solid fa-file-import mr-1"></i>Import</button>
+      </div>
+      <input id="scenario-helper-import-file" type="file" accept="application/json,.json" class="hidden" onchange="importScenarioHelper(this)">
+      <div id="scenario-helper-use-actions" class="hidden flex flex-wrap items-center gap-2">
+        <button onclick="resetScenarioHelperStates()" class="text-xs bg-rose-900/70 hover:bg-rose-800 text-rose-100 px-3 py-1.5 rounded"><i class="fa-solid fa-rotate-left mr-1"></i>Reset</button>
+        <button id="scenario-helper-columns-button" onclick="toggleScenarioHelperColumns()" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-3 py-1.5 rounded"><i class="fa-solid fa-table-columns mr-1"></i>1 column</button>
+        <button onclick="popOutScenarioHelper()" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-3 py-1.5 rounded"><i class="fa-regular fa-window-restore mr-1"></i>Pop out</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex-1 min-h-0 overflow-y-auto">
+    <div class="max-w-7xl mx-auto p-4 md:p-6">
+      <div id="scenario-helper-use-layout" class="hidden grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <section aria-label="Scenario inputs" class="space-y-5">
+          <div id="scenario-helper-use-inputs" class="space-y-5" aria-label="Choose input states"></div>
+        </section>
+        <section aria-label="Scenario outputs" class="min-w-0">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2"><i class="fa-solid fa-bullhorn mr-1.5 text-ffcyan-400"></i>Output / callouts</h3>
+          <div id="scenario-helper-results" class="space-y-3" aria-live="polite"></div>
+        </section>
+      </div>
+
+      <div id="scenario-helper-create-layout" class="hidden space-y-4">
+      <label class="block bg-slate-900 border border-slate-800 rounded-xl p-4 text-[11px] text-slate-400">Scenario name
+        <input id="scenario-helper-name" type="text" maxlength="100" oninput="updateScenarioHelperName(this.value)" onchange="persistScenarioHelper()" class="block w-full mt-1 bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-slate-100" placeholder="Name this scenario">
+      </label>
+
+      <section>
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+          <div>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">State inputs</h3>
+            <p class="text-[10px] text-slate-600 mt-0.5">Define the facts or statuses that can vary, then list their possible values.</p>
+          </div>
+          <button onclick="addScenarioHelperInput()" class="shrink-0 text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-3 py-1.5 rounded"><i class="fa-solid fa-plus mr-1"></i>Add input</button>
+        </div>
+        <div id="scenario-helper-inputs" class="space-y-2"></div>
+      </section>
+
+      <section>
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+          <div>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Output rules</h3>
+            <p class="text-[10px] text-slate-600 mt-0.5">Set the state combination for each reminder. “Any” means that input does not affect the rule.</p>
+          </div>
+          <button onclick="addScenarioHelperRule()" class="shrink-0 text-xs bg-ffpurple-600 hover:bg-ffpurple-500 text-white px-3 py-1.5 rounded"><i class="fa-solid fa-plus mr-1"></i>Add rule</button>
+        </div>
+        <div id="scenario-helper-rules" class="space-y-2"></div>
+      </section>
+      </div>
+      </div>
+    </div>
+  </div>
+</main>
+
 <!-- SETTINGS MODAL -->
 <div id="settings-modal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4">
   <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl">
@@ -520,6 +598,12 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape') closePlanningCastImportMenu();
   });
+  initializeScenarioHelper();
+  if (new URLSearchParams(window.location.search).get('helper') === 'use') {
+    document.body.classList.add('scenario-helper-popout');
+    switchPage('helper');
+    setScenarioHelperMode('use');
+  }
   updatePlanningHistoryControls();
 });
 
@@ -4134,13 +4218,17 @@ function renderPOVModalBody() {
    ========================================================================= */
 function switchPage(page) {
   const planning = page === 'planning';
-  document.getElementById('main-workspace').classList.toggle('hidden', planning);
+  const helper = page === 'helper';
+  document.getElementById('main-workspace').classList.toggle('hidden', planning || helper);
   document.getElementById('planning-workspace').classList.toggle('hidden', !planning);
-  document.getElementById('page-btn-review').classList.toggle('active', !planning);
+  document.getElementById('scenario-helper-workspace').classList.toggle('hidden', !helper);
+  document.getElementById('page-btn-review').classList.toggle('active', !planning && !helper);
   document.getElementById('page-btn-planning').classList.toggle('active', planning);
-  document.getElementById('page-btn-review').setAttribute('aria-pressed', String(!planning));
+  document.getElementById('page-btn-helper').classList.toggle('active', helper);
+  document.getElementById('page-btn-review').setAttribute('aria-pressed', String(!planning && !helper));
   document.getElementById('page-btn-planning').setAttribute('aria-pressed', String(planning));
-  renderTimeline();
+  document.getElementById('page-btn-helper').setAttribute('aria-pressed', String(helper));
+  if (!helper) renderTimeline();
   if (planning) {
     if (activeFightId && !timelineEventsCache[activeFightId]) loadTimelineEventsForFight(activeFightId);
   }
@@ -4172,6 +4260,484 @@ function formatMsToHM(ms) {
 }
 function escapeHTML(str) {
   return String(str == null ? '' : str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+/* =========================================================================
+   SCENARIO HELPER
+   ========================================================================= */
+const SCENARIO_HELPER_STORAGE_KEY = 'ff_scenario_helper_v1';
+let scenarioHelperState = { scenarios: [], activeScenarioId: null };
+let scenarioHelperMode = 'use';
+let scenarioHelperColumns = 2;
+
+function initializeScenarioHelper() {
+  const useInputs = document.getElementById('scenario-helper-use-inputs');
+  if (useInputs && !useInputs.dataset.bound) {
+    useInputs.dataset.bound = 'true';
+    useInputs.addEventListener('click', event => {
+      const button = event.target.closest('button[data-input-id]');
+      if (button && useInputs.contains(button)) toggleScenarioHelperState(button.dataset.inputId, button.dataset.stateValue);
+    });
+  }
+  try {
+    const stored = JSON.parse(localStorage.getItem(SCENARIO_HELPER_STORAGE_KEY) || 'null');
+    if (stored && Array.isArray(stored.scenarios)) {
+      scenarioHelperState.scenarios = stored.scenarios
+        .filter(scenario => scenario && typeof scenario === 'object')
+        .map(normalizeScenarioHelper)
+        .slice(0, 100);
+      scenarioHelperState.activeScenarioId = String(stored.activeScenarioId || '');
+    }
+  } catch (error) {
+    showToast('Saved scenarios could not be read: ' + error.message, 'error');
+  }
+  if (!scenarioHelperState.scenarios.length) {
+    scenarioHelperState.scenarios = [createScenarioHelperModel('New scenario')];
+  }
+  if (!getActiveScenarioHelper()) scenarioHelperState.activeScenarioId = scenarioHelperState.scenarios[0].id;
+  renderScenarioHelper();
+  renderScenarioHelperMode();
+}
+
+function createScenarioHelperModel(name) {
+  return {
+    id: uid('scenario'),
+    name: name || 'New scenario',
+    inputs: [],
+    rules: [],
+    selectedStates: {}
+  };
+}
+
+function safeScenarioHelperId(value, prefix) {
+  const id = String(value || '');
+  return id.startsWith(prefix + '_') && /^[A-Za-z0-9_-]{1,100}$/.test(id) ? id : uid(prefix);
+}
+
+function normalizeScenarioHelper(scenario) {
+  const inputs = Array.isArray(scenario.inputs) ? scenario.inputs.slice(0, 20).map(input => ({
+    id: safeScenarioHelperId(input && input.id, 'input'),
+    label: String(input && input.label || '').slice(0, 100),
+    options: Array.isArray(input && input.options) ? input.options.map(value => String(value).slice(0, 100)).filter(Boolean).slice(0, 100) : []
+  })) : [];
+  const inputIds = new Set(inputs.map(input => input.id));
+  const rules = Array.isArray(scenario.rules) ? scenario.rules.slice(0, 100).map(rule => {
+    const conditions = {};
+    if (rule && rule.conditions && typeof rule.conditions === 'object') {
+      Object.entries(rule.conditions).forEach(([id, value]) => {
+        if (inputIds.has(id)) conditions[id] = String(value || '').slice(0, 100);
+      });
+    }
+    return {
+      id: safeScenarioHelperId(rule && rule.id, 'rule'),
+      conditions,
+      title: String(rule && rule.title || '').slice(0, 100),
+      output: String(rule && rule.output || '').slice(0, 2000)
+    };
+  }) : [];
+  return {
+    id: safeScenarioHelperId(scenario.id, 'scenario'),
+    name: String(scenario.name || 'Untitled scenario').slice(0, 100),
+    inputs,
+    rules,
+    selectedStates: scenario.selectedStates && typeof scenario.selectedStates === 'object' ? scenario.selectedStates : {}
+  };
+}
+
+function refreshScenarioHelperIds(scenario, clearSelections = true) {
+  const inputIdMap = new Map();
+  scenario.inputs.forEach(input => {
+    const previousId = input.id;
+    input.id = uid('input');
+    inputIdMap.set(previousId, input.id);
+  });
+  scenario.rules.forEach(rule => {
+    const previousConditions = rule.conditions;
+    rule.id = uid('rule');
+    rule.conditions = {};
+    Object.entries(previousConditions).forEach(([previousId, value]) => {
+      const nextId = inputIdMap.get(previousId);
+      if (nextId) rule.conditions[nextId] = value;
+    });
+  });
+  scenario.id = uid('scenario');
+  if (clearSelections) scenario.selectedStates = {};
+  else {
+    const previousStates = scenario.selectedStates;
+    scenario.selectedStates = {};
+    Object.entries(previousStates).forEach(([previousId, value]) => {
+      const nextId = inputIdMap.get(previousId);
+      if (nextId) scenario.selectedStates[nextId] = value;
+    });
+  }
+  return scenario;
+}
+
+function getActiveScenarioHelper() {
+  return scenarioHelperState.scenarios.find(scenario => scenario.id === scenarioHelperState.activeScenarioId) || null;
+}
+
+function persistScenarioHelper() {
+  try {
+    localStorage.setItem(SCENARIO_HELPER_STORAGE_KEY, JSON.stringify(scenarioHelperState));
+    return true;
+  } catch (error) {
+    showToast('Could not save scenario in this browser: ' + error.message, 'error');
+    return false;
+  }
+}
+
+function renderScenarioHelper() {
+  const select = document.getElementById('scenario-helper-select');
+  const nameInput = document.getElementById('scenario-helper-name');
+  const inputsContainer = document.getElementById('scenario-helper-inputs');
+  const rulesContainer = document.getElementById('scenario-helper-rules');
+  const useInputs = document.getElementById('scenario-helper-use-inputs');
+  if (!select || !nameInput || !inputsContainer || !rulesContainer || !useInputs) return;
+  select.innerHTML = scenarioHelperState.scenarios.map(scenario =>
+    `<option value="${escapeHTML(scenario.id)}" ${scenario.id === scenarioHelperState.activeScenarioId ? 'selected' : ''}>${escapeHTML(scenario.name || 'Untitled scenario')}</option>`
+  ).join('');
+  const scenario = getActiveScenarioHelper();
+  if (!scenario) return;
+  nameInput.value = scenario.name;
+  if (!scenario.inputs.length) {
+    inputsContainer.innerHTML = '<div class="text-xs text-slate-500 italic border border-dashed border-slate-700 rounded-lg p-4 text-center">No inputs yet. Add an input to describe the states you want to check.</div>';
+  } else {
+    inputsContainer.innerHTML = scenario.inputs.map((input, index) => {
+      const optionsText = input.options.join('\n');
+      return `<article class="bg-slate-900 border border-slate-800 rounded-xl p-3 md:p-4">
+        <div class="flex flex-wrap items-start gap-2">
+          <span class="w-7 h-7 shrink-0 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center text-xs font-bold">${index + 1}</span>
+          <label class="flex-1 min-w-[12rem] text-[10px] text-slate-500">Input name
+            <input type="text" maxlength="100" value="${escapeHTML(input.label)}" oninput="updateScenarioHelperInput('${escapeHTML(input.id)}','label',this.value)" onchange="persistScenarioHelper();renderScenarioHelper()" placeholder="e.g. Player role" class="block w-full mt-0.5 bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-100">
+          </label>
+          <button onclick="deleteScenarioHelperInput('${escapeHTML(input.id)}')" aria-label="Delete input" class="w-7 h-7 rounded bg-slate-800 hover:bg-rose-900/60 text-slate-400 hover:text-rose-200"><i class="fa-solid fa-trash-can"></i></button>
+        </div>
+        <label class="block mt-2 text-[10px] text-slate-500">Possible values <span class="text-slate-600">(one per line)</span>
+          <textarea maxlength="10000" rows="2" oninput="updateScenarioHelperInput('${escapeHTML(input.id)}','options',this.value)" onchange="persistScenarioHelper();renderScenarioHelper()" placeholder="e.g. North&#10;South&#10;East&#10;West" class="block w-full mt-0.5 resize-y bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-200">${escapeHTML(optionsText)}</textarea>
+        </label>
+      </article>`;
+    }).join('');
+  }
+  renderScenarioHelperUseInputs();
+
+  if (!scenario.rules.length) {
+    rulesContainer.innerHTML = '<div class="text-xs text-slate-500 italic border border-dashed border-slate-700 rounded-lg p-4 text-center">No output rules yet. Add a rule to map a state combination to something to remember or say.</div>';
+  } else {
+    rulesContainer.innerHTML = scenario.rules.map((rule, index) => {
+      const selectors = scenario.inputs.length ? scenario.inputs.map(input => {
+        const values = input.options.map(value => `<option value="${escapeHTML(value)}" ${rule.conditions[input.id] === value ? 'selected' : ''}>${escapeHTML(value)}</option>`).join('');
+        return `<label class="text-[10px] text-slate-500">${escapeHTML(input.label || 'Unnamed input')}
+          <select onchange="setScenarioHelperCondition('${escapeHTML(rule.id)}','${escapeHTML(input.id)}',this.value)" class="block w-full mt-0.5 bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-200">
+            <option value="">Any</option>${values}
+          </select>
+        </label>`;
+      }).join('') : '<p class="text-[10px] text-slate-500">Add inputs to constrain when this rule matches. With no inputs, it will match whenever it has an output.</p>';
+      return `<article class="bg-slate-900 border border-slate-800 rounded-xl p-3 md:p-4">
+        <div class="flex items-center justify-between gap-2 mb-2">
+          <h4 class="text-[11px] font-semibold text-slate-300">Rule ${index + 1}</h4>
+          <button onclick="deleteScenarioHelperRule('${escapeHTML(rule.id)}')" aria-label="Delete rule" class="w-7 h-7 rounded bg-slate-800 hover:bg-rose-900/60 text-slate-400 hover:text-rose-200"><i class="fa-solid fa-trash-can"></i></button>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">${selectors}</div>
+        <label class="block mt-3 text-[10px] text-slate-500">Output section title <span class="text-slate-600">(optional)</span>
+          <input type="text" maxlength="100" value="${escapeHTML(rule.title)}" oninput="updateScenarioHelperRuleTitle('${escapeHTML(rule.id)}',this.value)" onchange="persistScenarioHelper()" placeholder="e.g. Neo Exdeath #1" class="block w-full mt-0.5 bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-100">
+        </label>
+        <label class="block mt-3 text-[10px] text-slate-500">Reminder / callout
+          <textarea maxlength="2000" rows="2" oninput="updateScenarioHelperRule('${escapeHTML(rule.id)}',this.value)" onchange="persistScenarioHelper()" placeholder="What should someone remember or say?" class="block w-full mt-0.5 resize-y bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-100">${escapeHTML(rule.output)}</textarea>
+        </label>
+      </article>`;
+    }).join('');
+  }
+  renderScenarioHelperResults();
+  renderScenarioHelperMode();
+}
+
+function renderScenarioHelperUseInputs() {
+  const scenario = getActiveScenarioHelper();
+  const container = document.getElementById('scenario-helper-use-inputs');
+  if (!scenario || !container) return;
+  if (!scenario.inputs.length) {
+    container.innerHTML = '<div class="rounded-lg border border-dashed border-slate-700 p-5 text-sm text-slate-400">This helper has no button groups yet. Switch to <button onclick="setScenarioHelperMode(\'create\')" class="text-ffcyan-400 hover:text-ffcyan-300 underline">Create</button> to add them.</div>';
+    return;
+  }
+  container.innerHTML = scenario.inputs.map((input, index) => `
+    <section class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+      <h3 class="text-xs font-semibold text-slate-200 mb-3">${escapeHTML(input.label || `Input ${index + 1}`)}</h3>
+      <div class="flex flex-wrap gap-2">
+        ${input.options.map(value => {
+          const selected = scenario.selectedStates[input.id] === value;
+          return `<button type="button" data-input-id="${escapeHTML(input.id)}" data-state-value="${escapeHTML(value)}" aria-pressed="${selected}" class="rounded-xl border px-3 py-2 text-xs font-medium transition ${selected ? 'border-emerald-500 bg-emerald-700 text-white shadow-lg shadow-emerald-950/40' : 'border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-500 hover:bg-slate-700'}">${escapeHTML(value)}</button>`;
+        }).join('')}
+        ${input.options.length ? '' : '<span class="text-xs text-slate-500 italic">No button choices configured.</span>'}
+      </div>
+    </section>`).join('');
+}
+
+function setScenarioHelperMode(mode) {
+  if (mode !== 'use' && mode !== 'create') return;
+  scenarioHelperMode = mode;
+  renderScenarioHelperMode();
+  renderScenarioHelperResults();
+}
+
+function renderScenarioHelperMode() {
+  const useMode = scenarioHelperMode === 'use';
+  const useLayout = document.getElementById('scenario-helper-use-layout');
+  const createLayout = document.getElementById('scenario-helper-create-layout');
+  const createActions = document.getElementById('scenario-helper-create-actions');
+  const useActions = document.getElementById('scenario-helper-use-actions');
+  const useButton = document.getElementById('scenario-helper-mode-use');
+  const createButton = document.getElementById('scenario-helper-mode-create');
+  const columnsButton = document.getElementById('scenario-helper-columns-button');
+  if (!useLayout || !createLayout || !createActions || !useActions) return;
+  useLayout.classList.toggle('hidden', !useMode);
+  createLayout.classList.toggle('hidden', useMode);
+  createActions.classList.toggle('hidden', useMode);
+  useActions.classList.toggle('hidden', !useMode);
+  useLayout.classList.toggle('grid-cols-1', scenarioHelperColumns === 1);
+  useLayout.classList.toggle('lg:grid-cols-2', scenarioHelperColumns === 2);
+  if (useButton) {
+    useButton.classList.toggle('active', useMode);
+    useButton.setAttribute('aria-pressed', String(useMode));
+  }
+  if (createButton) {
+    createButton.classList.toggle('active', !useMode);
+    createButton.setAttribute('aria-pressed', String(!useMode));
+  }
+  if (columnsButton) columnsButton.innerHTML = `<i class="fa-solid fa-table-columns mr-1"></i>${scenarioHelperColumns === 2 ? '1 column' : '2 columns'}`;
+}
+
+function selectScenarioHelper(id) {
+  if (!scenarioHelperState.scenarios.some(scenario => scenario.id === id)) return;
+  scenarioHelperState.activeScenarioId = id;
+  persistScenarioHelper();
+  renderScenarioHelper();
+}
+
+function createScenarioHelper() {
+  if (scenarioHelperState.scenarios.length >= 100) {
+    showToast('A browser can store at most 100 scenarios.', 'error');
+    return;
+  }
+  const scenario = createScenarioHelperModel('New scenario');
+  scenarioHelperState.scenarios.push(scenario);
+  scenarioHelperState.activeScenarioId = scenario.id;
+  persistScenarioHelper();
+  renderScenarioHelper();
+  document.getElementById('scenario-helper-name').focus();
+  document.getElementById('scenario-helper-name').select();
+}
+
+function duplicateScenarioHelper() {
+  const current = getActiveScenarioHelper();
+  if (!current) return;
+  if (scenarioHelperState.scenarios.length >= 100) {
+    showToast('A browser can store at most 100 scenarios.', 'error');
+    return;
+  }
+  const copy = normalizeScenarioHelper(JSON.parse(JSON.stringify(current)));
+  refreshScenarioHelperIds(copy);
+  copy.name = `${current.name} copy`.slice(0, 100);
+  scenarioHelperState.scenarios.push(copy);
+  scenarioHelperState.activeScenarioId = copy.id;
+  persistScenarioHelper();
+  renderScenarioHelper();
+}
+
+function deleteScenarioHelper() {
+  const current = getActiveScenarioHelper();
+  if (!current || !confirm(`Delete "${current.name}"? This cannot be undone.`)) return;
+  scenarioHelperState.scenarios = scenarioHelperState.scenarios.filter(scenario => scenario.id !== current.id);
+  if (!scenarioHelperState.scenarios.length) scenarioHelperState.scenarios.push(createScenarioHelperModel('New scenario'));
+  scenarioHelperState.activeScenarioId = scenarioHelperState.scenarios[0].id;
+  persistScenarioHelper();
+  renderScenarioHelper();
+}
+
+function updateScenarioHelperName(name) {
+  const scenario = getActiveScenarioHelper();
+  if (!scenario) return;
+  scenario.name = name.slice(0, 100);
+  const selected = document.getElementById('scenario-helper-select');
+  const option = selected && [...selected.options].find(item => item.value === scenario.id);
+  if (option) option.textContent = scenario.name || 'Untitled scenario';
+}
+
+function addScenarioHelperInput() {
+  const scenario = getActiveScenarioHelper();
+  if (!scenario) return;
+  if (scenario.inputs.length >= 20) {
+    showToast('A scenario can contain at most 20 state inputs.', 'error');
+    return;
+  }
+  scenario.inputs.push({ id: uid('input'), label: '', options: [] });
+  persistScenarioHelper();
+  renderScenarioHelper();
+  const fields = document.querySelectorAll('#scenario-helper-inputs input[type="text"]');
+  if (fields.length) fields[fields.length - 1].focus();
+}
+
+function updateScenarioHelperInput(id, field, value) {
+  const scenario = getActiveScenarioHelper();
+  const input = scenario && scenario.inputs.find(item => item.id === id);
+  if (!input) return;
+  if (field === 'label') input.label = value.slice(0, 100);
+  if (field === 'options') {
+    input.options = [...new Set(value.split(/\r?\n/).map(option => option.trim()).filter(Boolean))].slice(0, 100);
+    if (!input.options.includes(scenario.selectedStates[id])) delete scenario.selectedStates[id];
+    scenario.rules.forEach(rule => {
+      if (!input.options.includes(rule.conditions[id])) rule.conditions[id] = '';
+    });
+    renderScenarioHelperResults();
+  }
+}
+
+function deleteScenarioHelperInput(id) {
+  const scenario = getActiveScenarioHelper();
+  if (!scenario) return;
+  scenario.inputs = scenario.inputs.filter(input => input.id !== id);
+  delete scenario.selectedStates[id];
+  scenario.rules.forEach(rule => { delete rule.conditions[id]; });
+  persistScenarioHelper();
+  renderScenarioHelper();
+}
+
+function toggleScenarioHelperState(id, value) {
+  const scenario = getActiveScenarioHelper();
+  if (!scenario) return;
+  if (scenario.selectedStates[id] === value) delete scenario.selectedStates[id];
+  else if (scenario.inputs.some(input => input.id === id && input.options.includes(value))) scenario.selectedStates[id] = value;
+  persistScenarioHelper();
+  renderScenarioHelperUseInputs();
+  renderScenarioHelperResults();
+}
+
+function resetScenarioHelperStates() {
+  const scenario = getActiveScenarioHelper();
+  if (!scenario) return;
+  scenario.selectedStates = {};
+  persistScenarioHelper();
+  renderScenarioHelperUseInputs();
+  renderScenarioHelperResults();
+}
+
+function toggleScenarioHelperColumns() {
+  scenarioHelperColumns = scenarioHelperColumns === 2 ? 1 : 2;
+  renderScenarioHelperMode();
+}
+
+function popOutScenarioHelper() {
+  const url = new URL(window.location.href);
+  url.searchParams.set('helper', 'use');
+  const popup = window.open(url.toString(), 'lotus-scenario-helper', 'popup=yes,width=1200,height=850,resizable=yes,scrollbars=yes');
+  if (!popup) {
+    showToast('Allow pop-ups for this site to open the helper in its own window.', 'error');
+    return;
+  }
+  popup.focus();
+}
+
+function addScenarioHelperRule() {
+  const scenario = getActiveScenarioHelper();
+  if (!scenario) return;
+  if (scenario.rules.length >= 100) {
+    showToast('A scenario can contain at most 100 output rules.', 'error');
+    return;
+  }
+  const conditions = {};
+  scenario.inputs.forEach(input => { conditions[input.id] = ''; });
+  scenario.rules.push({ id: uid('rule'), conditions, title: '', output: '' });
+  persistScenarioHelper();
+  renderScenarioHelper();
+}
+
+function setScenarioHelperCondition(ruleId, inputId, value) {
+  const scenario = getActiveScenarioHelper();
+  const rule = scenario && scenario.rules.find(item => item.id === ruleId);
+  if (!rule || !scenario.inputs.some(input => input.id === inputId)) return;
+  rule.conditions[inputId] = value;
+  persistScenarioHelper();
+  renderScenarioHelperResults();
+}
+
+function updateScenarioHelperRule(id, value) {
+  const scenario = getActiveScenarioHelper();
+  const rule = scenario && scenario.rules.find(item => item.id === id);
+  if (rule) {
+    rule.output = value.slice(0, 2000);
+    renderScenarioHelperResults();
+  }
+}
+
+function updateScenarioHelperRuleTitle(id, value) {
+  const scenario = getActiveScenarioHelper();
+  const rule = scenario && scenario.rules.find(item => item.id === id);
+  if (rule) {
+    rule.title = value.slice(0, 100);
+    renderScenarioHelperResults();
+  }
+}
+
+function deleteScenarioHelperRule(id) {
+  const scenario = getActiveScenarioHelper();
+  if (!scenario) return;
+  scenario.rules = scenario.rules.filter(rule => rule.id !== id);
+  persistScenarioHelper();
+  renderScenarioHelper();
+}
+
+function renderScenarioHelperResults() {
+  const scenario = getActiveScenarioHelper();
+  const container = document.getElementById('scenario-helper-results');
+  if (!scenario || !container) return;
+  const matchingRules = scenario.rules.filter(rule => rule.output.trim() && Object.entries(rule.conditions).every(([inputId, value]) =>
+    !value || scenario.selectedStates[inputId] === value
+  ));
+  if (!matchingRules.length) {
+    container.innerHTML = '<div class="rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-3 text-xs text-slate-500"><i class="fa-regular fa-lightbulb mr-1.5"></i>No output matches the selected states yet.</div>';
+    return;
+  }
+  container.innerHTML = matchingRules.map(rule => `<article class="rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-slate-200 shadow-sm">
+    ${rule.title ? `<h4 class="text-xs font-semibold text-slate-400 mb-2">${escapeHTML(rule.title)}</h4>` : ''}
+    <div class="whitespace-pre-wrap leading-relaxed">${escapeHTML(rule.output)}</div>
+  </article>`).join('');
+}
+
+function exportScenarioHelper() {
+  const scenario = getActiveScenarioHelper();
+  if (!scenario) return;
+  const blob = new Blob([JSON.stringify({ format: 'lotus-scenario-helper', version: 1, scenario }, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${(scenario.name || 'scenario').replace(/[^a-z0-9-_]+/gi, '-').replace(/^-|-$/g, '') || 'scenario'}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+async function importScenarioHelper(input) {
+  const file = input.files && input.files[0];
+  input.value = '';
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    const imported = data && data.format === 'lotus-scenario-helper' && data.version === 1 ? data.scenario : null;
+    if (!imported || typeof imported !== 'object' || typeof imported.name !== 'string' ||
+        !Array.isArray(imported.inputs) || imported.inputs.length > 20 ||
+        !Array.isArray(imported.rules) || imported.rules.length > 100) {
+      throw new Error('This file is not a supported scenario helper export.');
+    }
+    if (scenarioHelperState.scenarios.length >= 100) throw new Error('A browser can store at most 100 scenarios.');
+    const scenario = refreshScenarioHelperIds(normalizeScenarioHelper(imported));
+    scenario.name = scenario.name || 'Imported scenario';
+    scenarioHelperState.scenarios.push(scenario);
+    scenarioHelperState.activeScenarioId = scenario.id;
+    persistScenarioHelper();
+    renderScenarioHelper();
+    showToast(`Imported "${scenario.name}".`, 'success');
+  } catch (error) {
+    showToast('Could not import scenario: ' + error.message, 'error');
+  }
 }
 </script>
 
