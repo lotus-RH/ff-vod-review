@@ -93,6 +93,7 @@ before anyone has saved anything (or if the KV binding isn't set up yet).
 The **Helper** page has separate **Create** and **Use** modes. Create reusable
 scenarios by defining button groups and mapping state combinations to titled
 reminders or callouts; in Use mode, click the buttons to show matching output.
-Scenarios are saved locally in that browser; use JSON import/export to move
-them between browsers or share them with teammates. Use mode can also be
-popped out into its own window.
+Scenarios are saved locally in that browser and included when **Save for
+everyone** is used in Setup, so other browsers receive them with the shared
+setup. JSON import/export is also available for individual scenario files.
+Use mode can also be popped out into its own window.

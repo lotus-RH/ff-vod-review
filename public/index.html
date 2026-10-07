@@ -412,7 +412,7 @@
 
       <div class="border-t border-slate-800 pt-3 mt-1">
         <h3 class="font-bold text-sm flex items-center gap-2 mb-1.5"><i class="fa-solid fa-share-nodes text-ffcyan-400"></i> Shared setup for everyone</h3>
-        <p class="text-slate-400 leading-relaxed">Tracked abilities, mechanic categories, planned cooldown placements and POVs live in each browser, so a private window starts blank. Hit Save and it's live for everyone opening the site — no repo upload needed.</p>
+        <p class="text-slate-400 leading-relaxed">Tracked abilities, mechanic categories, planned cooldown placements, POVs and Helper scenarios live in each browser until shared. Hit Save and they're live for everyone opening the site — no repo upload needed.</p>
         <label class="flex items-center gap-1.5 mt-2 text-slate-400 cursor-pointer select-none"><input type="checkbox" id="share-include-reports" checked> Include POVs for every log</label>
         <div class="flex justify-end gap-2 mt-2">
           <button id="reload-shared-setup-button" onclick="reloadLocalStorageFromServerConfig()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded border border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed" title="Replace shared setup values in this browser with the server config"><i class="fa-solid fa-rotate"></i> Reload from server</button>
@@ -728,6 +728,7 @@ const ENCOUNTER_MECHANICS_KEY = 'fflogs_vod_encounter_mechanics';
 const SAVE_PASSWORD_KEY = 'fflogs_vod_save_password';
 const REVIEW_PULLS_COLLAPSED_KEY = 'fflogs_vod_review_pulls_collapsed';
 const REVIEW_TIMELINE_COLLAPSED_KEY = 'fflogs_vod_review_timeline_collapsed';
+const SHARED_SCENARIO_HELPER_KEY = 'ff_scenario_helper_v1';
 const CONFIG_EXCLUDE = new Set(['fflogs_vod_auth', 'fflogs_vod_config_applied', 'fflogs_vod_bottom_panel_h', REVIEW_PULLS_COLLAPSED_KEY, REVIEW_TIMELINE_COLLAPSED_KEY, SAVE_PASSWORD_KEY]);
 
 function startSharedConfigWatcher() {
@@ -772,6 +773,12 @@ async function applySharedConfig(config = null, replaceLocal = false) {
     const alreadyApplied = stamp && localStorage.getItem('fflogs_vod_config_applied') === stamp;
     if (alreadyApplied && !replaceLocal) return false;
     Object.entries(cfg.storage).forEach(([key, value]) => {
+      if (key === SHARED_SCENARIO_HELPER_KEY) {
+        if (value && typeof value === 'object' && Array.isArray(value.scenarios)) {
+          localStorage.setItem(key, JSON.stringify(value));
+        }
+        return;
+      }
       if (!key.startsWith('fflogs_vod_') || CONFIG_EXCLUDE.has(key)) return;
       if (!replaceLocal && !stamp && localStorage.getItem(key) !== null) return; // no version stamp: only fill gaps
       if (!replaceLocal && key === ENCOUNTER_MECHANICS_KEY) {
@@ -795,6 +802,9 @@ function refreshSharedConfigState() {
   const readStored = (key, fallback) => {
     try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch (e) { return fallback; }
   };
+  loadScenarioHelperState();
+  renderScenarioHelper();
+  renderScenarioHelperMode();
   mechanicCategories = readStored('fflogs_vod_mechanic_categories', {});
   customMitigationNames = readStored('fflogs_vod_custom_mitigations', []);
   plannedUsages = readStored('fflogs_vod_planned_usages', {});
@@ -955,6 +965,10 @@ function collectSharedSetupStorage(includeReports) {
     if (!key || !key.startsWith('fflogs_vod_') || CONFIG_EXCLUDE.has(key)) continue;
     if (/^fflogs_vod_notes_/.test(key) || (!includeReports && /^fflogs_vod_povs_/.test(key))) continue;
     try { storage[key] = JSON.parse(localStorage.getItem(key)); } catch (e) {}
+  }
+  const scenarioHelper = localStorage.getItem(SHARED_SCENARIO_HELPER_KEY);
+  if (scenarioHelper !== null) {
+    try { storage[SHARED_SCENARIO_HELPER_KEY] = JSON.parse(scenarioHelper); } catch (e) {}
   }
   return storage;
 }
@@ -4337,6 +4351,12 @@ function initializeScenarioHelper() {
       if (button && useInputs.contains(button)) toggleScenarioHelperState(button.dataset.groupId, button.dataset.stateValue);
     });
   }
+  loadScenarioHelperState();
+  renderScenarioHelper();
+  renderScenarioHelperMode();
+}
+
+function loadScenarioHelperState() {
   try {
     const stored = JSON.parse(localStorage.getItem(SCENARIO_HELPER_STORAGE_KEY) || 'null');
     if (stored && Array.isArray(stored.scenarios)) {
@@ -4353,8 +4373,6 @@ function initializeScenarioHelper() {
     scenarioHelperState.scenarios = [createScenarioHelperModel('New scenario')];
   }
   if (!getActiveScenarioHelper()) scenarioHelperState.activeScenarioId = scenarioHelperState.scenarios[0].id;
-  renderScenarioHelper();
-  renderScenarioHelperMode();
 }
 
 function createScenarioHelperModel(name) {
