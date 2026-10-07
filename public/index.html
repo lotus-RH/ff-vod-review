@@ -2967,13 +2967,13 @@ async function importSelectedPlanningCasts() {
 }
 
 function buildPlanningCastUsages(sourceReport, fight, casts, selectedJobs) {
-  const trackedAbilities = new Map(getTimelineAbilityNames().map(name => [name.toLocaleLowerCase(), name]));
+  const trackedAbilities = getPlanningAbilityCatalog();
   const actorsById = new Map(sourceReport.actors.map(actor => [String(actor.id), actor]));
   const povJobsByName = new Map(povs.map(pov => [String(pov.player || '').toLocaleLowerCase(), jobCodeForSubType(pov.job)]));
   let count = 0;
   const usages = {};
   casts.forEach(event => {
-    const abilityName = trackedAbilities.get(eventAbilityName(event, sourceReport).toLocaleLowerCase());
+    const abilityName = trackedAbilities.get(eventAbilityName(event, sourceReport).trim().toLocaleLowerCase());
     const actor = actorsById.get(String(event.sourceID));
     if (!abilityName || !actor) return;
     const job = jobCodeForSubType(actor.subType) || povJobsByName.get(String(actor.name || '').toLocaleLowerCase());
@@ -2989,11 +2989,28 @@ function buildPlanningCastUsages(sourceReport, fight, casts, selectedJobs) {
       importedFightId: fight.id,
       importedReportCode: sourceReport.code,
       sourceID,
-      sourceTimeMs
+      sourceTimeMs,
+      abilityName
     });
     count++;
   });
   return { usages, count };
+}
+
+function getPlanningAbilityCatalog() {
+  const names = new Map();
+  const addNames = abilityNames => {
+    if (!Array.isArray(abilityNames)) return;
+    abilityNames.forEach(name => {
+      if (typeof name !== 'string' || !name.trim()) return;
+      const normalizedName = name.trim();
+      const key = normalizedName.toLocaleLowerCase();
+      if (!names.has(key)) names.set(key, normalizedName);
+    });
+  };
+  addNames(trackedAbilityNames);
+  addNames(readJsonWithDefault('fflogs_vod_ability_names_default', 'fflogs_vod_ability_names_default', []));
+  return names;
 }
 
 function getPlanningClassJobs() {
@@ -3167,7 +3184,23 @@ function renderCuratedPlanningTimeline(encounter, container) {
   });
   const classRows = new Map();
   const encounterUsages = plannedUsages[String(encounter.encounterID)] || {};
-  trackedAbilityNames.forEach(name => {
+  const abilityNames = new Map();
+  trackedAbilityNames.forEach(name => abilityNames.set(abilityCooldownKey(name), name));
+  const abilityCatalog = getPlanningAbilityCatalog();
+  Object.entries(encounterUsages).forEach(([key, usages]) => {
+    const match = key.match(/^planned:[^:]+:(.+)$/);
+    if (!match) return;
+    const abilityKey = match[1];
+    const importedName = Array.isArray(usages) && usages.find(usage =>
+      usage && typeof usage.abilityName === 'string' && usage.abilityName.trim()
+    );
+    if (!abilityNames.has(abilityKey)) {
+      abilityNames.set(abilityKey, importedName
+        ? importedName.abilityName.trim()
+        : abilityCatalog.get(abilityKey) || abilityKey);
+    }
+  });
+  abilityNames.forEach(name => {
     const abilityKey = abilityCooldownKey(name);
     const plannedJobs = Object.keys(encounterUsages).flatMap(key => {
       if (!key.startsWith('planned:')) return [];
