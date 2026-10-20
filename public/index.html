@@ -12,8 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
   body { font-family: 'Inter', sans-serif; background-color: #080d1a; color: #e2e8f0; }
-  .mono-font { font-family: 'JetBrains Mono', monospace; }
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  .modal-backdrop {
   ::-webkit-scrollbar-track { background: #0f172a; }
   ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
   ::-webkit-scrollbar-thumb:hover { background: #475569; }
@@ -2474,7 +2473,6 @@ async function loadTimelineEventsForFight(fightId) {
 
 async function loadDeathsForFight(fightId) {
   selectedDeathKey = '';
-  lastDeathDetail = null;
   document.getElementById('death-detail-title').textContent = 'Select a death';
   document.getElementById('death-detail-body').innerHTML = '<div class="text-slate-500 italic text-center py-8">Choose a player from the list to inspect what happened.</div>';
   document.getElementById('deaths-list-container').innerHTML = '<div class="text-xs text-slate-500 italic p-3">Loading...</div>';
@@ -2592,16 +2590,8 @@ function isMitigationName(name) {
   if (customMitigationNames.some(n => String(n).toLocaleLowerCase() === key)) return true;
   return trackedAbilityNames.some(n => String(n).toLocaleLowerCase() === key);
 }
-function toggleCustomMitigation(name) {
-  const key = String(name).toLocaleLowerCase();
-  const has = customMitigationNames.some(n => String(n).toLocaleLowerCase() === key);
-  customMitigationNames = has ? customMitigationNames.filter(n => String(n).toLocaleLowerCase() !== key) : [...customMitigationNames, name];
-  localStorage.setItem('fflogs_vod_custom_mitigations', JSON.stringify(customMitigationNames));
-  if (lastDeathDetail) renderDeathDetail(lastDeathDetail.result, lastDeathDetail.death, lastDeathDetail.fight);
-}
 
 let deathDetailCache = {};
-let lastDeathDetail = null;
 let selectedDeathKey = '';
 
 async function showDeathDetail(fightId, death) {
@@ -2732,7 +2722,6 @@ function makeEffectTracker(result) {
 }
 
 function renderDeathDetail(result, death, fight) {
-  lastDeathDetail = { result, death, fight };
   const body = document.getElementById('death-detail-body');
   const deathAbs = fight.startTime + death.timeMs;
   const actorNames = new Map(report.actors.map(a => [String(a.id), a.name]));
@@ -2804,11 +2793,6 @@ function renderDeathDetail(result, death, fight) {
   })();
   const deathEffects = makeEffectTracker(result)(deathAbs, death.targetID, killingBlow && killingBlow.sourceID);
 
-  const effectToggle = (name, kind) => {
-    const on = isMitigationName(name);
-    return `<button class="fx-toggle ${on ? 'bg-emerald-950/50 text-emerald-300 border-emerald-700/40' : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-600'} border rounded px-1.5 py-0.5 text-[10px]" data-name="${escapeHTML(name)}" title="${on ? 'Counted as mitigation — click to un-mark' : 'Click to count this as mitigation'}">${escapeHTML(name)}${kind === 'debuff' ? ' <span class="opacity-60">(boss)</span>' : ''}</button>`;
-  };
-
   let html = `<div class="grid grid-cols-1 lg:grid-cols-[minmax(12rem,0.8fr)_minmax(18rem,1.6fr)] items-start gap-3">
   <div class="bg-slate-950 border border-slate-800 rounded-lg p-3">
     <div class="flex items-start justify-between gap-3">
@@ -2877,9 +2861,6 @@ function renderDeathDetail(result, death, fight) {
   body.querySelector('.jump-death').addEventListener('click', () => jumpToSpecificOffsetMs(offsetBeforeDeath(death.timeMs)));
   body.querySelectorAll('.death-row').forEach(row => {
     row.addEventListener('click', () => jumpToSpecificOffsetMs(Number(row.getAttribute('data-ms'))));
-  });
-  body.querySelectorAll('.fx-toggle').forEach(btn => {
-    btn.addEventListener('click', () => toggleCustomMitigation(btn.getAttribute('data-name')));
   });
 }
 
@@ -4575,11 +4556,6 @@ function formatSecondsToMMSS(seconds) {
   const h = Math.floor(seconds / 3600), m = Math.floor((seconds % 3600) / 60), s = seconds % 60;
   if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-}
-function formatMsToHM(ms) {
-  const totalMin = Math.round(ms / 60000);
-  const h = Math.floor(totalMin / 60), m = totalMin % 60;
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 function escapeHTML(str) {
   return String(str == null ? '' : str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
