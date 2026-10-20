@@ -455,10 +455,10 @@
             class="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] text-slate-100"></select>
         </div>
       </div>
-      <div class="grid grid-cols-[1.75rem_minmax(8rem,1fr)_minmax(9rem,1.2fr)_5rem_5rem_minmax(6rem,1fr)_1.75rem] items-center gap-2 px-1 text-[10px] text-slate-500">
+      <div class="grid grid-cols-[1.75rem_minmax(8rem,1fr)_minmax(7rem,1fr)_5.5rem_5rem_5rem_minmax(6rem,1fr)_1.75rem] items-center gap-2 px-1 text-[10px] text-slate-500">
         <span class="text-center" title="Icon"><i class="fa-regular fa-image"></i></span>
         <span>Ability Name</span>
-        <span>Classes</span>
+        <span class="col-span-2">Classes</span>
         <span>Duration (s)</span>
         <span>Cooldown (s)</span>
         <span>Icon URL</span>
@@ -1197,7 +1197,7 @@ function renderAbilityList() {
     if (!matches(name)) return;
     const key = abilityCooldownKey(name);
     const row = document.createElement('div');
-    row.className = 'grid grid-cols-[1.75rem_minmax(8rem,1fr)_minmax(9rem,1.2fr)_5rem_5rem_minmax(6rem,1fr)_1.75rem] items-center gap-2 px-1';
+    row.className = 'grid grid-cols-[1.75rem_minmax(8rem,1fr)_minmax(7rem,1fr)_5.5rem_5rem_5rem_minmax(6rem,1fr)_1.75rem] items-center gap-2 px-1';
     const label = document.createElement('input');
     label.type = 'text';
     label.readOnly = true;
@@ -1227,7 +1227,7 @@ function renderAbilityList() {
       });
     };
     const classSelect = document.createElement('select');
-    classSelect.className = 'bg-slate-950 border border-slate-700 rounded-md px-1.5 py-1 text-[11px] text-slate-100 shrink-0';
+    classSelect.className = 'w-full bg-slate-950 border border-slate-700 rounded-md px-1.5 py-1.5 text-[11px] text-slate-100';
     classSelect.title = `Add a class tag to ${name}`;
     classSelect.innerHTML = '<option value="">Add class...</option>' + Object.keys(JOB_COLORS).map(job => `<option value="${job}">${job}</option>`).join('');
     classSelect.addEventListener('change', () => {
@@ -1308,10 +1308,8 @@ function renderAbilityList() {
     remove.setAttribute('aria-label', `Remove ${name}`);
     remove.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
     remove.addEventListener('click', () => removeTrackedAbility(index));
-    const classCell = document.createElement('div');
-    classCell.className = 'flex flex-wrap items-center gap-1 min-w-0';
-    classCell.append(classTags, classSelect);
-    row.append(imagePreview, label, classCell, durationInput, cooldownInput, imageInput, remove);
+    classTags.classList.add('min-w-0');
+    row.append(imagePreview, label, classTags, classSelect, durationInput, cooldownInput, imageInput, remove);
     container.appendChild(row);
   });
 }
