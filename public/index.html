@@ -434,19 +434,38 @@
 
 <!-- ABILITY MODAL -->
 <div id="ability-modal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4">
-  <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl">
+  <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-5xl max-h-[85vh] flex flex-col shadow-2xl">
     <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
-      <h2 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles text-ffcyan-400"></i> Player Abilities</h2>
-      <button onclick="closeAbilityModal()" class="text-slate-500 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      <h2 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles text-ffcyan-400"></i> Abilities Editor</h2>
+      <button onclick="closeAbilityModal()" class="text-slate-500 hover:text-white" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
     </div>
-    <div class="p-4 overflow-y-auto text-xs space-y-3">
-      <form id="ability-add-form" class="flex gap-2">
-        <input id="ability-name-input" type="text" list="ability-name-options" placeholder="Ability name" class="flex-1 bg-slate-950 border border-slate-800 rounded px-2 py-1.5 text-slate-200">
-        <datalist id="ability-name-options"></datalist>
-        <button type="submit" class="bg-ffpurple-600 hover:bg-ffpurple-500 text-white font-medium px-3 py-1.5 rounded"><i class="fa-solid fa-plus"></i> Add</button>
-      </form>
-      <div id="ability-list-container" class="space-y-1.5"></div>
+    <form id="ability-add-form" class="flex items-center gap-2 px-4 pt-3 shrink-0">
+      <input id="ability-name-input" type="text" list="ability-name-options" placeholder="Add an ability by name" autocomplete="off"
+        class="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600">
+      <datalist id="ability-name-options"></datalist>
+      <button type="submit" class="text-xs bg-ffpurple-600 hover:bg-ffpurple-500 text-white font-medium px-3 py-2 rounded-lg shrink-0"><i class="fa-solid fa-plus"></i> Add</button>
+    </form>
+    <div class="px-4 pt-3 shrink-0">
+      <div class="flex items-center justify-between gap-3 mb-1">
+        <div class="text-[10px] uppercase tracking-wider text-slate-500">Abilities <span id="ability-list-count" class="font-mono normal-case text-slate-600"></span></div>
+        <div class="flex items-center gap-2">
+          <input id="ability-filter-text" type="search" placeholder="Search abilities" oninput="setAbilityFilters()" autocomplete="off"
+            class="w-40 bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] text-slate-100 placeholder:text-slate-600">
+          <select id="ability-filter-class" onchange="setAbilityFilters()" aria-label="Filter by class"
+            class="bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-[11px] text-slate-100"></select>
+        </div>
+      </div>
+      <div class="grid grid-cols-[1.75rem_minmax(8rem,1fr)_minmax(9rem,1.2fr)_5rem_5rem_minmax(6rem,1fr)_1.75rem] items-center gap-2 px-1 text-[10px] text-slate-500">
+        <span class="text-center" title="Icon"><i class="fa-regular fa-image"></i></span>
+        <span>Ability Name</span>
+        <span>Classes</span>
+        <span>Duration (s)</span>
+        <span>Cooldown (s)</span>
+        <span>Icon URL</span>
+        <span></span>
+      </div>
     </div>
+    <div id="ability-list-container" class="px-4 pt-1 pb-4 overflow-y-auto text-xs space-y-1.5"></div>
     <div class="p-3 border-t border-slate-800 flex justify-end shrink-0">
       <button onclick="closeAbilityModal()" class="text-xs bg-ffpurple-600 hover:bg-ffpurple-500 text-white font-medium px-4 py-1.5 rounded">Done</button>
     </div>
@@ -1136,29 +1155,57 @@ function getAbilityClasses(name) {
   return Array.isArray(value) ? value : (value ? [value] : []);
 }
 function openAbilityModal() {
+  renderAbilityFilterOptions();
   renderAbilityList();
   document.getElementById('ability-modal').classList.remove('hidden');
   document.getElementById('ability-name-input').focus();
 }
 function closeAbilityModal() { document.getElementById('ability-modal').classList.add('hidden'); }
+function renderAbilityFilterOptions() {
+  const select = document.getElementById('ability-filter-class');
+  const current = select.value;
+  select.replaceChildren(new Option('All classes', ''), new Option('No class', '__none'));
+  Object.keys(JOB_COLORS).sort(compareJobsByRole).forEach(job => select.appendChild(new Option(job, job)));
+  select.value = current;
+}
+function setAbilityFilters() { renderAbilityList(); }
 function renderAbilityList() {
   const container = document.getElementById('ability-list-container');
+  const search = (document.getElementById('ability-filter-text').value || '').trim().toLocaleLowerCase();
+  const classFilter = document.getElementById('ability-filter-class').value;
+  const matches = (name) => {
+    if (search && !name.toLocaleLowerCase().includes(search)) return false;
+    const classes = getAbilityClasses(name);
+    if (classFilter === '__none') return !classes.length;
+    return !classFilter || classes.includes(classFilter);
+  };
+  const visibleCount = trackedAbilityNames.filter(matches).length;
+  document.getElementById('ability-list-count').textContent = trackedAbilityNames.length
+    ? `· ${visibleCount === trackedAbilityNames.length ? trackedAbilityNames.length : `${visibleCount} of ${trackedAbilityNames.length}`}`
+    : '';
   container.innerHTML = '';
   if (!trackedAbilityNames.length) {
     container.innerHTML = '<div class="text-slate-500 italic text-center py-5">No abilities added to the timeline yet.</div>';
     return;
   }
+  if (!visibleCount) {
+    container.innerHTML = '<div class="text-slate-500 italic text-center py-5">No abilities match your filters.</div>';
+    return;
+  }
+  const inputClass = 'w-full bg-slate-950 border border-slate-700 rounded-md px-2 py-1.5 text-xs text-slate-100 placeholder:italic placeholder:text-slate-600';
   trackedAbilityNames.forEach((name, index) => {
+    if (!matches(name)) return;
     const key = abilityCooldownKey(name);
     const row = document.createElement('div');
-    row.className = 'flex flex-col gap-2 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2';
-    const header = document.createElement('div');
-    header.className = 'flex items-center gap-2 min-w-0';
-    const label = document.createElement('span');
-    label.className = 'text-slate-200 truncate flex-1';
-    label.textContent = name;
+    row.className = 'grid grid-cols-[1.75rem_minmax(8rem,1fr)_minmax(9rem,1.2fr)_5rem_5rem_minmax(6rem,1fr)_1.75rem] items-center gap-2 px-1';
+    const label = document.createElement('input');
+    label.type = 'text';
+    label.readOnly = true;
+    label.value = name;
+    label.title = name;
+    label.className = inputClass + ' cursor-default truncate';
     const classTags = document.createElement('div');
-    classTags.className = 'flex flex-wrap items-center gap-1 min-h-5';
+    classTags.className = 'flex flex-wrap items-center gap-1';
     const renderClassTags = () => {
       classTags.innerHTML = '';
       getAbilityClasses(name).forEach(job => {
@@ -1180,7 +1227,7 @@ function renderAbilityList() {
       });
     };
     const classSelect = document.createElement('select');
-    classSelect.className = 'bg-slate-900 border border-slate-800 rounded px-2 py-1 text-slate-200 shrink-0';
+    classSelect.className = 'bg-slate-950 border border-slate-700 rounded-md px-1.5 py-1 text-[11px] text-slate-100 shrink-0';
     classSelect.title = `Add a class tag to ${name}`;
     classSelect.innerHTML = '<option value="">Add class...</option>' + Object.keys(JOB_COLORS).map(job => `<option value="${job}">${job}</option>`).join('');
     classSelect.addEventListener('change', () => {
@@ -1193,11 +1240,8 @@ function renderAbilityList() {
       renderClassTags();
     });
     renderClassTags();
-    const metadata = document.createElement('div');
-    metadata.className = 'flex flex-wrap items-center gap-x-3 gap-y-2';
     const cooldownControl = document.createElement('label');
-    cooldownControl.className = 'flex items-center gap-1.5 text-[10px] text-slate-500';
-    cooldownControl.textContent = 'Cooldown';
+    cooldownControl.className = 'block';
     const cooldownInput = document.createElement('input');
     cooldownInput.type = 'number';
     cooldownInput.min = '0';
@@ -1206,7 +1250,7 @@ function renderAbilityList() {
     cooldownInput.value = trackedAbilityCooldowns[abilityCooldownKey(name)] ?? '';
     cooldownInput.placeholder = 'sec';
     cooldownInput.title = `Cooldown for ${name}, in seconds`;
-    cooldownInput.className = 'w-20 bg-slate-900 border border-slate-800 rounded px-2 py-1 font-mono text-slate-200';
+    cooldownInput.className = inputClass;
     cooldownControl.appendChild(cooldownInput);
     cooldownInput.addEventListener('change', () => {
       const seconds = Number(cooldownInput.value);
@@ -1218,8 +1262,7 @@ function renderAbilityList() {
       persistTrackedAbilityNames();
     });
     const durationControl = document.createElement('label');
-    durationControl.className = 'flex items-center gap-1.5 text-[10px] text-slate-500';
-    durationControl.textContent = 'Duration';
+    durationControl.className = 'block';
     const durationInput = document.createElement('input');
     durationInput.type = 'number';
     durationInput.min = '0';
@@ -1228,7 +1271,7 @@ function renderAbilityList() {
     durationInput.value = trackedAbilityDurations[key] ?? '';
     durationInput.placeholder = 'sec';
     durationInput.title = `Displayed duration for ${name}, in seconds`;
-    durationInput.className = 'w-16 bg-slate-900 border border-slate-800 rounded px-1.5 py-1 font-mono text-slate-200';
+    durationInput.className = inputClass;
     durationControl.appendChild(durationInput);
     durationInput.addEventListener('change', () => {
       const seconds = Number(durationInput.value);
@@ -1239,36 +1282,36 @@ function renderAbilityList() {
       }
       persistTrackedAbilityNames();
     });
-    const imageControl = document.createElement('label');
-    imageControl.className = 'flex items-center gap-1.5 text-[10px] text-slate-500';
-    imageControl.appendChild(document.createTextNode('Icon'));
     const imagePreview = document.createElement('img');
-    imagePreview.className = 'w-6 h-6 rounded object-cover border border-slate-700 bg-slate-900';
-    imagePreview.style.display = trackedAbilityImages[key] ? 'block' : 'none';
+    imagePreview.className = 'w-6 h-6 rounded object-cover border border-slate-700 bg-slate-900 justify-self-center';
+    imagePreview.style.visibility = trackedAbilityImages[key] ? 'visible' : 'hidden';
     imagePreview.src = trackedAbilityImages[key] || '';
-    imagePreview.onerror = () => { imagePreview.style.display = 'none'; };
+    imagePreview.alt = '';
+    imagePreview.onerror = () => { imagePreview.style.visibility = 'hidden'; };
     const imageInput = document.createElement('input');
     imageInput.type = 'text';
     imageInput.placeholder = 'Icon URL';
     imageInput.value = trackedAbilityImages[key] || '';
     imageInput.title = `Icon shown with ${name} on the planning timeline`;
-    imageInput.className = 'w-24 bg-slate-900 border border-slate-800 rounded px-2 py-1 font-mono text-[10px] text-slate-200';
+    imageInput.className = inputClass;
     imageInput.addEventListener('change', () => {
       const url = imageInput.value.trim();
       if (url) trackedAbilityImages[key] = url; else delete trackedAbilityImages[key];
       imagePreview.src = url;
-      imagePreview.style.display = url ? 'block' : 'none';
+      imagePreview.style.visibility = url ? 'visible' : 'hidden';
       persistTrackedAbilityNames();
     });
-    imageControl.append(imagePreview, imageInput);
     const remove = document.createElement('button');
-    remove.className = 'text-rose-400 hover:text-rose-300 px-2 py-1 rounded hover:bg-slate-800 shrink-0';
+    remove.type = 'button';
+    remove.className = 'text-slate-500 hover:text-rose-400 py-1 rounded shrink-0';
     remove.title = `Remove ${name}`;
+    remove.setAttribute('aria-label', `Remove ${name}`);
     remove.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
     remove.addEventListener('click', () => removeTrackedAbility(index));
-    header.append(label, classSelect, remove);
-    metadata.append(durationControl, cooldownControl, imageControl);
-    row.append(header, classTags, metadata);
+    const classCell = document.createElement('div');
+    classCell.className = 'flex flex-wrap items-center gap-1 min-w-0';
+    classCell.append(classTags, classSelect);
+    row.append(imagePreview, label, classCell, durationInput, cooldownInput, imageInput, remove);
     container.appendChild(row);
   });
 }
@@ -1291,6 +1334,7 @@ function removeTrackedAbility(index) {
   delete trackedAbilityClasses[abilityCooldownKey(name)];
   delete trackedAbilityCooldowns[abilityCooldownKey(name)];
   delete trackedAbilityDurations[abilityCooldownKey(name)];
+  delete trackedAbilityImages[abilityCooldownKey(name)];
   persistTrackedAbilityNames();
   renderAbilityList();
   showToast(`${name} removed from the timeline.`, 'success');
@@ -1358,6 +1402,47 @@ function moveMechanicCategory(name, direction) {
   renderMechanicsList();
   renderTimeline();
 }
+function renameMechanicCategory(oldName, newName) {
+  const name = String(newName || '').trim();
+  if (!name || name === oldName) return true;
+  const oldKey = oldName.toLocaleLowerCase();
+  const order = getMechanicCategoryOrder();
+  if (name.toLocaleLowerCase() !== oldKey && order.some(value => value.toLocaleLowerCase() === name.toLocaleLowerCase())) {
+    showToast(`"${name}" already exists.`, 'error');
+    return false;
+  }
+  mechanicCategoryList = order.map(value => value === oldName ? name : value);
+  Object.keys(mechanicCategories).forEach(mechanic => {
+    if (String(mechanicCategories[mechanic]).trim().toLocaleLowerCase() === oldKey) mechanicCategories[mechanic] = name;
+  });
+  saveMechanicCategories();
+  renderMechanicCategoryChips();
+  renderMechanicsList();
+  renderTimeline();
+  return true;
+}
+function startRenamingMechanicCategory(label, name) {
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = name;
+  input.maxLength = 40;
+  input.setAttribute('aria-label', `Rename ${name}`);
+  input.className = 'flex-1 min-w-0 bg-slate-900 border border-ffpurple-500 rounded px-1.5 py-0.5 text-xs text-slate-100';
+  let finished = false;
+  const finish = commit => {
+    if (finished) return;
+    finished = true;
+    if (!commit || !renameMechanicCategory(name, input.value)) renderMechanicCategoryChips();
+  };
+  input.addEventListener('keydown', event => {
+    if (event.key === 'Enter') { event.preventDefault(); finish(true); }
+    else if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); finish(false); }
+  });
+  input.addEventListener('blur', () => finish(true));
+  label.replaceWith(input);
+  input.focus();
+  input.select();
+}
 function removeMechanicCategory(name) {
   const key = name.toLocaleLowerCase();
   mechanicCategoryList = getMechanicCategoryOrder().filter(value => value.toLocaleLowerCase() !== key);
@@ -1398,6 +1483,7 @@ function renderMechanicCategoryChips() {
       makeButton('fa-chevron-up', `Move ${name} up`, index === 0, () => moveMechanicCategory(name, -1)),
       makeButton('fa-chevron-down', `Move ${name} down`, index === order.length - 1, () => moveMechanicCategory(name, 1))
     );
+    if (!isMain) row.appendChild(makeButton('fa-pen', `Rename ${name}`, false, () => startRenamingMechanicCategory(label, name)));
     if (!isMain) row.appendChild(makeButton('fa-trash-can', `Remove ${name}`, false, () => removeMechanicCategory(name), 'hover:text-rose-400'));
     container.appendChild(row);
   });
