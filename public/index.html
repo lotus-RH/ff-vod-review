@@ -1193,7 +1193,14 @@ function renderAbilityList() {
     return;
   }
   const inputClass = 'w-full bg-slate-950 border border-slate-700 rounded-md px-2 py-1.5 text-xs text-slate-100 placeholder:italic placeholder:text-slate-600';
-  trackedAbilityNames.forEach((name, index) => {
+  const abilityRank = name => {
+    const ranks = getAbilityClasses(name).map(job => JOB_ROLE_ORDER.indexOf(String(job).toUpperCase())).map(rank => rank < 0 ? JOB_ROLE_ORDER.length : rank);
+    return ranks.length ? Math.min(...ranks) : JOB_ROLE_ORDER.length + 1;
+  };
+  const orderedAbilities = trackedAbilityNames
+    .map((name, index) => ({ name, index }))
+    .sort((a, b) => abilityRank(a.name) - abilityRank(b.name) || a.name.localeCompare(b.name));
+  orderedAbilities.forEach(({ name, index }) => {
     if (!matches(name)) return;
     const key = abilityCooldownKey(name);
     const row = document.createElement('div');
@@ -1221,7 +1228,7 @@ function renderAbilityList() {
           if (classes.length) trackedAbilityClasses[abilityCooldownKey(name)] = classes;
           else delete trackedAbilityClasses[abilityCooldownKey(name)];
           persistTrackedAbilityNames();
-          renderClassTags();
+          renderAbilityList();
         });
         classTags.appendChild(tag);
       });
@@ -1229,7 +1236,7 @@ function renderAbilityList() {
     const classSelect = document.createElement('select');
     classSelect.className = 'w-full bg-slate-950 border border-slate-700 rounded-md px-1.5 py-1.5 text-[11px] text-slate-100';
     classSelect.title = `Add a class tag to ${name}`;
-    classSelect.innerHTML = '<option value="">Add class...</option>' + Object.keys(JOB_COLORS).map(job => `<option value="${job}">${job}</option>`).join('');
+    classSelect.innerHTML = '<option value="">Add class...</option>' + Object.keys(JOB_COLORS).sort(compareJobsByRole).map(job => `<option value="${job}">${job}</option>`).join('');
     classSelect.addEventListener('change', () => {
       const job = classSelect.value;
       if (!job) return;
@@ -1237,7 +1244,7 @@ function renderAbilityList() {
       if (!classes.includes(job)) trackedAbilityClasses[abilityCooldownKey(name)] = [...classes, job];
       classSelect.value = '';
       persistTrackedAbilityNames();
-      renderClassTags();
+      renderAbilityList();
     });
     renderClassTags();
     const cooldownControl = document.createElement('label');
