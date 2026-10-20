@@ -2246,7 +2246,6 @@ function renderPullList() {
   fights.forEach((f, idx) => {
     const pullNum = report.fights.indexOf(f) + 1;
     const durSec = Math.round((f.endTime - f.startTime) / 1000);
-    const reachedPhase = getFightReachedPhase(f);
     const div = document.createElement('button');
     div.className = 'pull-item w-full text-left bg-slate-950 hover:bg-slate-800/70 border border-slate-800 rounded-lg p-2 transition' + (f.id === activeFightId ? ' active' : '');
     div.onclick = () => selectPull(f.id);
@@ -2256,11 +2255,7 @@ function renderPullList() {
     div.innerHTML = `
       <div class="flex items-center justify-between mb-1">
         <span class="text-xs font-bold text-slate-200">Pull ${pullNum} <span class="text-slate-500 font-normal">· ${escapeHTML(f.name)}</span></span>
-        ${statusBadge}
-      </div>
-      <div class="flex items-center justify-between text-[10px] text-slate-500 font-mono">
-        <span>Time ${formatSecondsToMMSS(durSec)}</span>
-        <span class="text-ffcyan-400">${reachedPhase ? escapeHTML(reachedPhase) : ''}</span>
+        <span class="flex items-center gap-1.5 text-[10px] font-mono text-slate-500"><span>Time ${formatSecondsToMMSS(durSec)}</span>${statusBadge}</span>
       </div>`;
     container.appendChild(div);
   });
