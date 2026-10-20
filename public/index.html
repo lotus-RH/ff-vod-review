@@ -26,7 +26,6 @@
   ::-webkit-scrollbar-thumb:hover { background: #475569; }
   .glow-purple { box-shadow: 0 0 15px rgba(139,92,246,0.25); }
   .job-chip { display:inline-flex; align-items:center; justify-content:center; border-radius:4px; font-weight:700; font-size:10px; padding:1px 5px; color:#0b0f1a; }
-  .filter-btn.active { background-color:#1e293b !important; color:#fff !important; border-color:#475569 !important; }
   .modal-backdrop { background: rgba(3,7,18,0.75); backdrop-filter: blur(2px); }
   .toast { animation: toastIn .18s ease-out; }
   @keyframes toastIn { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: translateY(0); } }
@@ -35,15 +34,6 @@
   #player-container iframe, #yt-player-el { width: 100% !important; height: 100% !important; }
   input, select, textarea { outline: none; }
   input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 2px rgba(139,92,246,0.5); }
-  #review-pull-sidebar.review-collapsed { width:44px !important; flex-basis:44px !important; overflow:hidden; }
-  #review-pull-sidebar.review-collapsed > div:not(:first-child) { display:none; }
-  #review-pull-sidebar.review-collapsed > div:first-child { padding:8px 4px; }
-  #review-pull-sidebar.review-collapsed > div:first-child > div:first-child { flex-direction:column; align-items:center; gap:8px; margin-bottom:0; }
-  #review-pull-sidebar.review-collapsed > div:first-child > div:first-child > span:first-child,
-  #review-pull-sidebar.review-collapsed #pull-count-badge { display:none; }
-  #review-pull-sidebar.review-collapsed #review-pulls-toggle { padding:6px; }
-  #review-pull-sidebar.review-collapsed #review-pulls-toggle i { margin-right:0; }
-  #review-pull-sidebar.review-collapsed #review-pulls-toggle span,
   #bottom-panel.review-collapsed > .bottom-tab-content { display:none; }
   body.scenario-helper-popout > #app-header { display:none; }
 </style>
@@ -57,7 +47,7 @@
       <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-ffpurple-600 to-ffcyan-500 flex items-center justify-center font-bold text-white glow-purple">
         <i class="fa-solid fa-play-circle text-lg"></i>
       </div>
-      <h1 class="font-bold text-sm tracking-wide hidden sm:block">Lotus <span class="text-transparent bg-clip-text bg-gradient-to-r from-ffpurple-400 to-ffcyan-400">Review & Planning</span></h1>
+      <h1 class="font-bold text-sm tracking-wide hidden sm:block"><span class="text-transparent bg-clip-text bg-gradient-to-r from-ffpurple-400 to-ffcyan-400">Lotus Review & Planning</span></h1>
     </div>
 
     <nav class="flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-950 p-1 shrink-0" aria-label="Workspace page">
@@ -72,28 +62,15 @@
       </button>
     </nav>
 
-    <div class="flex items-center gap-1.5 min-w-0 bg-slate-950/80 px-2 py-1.5 rounded-lg border border-slate-800">
-      <input id="input-fflogs-url" type="text" placeholder="Paste FFLogs report URL or code..."
-        class="bg-transparent text-xs w-48 md:w-72 placeholder-slate-500 text-slate-200">
-      <button onclick="loadReportFromInput()" class="text-xs bg-ffpurple-600 hover:bg-ffpurple-500 text-white font-medium px-2.5 py-1 rounded shrink-0 transition">
-        <i class="fa-solid fa-download"></i> Load
-      </button>
-      <button id="settings-fab" onclick="openSettingsModal()" title="Setup / shared config"
-        class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded border border-slate-700 shrink-0 transition">
-        <i class="fa-solid fa-gear"></i>
-      </button>
-    </div>
+    <button id="settings-fab" onclick="openSettingsModal()" title="Setup / shared config" aria-label="Setup / shared config"
+      class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-2 rounded-lg border border-slate-700 shrink-0 transition">
+      <i class="fa-solid fa-gear"></i>
+    </button>
 
     <div id="active-log-title" class="text-xs text-slate-400 truncate hidden md:block max-w-[240px]">No report loaded</div>
   </div>
 
   <div class="flex items-center gap-2 shrink-0">
-    <button id="no-log-button" onclick="loadNoLogPOVs()" class="page-switch active text-xs text-slate-200 border border-transparent px-2.5 py-1.5 rounded-md transition" aria-pressed="true" title="Switch to standalone POVs without a report">
-      <i class="fa-solid fa-video mr-1"></i> No Log
-    </button>
-    <button onclick="openPOVModal()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1.5 rounded-md border border-slate-700 transition">
-      <i class="fa-solid fa-video"></i> <span class="hidden lg:inline">POVs</span>
-    </button>
     <button onclick="openAbilityModal()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1.5 rounded-md border border-slate-700 transition">
       <i class="fa-solid fa-wand-magic-sparkles"></i> <span class="hidden lg:inline">Abilities</span> <span id="ability-count" class="font-mono text-[10px] text-ffcyan-400">0</span>
     </button>
@@ -108,43 +85,58 @@
 
   <!-- SIDEBAR -->
   <aside id="review-pull-sidebar" class="w-80 bg-slate-900/90 border-r border-slate-800 flex flex-col shrink-0 z-10">
-    <div class="p-3 border-b border-slate-800 bg-slate-900/50">
-      <div class="flex justify-between items-center mb-2">
+    <div class="p-3 border-b border-slate-800">
+      <div class="flex items-center gap-1.5 min-w-0 bg-slate-950/80 px-2 py-1.5 rounded-lg border border-slate-800">
+        <input id="input-fflogs-url" type="text" placeholder="Paste FFLogs report URL or code..."
+          class="bg-transparent text-xs flex-1 min-w-0 placeholder-slate-500 text-slate-200">
+        <button onclick="loadReportFromInput()" class="text-xs bg-ffpurple-600 hover:bg-ffpurple-500 text-white font-medium px-2.5 py-1 rounded shrink-0 transition">
+          <i class="fa-solid fa-download"></i> Load
+        </button>
+        <button id="refresh-report-button" type="button" onclick="refreshReport()" title="Reload the current report and refresh its data" aria-label="Refresh report" class="text-xs bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 px-2 py-1 rounded border border-slate-700 shrink-0 transition">
+          <i class="fa-solid fa-rotate"></i>
+        </button>
+      </div>
+    </div>
+
+    <div id="review-pull-header" class="p-3 border-b border-slate-800 bg-slate-900/50">
+      <div class="flex justify-between items-center">
         <span class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
           <i class="fa-solid fa-list-check text-ffpurple-400"></i> Pull History
         </span>
         <div class="flex items-center gap-1.5">
-          <span id="pull-count-badge" class="text-[11px] font-mono bg-ffpurple-900/60 text-ffpurple-300 px-2 py-0.5 rounded-full border border-ffpurple-600/40">0 pulls</span>
-          <button id="review-pulls-toggle" type="button" onclick="toggleReviewPullHistory()" class="text-[10px] text-slate-300 hover:text-white px-2 py-1 rounded border border-slate-700 hover:bg-slate-800 whitespace-nowrap" aria-controls="review-pull-sidebar" aria-expanded="true" title="Hide pull history"><i class="fa-solid fa-list-check mr-1" aria-hidden="true"></i><span>Hide</span></button>
-        </div>
-      </div>
-
-      <div class="flex flex-wrap items-center gap-2 mt-2.5 pb-1 text-[11px]">
-        <button onclick="filterPulls('all')" id="filter-btn-all" class="filter-btn active bg-slate-800 text-white px-2.5 py-1 rounded font-medium border border-slate-700 shrink-0">All</button>
-        <div class="flex items-center gap-1.5">
-          <select id="boss-filter" class="hidden bg-slate-950 border border-slate-800 rounded px-2 py-1 text-slate-200 max-w-32" aria-label="Filter by boss">
-            <option value="">All bosses</option>
-          </select>
-          <select id="phase-filter" class="hidden bg-slate-950 border border-slate-800 rounded px-2 py-1 text-slate-200 max-w-32" aria-label="Filter by phase">
-            <option value="">Any phase</option>
-          </select>
-        </div>
-        <div class="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded px-2 py-1">
-          <label for="fight-time-input" class="text-slate-400 shrink-0">Fight Time</label>
-          <input id="fight-time-range" type="range" min="0" max="30" step="0.5" value="0" class="w-20 accent-amber-400" aria-label="Minimum pull duration in minutes">
-          <input id="fight-time-input" type="number" min="0" max="30" step="0.5" value="0" class="bg-transparent text-amber-300 font-mono w-10 text-right" aria-label="Minimum pull duration in minutes">
-          <span class="text-slate-500">min</span>
+          <div id="pull-filter-wrapper" class="relative">
+            <button id="pull-filter-toggle" type="button" onclick="togglePullFilterMenu()" class="text-[11px] text-slate-300 hover:text-white px-2 py-1 rounded border border-slate-700 hover:bg-slate-800" aria-expanded="false" aria-controls="pull-filter-menu" title="Sort and filter" aria-label="Sort and filter"><i class="fa-solid fa-filter" aria-hidden="true"></i></button>
+            <div id="pull-filter-menu" class="hidden absolute left-0 top-full mt-2 z-40 w-64 min-h-24 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl p-3">
+              <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">Sort</div>
+              <div class="flex items-center gap-2">
+                <button id="pull-sort-order" type="button" onclick="setPullSort('order')" class="flex-1 flex items-center justify-between gap-2 text-xs px-2.5 py-1.5 rounded border transition" title="Sort by pull order"><span>Pull order</span><i class="fa-solid fa-minus text-[10px]" aria-hidden="true"></i></button>
+                <button id="pull-sort-duration" type="button" onclick="setPullSort('duration')" class="flex-1 flex items-center justify-between gap-2 text-xs px-2.5 py-1.5 rounded border transition" title="Sort by duration"><span>Duration</span><i class="fa-solid fa-minus text-[10px]" aria-hidden="true"></i></button>
+              </div>
+              <div class="border-t border-slate-700 mt-3 pt-3">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">Filter</div>
+                <div class="flex flex-col gap-2">
+                  <select id="boss-filter" class="hidden w-full bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-200" aria-label="Filter by boss">
+                    <option value="">All bosses</option>
+                  </select>
+                  <select id="phase-filter" class="hidden w-full bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-200" aria-label="Filter by phase">
+                    <option value="">Any phase</option>
+                  </select>
+                </div>
+                <div class="flex items-center gap-2 mt-2">
+                  <label for="fight-time-menu-input" class="text-xs text-slate-400 shrink-0">Fight Time</label>
+                  <input id="fight-time-menu-input" type="number" min="0" max="30" step="0.5" value="0" class="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs text-amber-300 font-mono w-20 text-right" aria-label="Minimum pull duration in minutes">
+                  <span class="text-xs text-slate-500">min</span>
+                </div>
+                <button type="button" onclick="filterPulls('all')" class="mt-3 text-xs text-slate-300 hover:text-white bg-slate-950 hover:bg-slate-800 border border-slate-700 px-3 py-1.5 rounded transition">Clear filters</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
     <div id="pull-list-container" class="flex-1 overflow-y-auto p-2 space-y-1.5">
       <div class="text-xs text-slate-500 italic text-center p-6">Connect to FFLogs and load a report to see pulls here.</div>
-    </div>
-
-    <div class="p-2 border-t border-slate-800">
-      <div class="text-[10px] font-bold uppercase text-slate-500 mb-1.5 px-1" id="log-players-label">Players in log</div>
-      <div id="log-players-chip-container" class="flex flex-wrap gap-1 px-1 max-h-20 overflow-y-auto"></div>
     </div>
   </aside>
 
@@ -158,11 +150,9 @@
           <div id="pov-tabs-container" class="flex flex-wrap items-center gap-1.5"></div>
         </div>
         <div class="flex items-center gap-3">
-          <div class="bg-slate-900 border border-slate-700/80 px-2.5 py-1 rounded flex items-center gap-2 font-mono text-xs">
-            <span class="text-slate-500">Log:</span><span id="log-time-display" class="text-emerald-400 font-bold">00:00</span>
-            <span class="text-slate-700">|</span>
-            <span class="text-slate-500">Video:</span><span id="video-time-display" class="text-ffcyan-400 font-bold">00:00</span>
-          </div>
+          <button onclick="openPOVModal()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1.5 rounded-md border border-slate-700 transition">
+            <i class="fa-solid fa-video"></i> POVs
+          </button>
         </div>
       </div>
 
@@ -597,29 +587,30 @@ window.addEventListener('DOMContentLoaded', async () => {
   initReviewRegionToggles();
   switchBottomTab('timeline');
   renderPullList();
+  updatePullSortButtons();
   renderPOVTabs();
   renderAbilityCount();
   document.getElementById('ability-add-form').addEventListener('submit', event => {
     event.preventDefault();
     addTrackedAbilityFromForm();
   });
-  document.getElementById('fight-time-input').addEventListener('input', updateFightTimeThreshold);
-  document.getElementById('fight-time-range').addEventListener('input', updateFightTimeThreshold);
+  document.getElementById('fight-time-menu-input').addEventListener('input', updateFightTimeThreshold);
   document.getElementById('phase-filter').addEventListener('change', event => {
     selectedPhaseFilter = event.target.value;
-    updateAllFilterButton();
     renderPullList();
   });
   document.getElementById('boss-filter').addEventListener('change', event => {
     selectedEncounterFilter = event.target.value;
     selectedPhaseFilter = '';
     document.getElementById('phase-filter').value = '';
-    updateAllFilterButton();
     renderPullList();
   });
   document.addEventListener('keydown', handlePlanningHistoryShortcut);
   document.addEventListener('keydown', event => {
-    if (event.key === 'Escape') closePlanningCastImportMenu();
+    if (event.key === 'Escape') { closePlanningCastImportMenu(); closePullFilterMenu(); }
+  });
+  document.addEventListener('click', event => {
+    if (!event.target.closest('#pull-filter-wrapper')) closePullFilterMenu();
   });
   initializeScenarioHelper();
   if (new URLSearchParams(window.location.search).get('helper') === 'use') {
@@ -660,35 +651,7 @@ function initPanelResizer() {
 }
 
 function initReviewRegionToggles() {
-  const sidebar = document.getElementById('review-pull-sidebar');
-  if (sidebar) {
-    sidebar.style.transition = 'width 180ms ease, flex-basis 180ms ease';
-    sidebar.addEventListener('transitionend', event => {
-      if (event.propertyName === 'width') renderTimeline();
-    });
-  }
-  setReviewPullHistoryCollapsed(localStorage.getItem(REVIEW_PULLS_COLLAPSED_KEY) === 'true', false);
   setReviewTimelineCollapsed(localStorage.getItem(REVIEW_TIMELINE_COLLAPSED_KEY) === 'true', false);
-}
-
-function setReviewPullHistoryCollapsed(collapsed, persist = true) {
-  const sidebar = document.getElementById('review-pull-sidebar');
-  const button = document.getElementById('review-pulls-toggle');
-  if (!sidebar || !button) return;
-  sidebar.classList.toggle('review-collapsed', collapsed);
-  sidebar.style.width = collapsed ? '44px' : '';
-  sidebar.style.flexBasis = collapsed ? '44px' : '';
-  sidebar.style.overflow = collapsed ? 'hidden' : '';
-  button.setAttribute('aria-expanded', String(!collapsed));
-  button.title = `${collapsed ? 'Show' : 'Hide'} pull history`;
-  button.setAttribute('aria-label', button.title);
-  button.querySelector('span').textContent = collapsed ? 'Show' : 'Hide';
-  if (persist) localStorage.setItem(REVIEW_PULLS_COLLAPSED_KEY, String(collapsed));
-}
-
-function toggleReviewPullHistory() {
-  const collapsed = document.getElementById('review-pull-sidebar').classList.contains('review-collapsed');
-  setReviewPullHistoryCollapsed(!collapsed);
 }
 
 function setReviewTimelineCollapsed(collapsed, persist = true) {
@@ -821,7 +784,6 @@ function refreshSharedConfigState() {
   renderAbilityList();
   renderPOVTabs();
   renderPOVModalBody();
-  renderLogPlayerChips();
   renderMechanicsList();
   renderTimeline();
 }
@@ -1553,54 +1515,18 @@ async function loadReportFromInput() {
   await loadReport(code);
 }
 
-function setNoLogButtonActive(active) {
-  const button = document.getElementById('no-log-button');
-  if (!button) return;
-  button.classList.toggle('active', active);
-  button.setAttribute('aria-pressed', String(active));
+async function refreshReport() {
+  if (!report) { showToast('Load a report first.', 'error'); return; }
+  const button = document.getElementById('refresh-report-button');
+  const icon = button && button.querySelector('i');
+  if (button) button.disabled = true;
+  if (icon) icon.classList.add('fa-spin');
+  try { await loadReport(report.code, { refresh: true }); }
+  finally {
+    if (button) button.disabled = false;
+    if (icon) icon.classList.remove('fa-spin');
+  }
 }
-
-function loadNoLogPOVs() {
-  const playbackAbsMs = getCurrentPOVAbsoluteTime();
-  report = null;
-  activeFightId = null;
-  activePovId = null;
-  deathsCache = {};
-  reportDeathsByPlayer = null;
-  reportDeathsPromise = null;
-  timelineEventsCache = {};
-  deathDetailCache = {};
-  selectedPhaseFilter = '';
-  selectedEncounterFilter = '';
-  minimumFightDurationMinutes = 0;
-  timelinePlayheadOffsetMs = 0;
-  selectedDeathKey = '';
-  lastDeathDetail = null;
-  loadReportLocalData();
-
-  const logTitle = document.getElementById('active-log-title');
-  logTitle.textContent = 'No Log · Standalone POVs';
-  logTitle.classList.remove('hidden');
-  document.getElementById('fight-time-input').value = '0';
-  document.getElementById('fight-time-range').value = '0';
-  document.getElementById('log-time-display').textContent = '--:--';
-  document.getElementById('death-detail-title').textContent = 'Select a death';
-  document.getElementById('death-detail-body').innerHTML = '<div class="text-slate-500 italic text-center py-8">Load a report to inspect deaths.</div>';
-  document.getElementById('deaths-list-container').replaceChildren();
-  document.getElementById('pull-death-count').textContent = '0';
-  setNoLogButtonActive(true);
-  populateBossFilter();
-  populatePhaseFilter();
-  updateAllFilterButton();
-  renderPullList();
-  renderPOVTabs();
-  renderLogPlayerChips();
-  switchPage('review');
-  switchBottomTab('timeline');
-  if (activePovId) seekPOVToAbsoluteTime(getActivePOV(), playbackAbsMs);
-  showToast('Standalone POVs loaded.', 'success');
-}
-
 const REPORT_QUERY = `
 query ($code: String!) {
   reportData {
@@ -1623,9 +1549,10 @@ query ($code: String!) {
   }
 }`;
 
-async function loadReport(code) {
-  showToast('Loading report...', 'info');
+async function loadReport(code, { refresh = false } = {}) {
+  showToast(refresh ? 'Refreshing report...' : 'Loading report...', 'info');
   try {
+    const previousFightId = activeFightId;
     const data = await fflogsQuery(REPORT_QUERY, { code });
     const r = data && data.reportData && data.reportData.report;
     if (!r) throw new Error('Report not found.');
@@ -1640,35 +1567,39 @@ async function loadReport(code) {
       actors: (r.masterData && r.masterData.players) || [],
       abilityNames: new Map(((r.masterData && r.masterData.abilities) || []).map(ability => [Number(ability.gameID), ability.name]))
     };
-    setNoLogButtonActive(false);
     deathsCache = {};
     reportDeathsByPlayer = null;
     reportDeathsPromise = null;
     timelineEventsCache = {};
     deathDetailCache = {};
-    selectedPhaseFilter = '';
-    selectedEncounterFilter = '';
-    minimumFightDurationMinutes = 0;
-    document.getElementById('boss-filter').value = '';
-    document.getElementById('phase-filter').value = '';
-    document.getElementById('fight-time-input').value = '0';
-    document.getElementById('fight-time-range').value = '0';
+    if (!refresh) {
+      selectedPhaseFilter = '';
+      selectedEncounterFilter = '';
+      minimumFightDurationMinutes = 0;
+      document.getElementById('boss-filter').value = '';
+      document.getElementById('phase-filter').value = '';
+    }
     loadReportLocalData();
     document.getElementById('active-log-title').textContent = `${r.title} — ${report.zoneName}`;
     document.getElementById('active-log-title').classList.remove('hidden');
-    activeFightId = report.fights.length ? report.fights[0].id : null;
+    const keepFight = refresh && report.fights.some(f => f.id === previousFightId);
+    activeFightId = keepFight ? previousFightId : (report.fights.length ? report.fights[0].id : null);
     resetPlanningClassVisibility();
     ensureReportPlayersArePOVs();
     renderPlanningControls();
     if (!activePovId && povs.length) activePovId = povs[0].id;
     populateBossFilter();
     populatePhaseFilter();
-    updateAllFilterButton();
+    document.getElementById('phase-filter').value = selectedPhaseFilter;
+    syncFilterControls();
     renderPullList();
     renderPOVTabs();
-    renderLogPlayerChips();
-    if (activeFightId) selectPull(activeFightId);
-    showToast(`Loaded "${r.title}" (${report.fights.length} pulls).`, 'success');
+    if (keepFight) {
+      // Re-pull data for the current pull without moving the video or resetting the view.
+      loadDeathsForFight(activeFightId);
+      loadTimelineEventsForFight(activeFightId);
+    } else if (activeFightId) selectPull(activeFightId);
+    showToast(`${refresh ? 'Refreshed' : 'Loaded'} "${r.title}" (${report.fights.length} pulls).`, 'success');
   } catch (e) {
     console.error(e);
     showToast('Failed to load report: ' + e.message, 'error');
@@ -1715,31 +1646,6 @@ function ensureReportPlayersArePOVs() {
   if (addedPOV) persistPOVs();
 }
 
-function renderLogPlayerChips() {
-  const c = document.getElementById('log-players-chip-container');
-  c.innerHTML = '';
-  if (!report) return;
-  const fight = getActiveFight();
-  const roster = getPlayersInCurrentPull();
-  const label = document.getElementById('log-players-label');
-  if (label) label.textContent = fight ? `Players in this pull` : 'Players in log';
-  if (fight && !roster.length) {
-    c.innerHTML = '<span class="text-[10px] text-slate-600 italic">No player roster data for this pull.</span>';
-    return;
-  }
-  roster.forEach(a => {
-    const job = jobCodeForSubType(a.subType);
-    const color = JOB_COLORS[job] || '#64748b';
-    const chip = document.createElement('button');
-    chip.className = 'job-chip hover:opacity-80 transition';
-    chip.style.backgroundColor = color;
-    chip.title = `Add ${a.name} (${job}) as a POV`;
-    chip.textContent = `${a.name}`;
-    chip.onclick = () => addPOV(a.name, job);
-    c.appendChild(chip);
-  });
-}
-
 /* =========================================================================
    PULL LIST
    ========================================================================= */
@@ -1750,34 +1656,55 @@ function filterPulls(type) {
     minimumFightDurationMinutes = 0;
     document.getElementById('boss-filter').value = '';
     document.getElementById('phase-filter').value = '';
-    document.getElementById('fight-time-input').value = '0';
-    document.getElementById('fight-time-range').value = '0';
   }
-  updateAllFilterButton();
+  syncFilterControls();
   renderPullList();
 }
 
-function updateAllFilterButton() {
-  const hasFilters = Boolean(selectedEncounterFilter || selectedPhaseFilter || minimumFightDurationMinutes > 0);
-  document.getElementById('filter-btn-all').classList.toggle('active', !hasFilters);
+function syncFilterControls() {
+  const menuInput = document.getElementById('fight-time-menu-input');
+  if (menuInput && document.activeElement !== menuInput) menuInput.value = String(minimumFightDurationMinutes);
 }
 
 function updateFightTimeThreshold(event) {
-  const input = event.target;
-  const numberInput = document.getElementById('fight-time-input');
-  const rangeInput = document.getElementById('fight-time-range');
-  const value = Number(input.value);
-  if (input.value === '' || !Number.isFinite(value)) {
-    minimumFightDurationMinutes = 0;
-    numberInput.value = '0';
-    rangeInput.value = '0';
-  } else {
-    minimumFightDurationMinutes = Math.max(0, Math.min(30, value));
-    numberInput.value = String(minimumFightDurationMinutes);
-    rangeInput.value = String(minimumFightDurationMinutes);
-  }
-  updateAllFilterButton();
+  const value = Number(event.target.value);
+  minimumFightDurationMinutes = event.target.value === '' || !Number.isFinite(value) ? 0 : Math.max(0, Math.min(30, value));
+  syncFilterControls();
   renderPullList();
+}
+
+let pullSortKey = 'order';
+const pullSortDirections = { order: 'asc', duration: 'asc' };
+
+function setPullSort(key) {
+  if (pullSortKey === key) pullSortDirections[key] = pullSortDirections[key] === 'asc' ? 'desc' : 'asc';
+  pullSortKey = key;
+  updatePullSortButtons();
+  renderPullList();
+}
+
+function updatePullSortButtons() {
+  [['order', 'pull-sort-order'], ['duration', 'pull-sort-duration']].forEach(([key, id]) => {
+    const button = document.getElementById(id);
+    if (!button) return;
+    const active = pullSortKey === key;
+    const direction = pullSortDirections[key];
+    button.className = 'flex-1 flex items-center justify-between gap-2 text-xs px-2.5 py-1.5 rounded border transition ' +
+      (active ? 'bg-slate-950 border-ffpurple-500 text-white' : 'bg-slate-950 border-slate-700 text-slate-400 hover:text-slate-200');
+    const icon = button.querySelector('i');
+    icon.className = 'fa-solid text-[10px] ' + (active ? (direction === 'asc' ? 'fa-arrow-up' : 'fa-arrow-down') : 'fa-minus');
+    button.setAttribute('aria-pressed', String(active));
+    button.title = `Sort by ${key === 'order' ? 'pull order' : 'duration'} (${direction === 'asc' ? 'ascending' : 'descending'})`;
+  });
+}
+
+function getSortedFights(fights) {
+  const factor = pullSortDirections[pullSortKey] === 'desc' ? -1 : 1;
+  const duration = fight => Math.max(0, fight.endTime - fight.startTime);
+  const indexOf = fight => report.fights.indexOf(fight);
+  return [...fights].sort((a, b) => pullSortKey === 'duration'
+    ? (duration(a) - duration(b) || indexOf(a) - indexOf(b)) * factor
+    : (indexOf(a) - indexOf(b)) * factor);
 }
 
 function getFilteredFights() {
@@ -1867,13 +1794,12 @@ function getFightReachedPhase(fight) {
 function renderPullList() {
   const container = document.getElementById('pull-list-container');
   container.innerHTML = '';
-  document.getElementById('pull-count-badge').textContent = report ? `${report.fights.length} pulls` : '0 pulls';
 
   if (!report) {
     container.innerHTML = '<div class="text-xs text-slate-500 italic text-center p-6">Connect to FFLogs and load a report to see pulls here.</div>';
     return;
   }
-  const fights = getFilteredFights();
+  const fights = getSortedFights(getFilteredFights());
   if (!fights.length) {
     container.innerHTML = '<div class="text-xs text-slate-500 italic text-center p-6">No pulls match this filter.</div>';
     return;
@@ -1919,7 +1845,6 @@ function selectPull(fightId) {
   jumpToCurrentPullStart();
   loadDeathsForFight(fightId);
   loadTimelineEventsForFight(fightId);
-  renderLogPlayerChips();
 }
 function getActiveFight() {
   return report ? report.fights.find(f => f.id === activeFightId) : null;
@@ -2051,17 +1976,7 @@ function ensurePolling() {
     if (!ytReady || !ytPlayer || !ytPlayer.getCurrentTime) return;
     let vSec = 0;
     try { vSec = ytPlayer.getCurrentTime(); } catch (e) { return; }
-    document.getElementById('video-time-display').textContent = formatSecondsToMMSS(Math.floor(vSec));
-    const pov = getActivePOV();
     const fight = getActiveFight();
-    if (pov && fight) {
-      const segment = getLoadedPOVSegment(pov);
-      if (segment) {
-        const absNow = absMsForSegVideoSeconds(segment, vSec);
-        const logOffsetSec = Math.floor((absNow - pullAbsStartMs(fight)) / 1000);
-        document.getElementById('log-time-display').textContent = formatSecondsToMMSS(logOffsetSec);
-      }
-    }
     if (fight) updateTimelinePlayhead(getTimelinePlaybackOffsetMs(fight));
   }, 500);
 }
@@ -2684,6 +2599,20 @@ function loadPlanningEncounter() {
   activePlanningEncounterId = String(Number(encounterId));
   input.value = activePlanningEncounterId;
   renderTimeline();
+}
+
+function togglePullFilterMenu() {
+  const menu = document.getElementById('pull-filter-menu');
+  const opening = menu.classList.contains('hidden');
+  menu.classList.toggle('hidden', !opening);
+  document.getElementById('pull-filter-toggle').setAttribute('aria-expanded', String(opening));
+}
+
+function closePullFilterMenu() {
+  const menu = document.getElementById('pull-filter-menu');
+  if (!menu) return;
+  menu.classList.add('hidden');
+  document.getElementById('pull-filter-toggle').setAttribute('aria-expanded', 'false');
 }
 
 function togglePlanningCastImportMenu() {
@@ -4223,7 +4152,7 @@ function renderPOVModalBody() {
     `;
     body.appendChild(wrap);
 
-    wrap.querySelector('.pov-name').addEventListener('change', e => { pov.player = e.target.value; persistPOVs(); renderPOVTabs(); renderLogPlayerChips(); });
+    wrap.querySelector('.pov-name').addEventListener('change', e => { pov.player = e.target.value; persistPOVs(); renderPOVTabs(); });
     wrap.querySelector('.pov-job').addEventListener('change', e => { pov.job = e.target.value; persistPOVs(); renderPOVTabs(); renderAbilityCount(); renderTimeline(); });
     wrap.querySelector('.pov-del').addEventListener('click', () => removePOV(pov.id));
     wrap.querySelector('.pov-add-seg').addEventListener('click', () => addSegment(pov.id));
