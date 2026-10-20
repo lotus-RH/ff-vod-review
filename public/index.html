@@ -765,7 +765,7 @@ const SHARED_SCENARIO_HELPER_KEY = 'ff_scenario_helper_v1';
 const CONFIG_EXCLUDE = new Set(['fflogs_vod_auth', 'fflogs_vod_bottom_panel_h', BASE_TEMPLATE_APPLIED_KEY, REVIEW_PULLS_COLLAPSED_KEY, REVIEW_TIMELINE_COLLAPSED_KEY]);
 // Anything tied to one specific log (POVs, notes, per-log overrides) is never part of the template or a backup.
 function isConfigExcluded(key) {
-  return CONFIG_EXCLUDE.has(key) || /^fflogs_vod_notes_/.test(key) || /^fflogs_vod_.+_[A-Za-z0-9]{16}$/.test(key);
+  return CONFIG_EXCLUDE.has(key) || /^fflogs_vod_(notes|povs)_/.test(key) || /^fflogs_vod_.+_[A-Za-z0-9]{16}$/.test(key);
 }
 
 // Read-only starter data shipped with the site (public/vod-review-config.json).
@@ -1073,23 +1073,29 @@ function persistPOVs() {
   updateShareUrl();
 }
 
-// Builds ?report=CODE&channel=URL... for the loaded report and its POV videos.
+// Builds ?report=CODE&Player+Name=VIDEOID,VIDEOID... for the loaded report and its POV videos.
+// With no report loaded the report parameter is simply left out.
 function buildShareUrl() {
-  if (!report) return '';
   const url = new URL(window.location.href);
   url.search = '';
   url.hash = '';
-  url.searchParams.set('report', report.code);
+  if (report) url.searchParams.set('report', report.code);
   const seen = new Set();
+  const unmatched = [];
   povs.forEach(pov => {
-    const isReportPlayer = povNumberForPlayer(pov.player) > 0;
+    const ids = [];
     (pov.segments || []).forEach(seg => {
       if (!seg.videoId || seen.has(seg.videoId)) return;
       seen.add(seg.videoId);
-      url.searchParams.append(isReportPlayer ? pov.player : 'channel', 'https://www.youtube.com/watch?v=' + seg.videoId);
+      ids.push(seg.videoId);
     });
+    if (!ids.length) return;
+    const name = String(pov.player || '').trim();
+    if (name && (!report || povNumberForPlayer(name) > 0)) url.searchParams.append(name, ids.join(','));
+    else unmatched.push(...ids);
   });
-  return url.toString();
+  if (unmatched.length) url.searchParams.append('channel', unmatched.join(','));
+  return report || seen.size ? url.toString() : '';
 }
 
 function updateShareUrl() {
@@ -1100,7 +1106,7 @@ function updateShareUrl() {
 
 async function copyShareLink() {
   const shareUrl = buildShareUrl();
-  if (!shareUrl) { showToast('Load a report first.', 'error'); return; }
+  if (!shareUrl) { showToast('Load a report or add a POV video first.', 'error'); return; }
   try {
     await navigator.clipboard.writeText(shareUrl);
     showToast('Share link copied.', 'success');
@@ -1959,24 +1965,31 @@ function getOrCreatePOVForPlayer(name) {
 async function loadSharedLinkFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const code = extractReportCode(params.get('report') || '');
-  if (!code) return;
   const entries = [];
   const seenVideos = new Set();
   params.forEach((value, key) => {
+    if (key === 'report' || key === 'helper') return;
     const povMatch = key.match(/^pov(\d+)$/i);
-    const videoId = extractYouTubeId(value);
-    if (!videoId || key === 'report' || seenVideos.has(videoId)) return;
-    seenVideos.add(videoId);
-    // Any other key is treated as a player name (e.g. &Lunner%20North=URL); unknown names are dropped below.
-    entries.push({ videoId, number: povMatch ? Number(povMatch[1]) : 0, name: povMatch || key === 'channel' ? '' : key });
+    // A value is one or more YouTube links/IDs separated by commas.
+    value.split(',').forEach(part => {
+      const videoId = extractYouTubeId(part);
+      if (!videoId || seenVideos.has(videoId)) return;
+      seenVideos.add(videoId);
+      // Any other key is treated as a player name (e.g. &Lunner+North=ID).
+      entries.push({ videoId, number: povMatch ? Number(povMatch[1]) : 0, name: povMatch || key === 'channel' ? '' : key });
+    });
   });
-  const input = document.getElementById('input-fflogs-url');
-  if (input) input.value = code;
-  await loadReport(code);
-  if (!report || report.code !== code || !entries.length) return;
+  if (code) {
+    const input = document.getElementById('input-fflogs-url');
+    if (input) input.value = code;
+    await loadReport(code);
+    if (!report || report.code !== code) return;
+  }
+  if (!entries.length) return;
 
+  // Without a report there is nothing to validate names against, so they're used as written.
   const order = getPOVPlayerOrder();
-  const infos = await Promise.all(entries.map(entry => fetchYouTubeInfo(entry.videoId).catch(() => ({}))));
+  const infos = await Promise.all(entries.map(entry => (report || !entry.name) ? fetchYouTubeInfo(entry.videoId).catch(() => ({})) : {}));
   const knownVideoIds = new Set(povs.flatMap(pov => pov.segments.map(seg => seg.videoId)));
   let firstPov = null;
   let added = 0;
@@ -1987,7 +2000,8 @@ async function loadSharedLinkFromUrl() {
     const haystack = `${info.title || ''} ${info.channelTitle || ''}`.toLocaleLowerCase();
     let pov = null;
     if (name) {
-      const playerName = order.find(n => n.toLocaleLowerCase() === name.trim().toLocaleLowerCase());
+      const trimmed = name.trim();
+      const playerName = report ? order.find(n => n.toLocaleLowerCase() === trimmed.toLocaleLowerCase()) : trimmed;
       if (!playerName) return;
       pov = getOrCreatePOVForPlayer(playerName);
     } else if (number) {
@@ -2022,10 +2036,16 @@ async function loadSharedLinkFromUrl() {
   renderTimeline();
   renderPOVModalBody();
   if (activeFightId) jumpToCurrentPullStart();
+  else {
+    // No pull to seek to (no report): just open the first video.
+    const firstSeg = (getActivePOV() || firstPov).segments[0];
+    if (firstSeg) loadAndSeek(firstSeg.videoId, 0, firstSeg.id);
+  }
   showToast(`Added ${added} video${added === 1 ? '' : 's'} from the link.`, 'success');
 }
 
 function getReportPlayers() {
+  if (!report) return [];
   return report.actors.filter(actor => {
     const name = String(actor.name || '').trim().toLocaleLowerCase();
     const subtype = String(actor.subType || '').replace(/[\s_-]/g, '').toLocaleLowerCase();

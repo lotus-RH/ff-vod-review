@@ -57,11 +57,12 @@ and **Import backup** buttons to keep a copy or move to another browser.
 Specific logs and POVs are not part of backups or the starter template. To
 share a log with its videos, use a link instead:
 
-`https://your-site/?report=REPORTCODE&Lunner%20North=YOUTUBE_URL&Toby%20Smallboi=YOUTUBE_URL`
+`https://your-site/?report=REPORTCODE&Lunner+North=VIDEOID&Toby+Smallboi=VIDEOID`
 
 Each parameter name is a player's name as it appears in the report (not case
-sensitive), and its value is that player's video. A player can have several
-entries for split VODs; names that aren't in the report are ignored. Plain
+sensitive; spaces can be `+` or `%20`), and its value is that player's video —
+just the 11-character YouTube ID, or a full link. Several videos for one player
+(split VODs) are separated by commas. Names that aren't in the report are ignored. Plain
 `channel=YOUTUBE_URL` entries also work: the video goes to the report player
 whose name is in its title or YouTube channel name, otherwise it becomes its
 own POV. `pov1`, `pov2`… (players numbered by role then name) are still
