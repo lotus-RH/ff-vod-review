@@ -97,6 +97,9 @@
         <button id="refresh-report-button" type="button" onclick="refreshReport()" title="Reload the current report and refresh its data" aria-label="Refresh report" class="text-xs bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 px-2 py-1 rounded border border-slate-700 shrink-0 transition">
           <i class="fa-solid fa-rotate"></i>
         </button>
+        <button type="button" onclick="copyShareLink()" title="Copy a link to this report with its POV videos" aria-label="Copy share link" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-1 rounded border border-slate-700 shrink-0 transition">
+          <i class="fa-solid fa-link"></i>
+        </button>
       </div>
     </div>
 
@@ -1065,7 +1068,43 @@ function loadDefaultTrackedAbilities() {
   trackedAbilityDurations = readDefault('fflogs_vod_ability_durations_default', {});
   trackedAbilityImages = readDefault('fflogs_vod_ability_images_default', {});
 }
-function persistPOVs() { localStorage.setItem(povsKey(), JSON.stringify(povs)); }
+function persistPOVs() {
+  localStorage.setItem(povsKey(), JSON.stringify(povs));
+  updateShareUrl();
+}
+
+// Builds ?report=CODE&channel=URL... for the loaded report and its POV videos.
+function buildShareUrl() {
+  if (!report) return '';
+  const url = new URL(window.location.href);
+  url.search = '';
+  url.hash = '';
+  url.searchParams.set('report', report.code);
+  const seen = new Set();
+  povs.forEach(pov => (pov.segments || []).forEach(seg => {
+    if (!seg.videoId || seen.has(seg.videoId)) return;
+    seen.add(seg.videoId);
+    url.searchParams.append('channel', 'https://www.youtube.com/watch?v=' + seg.videoId);
+  }));
+  return url.toString();
+}
+
+function updateShareUrl() {
+  const shareUrl = buildShareUrl();
+  if (!shareUrl) return;
+  try { window.history.replaceState(null, '', shareUrl); } catch (e) { /* e.g. file:// pages */ }
+}
+
+async function copyShareLink() {
+  const shareUrl = buildShareUrl();
+  if (!shareUrl) { showToast('Load a report first.', 'error'); return; }
+  try {
+    await navigator.clipboard.writeText(shareUrl);
+    showToast('Share link copied.', 'success');
+  } catch (e) {
+    window.prompt('Copy this share link:', shareUrl);
+  }
+}
 function abilityNamesKey() { return `fflogs_vod_ability_names_${report ? report.code : 'none'}`; }
 function abilityClassesKey() { return `fflogs_vod_ability_classes_${report ? report.code : 'none'}`; }
 function abilityCooldownsKey() { return `fflogs_vod_ability_cooldowns_${report ? report.code : 'none'}`; }
@@ -1869,6 +1908,7 @@ async function loadReport(code, { refresh = false } = {}) {
     syncFilterControls();
     renderPullList();
     renderPOVTabs();
+    updateShareUrl();
     if (keepFight) {
       // Re-pull data for the current pull without moving the video or resetting the view.
       loadDeathsForFight(activeFightId);
