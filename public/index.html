@@ -2253,8 +2253,8 @@ function renderPullList() {
       ? '<span class="text-[10px] font-bold text-emerald-400 bg-emerald-950/50 px-1.5 py-0.5 rounded border border-emerald-700/40">KILL</span>'
       : '<span class="text-[10px] font-bold text-rose-400 bg-rose-950/50 px-1.5 py-0.5 rounded border border-rose-700/40">WIPE</span>';
     div.innerHTML = `
-      <div class="flex items-center gap-2 min-w-0">
-        <span class="min-w-0 flex items-center gap-1 text-xs font-bold text-slate-200"><span class="shrink-0">Pull ${pullNum}</span><span class="truncate text-slate-500 font-normal">· ${escapeHTML(f.name)}</span></span>
+      <div class="flex items-center justify-between gap-2 min-w-0">
+        <span class="min-w-0 flex-1 flex items-center gap-1 text-xs font-bold text-slate-200"><span class="shrink-0">Pull ${pullNum}</span><span class="truncate text-slate-500 font-normal">· ${escapeHTML(f.name)}</span></span>
         <span class="shrink-0 flex items-center gap-1.5 text-[10px] font-mono text-slate-500"><span>${formatSecondsToMMSS(durSec)}</span>${statusBadge}</span>
       </div>`;
     container.appendChild(div);
