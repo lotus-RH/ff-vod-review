@@ -61,22 +61,24 @@
         <i class="fa-solid fa-list-ol mr-1"></i><span class="hidden sm:inline">Helper</span>
       </button>
     </nav>
-
-    <button id="settings-fab" onclick="openSettingsModal()" title="Setup / shared config" aria-label="Setup / shared config"
-      class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-2 rounded-lg border border-slate-700 shrink-0 transition">
-      <i class="fa-solid fa-gear"></i>
-    </button>
-
-    <div id="active-log-title" class="text-xs text-slate-400 truncate hidden md:block max-w-[240px]">No report loaded</div>
   </div>
 
-  <div class="flex items-center gap-2 shrink-0">
-    <button onclick="openAbilityModal()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1.5 rounded-md border border-slate-700 transition">
-      <i class="fa-solid fa-wand-magic-sparkles"></i> <span class="hidden lg:inline">Abilities</span> <span id="ability-count" class="font-mono text-[10px] text-ffcyan-400">0</span>
+  <div id="settings-menu-wrapper" class="relative shrink-0">
+    <button id="settings-fab" type="button" onclick="toggleSettingsMenu()" title="Settings" aria-label="Settings" aria-haspopup="true" aria-expanded="false"
+      class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-2 rounded-lg border border-slate-700 transition">
+      <i class="fa-solid fa-gear"></i>
     </button>
-    <button onclick="openMechanicsModal()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1.5 rounded-md border border-slate-700 transition">
-      <i class="fa-solid fa-burst"></i> <span class="hidden lg:inline">Mechanics</span> <span id="mechanic-count" class="font-mono text-[10px] text-amber-400">0</span>
-    </button>
+    <div id="settings-menu" class="hidden absolute right-0 top-full mt-2 w-48 bg-slate-900 border border-slate-700 rounded-lg shadow-xl p-1 z-50">
+      <button type="button" onclick="closeSettingsMenu(); openSettingsModal()" class="w-full flex items-center gap-2 text-left text-xs text-slate-200 hover:bg-slate-800 px-2.5 py-2 rounded-md transition">
+        <i class="fa-solid fa-sliders w-4 text-center text-ffpurple-400"></i> <span class="flex-1">Setup</span>
+      </button>
+      <button type="button" onclick="closeSettingsMenu(); openAbilityModal()" class="w-full flex items-center gap-2 text-left text-xs text-slate-200 hover:bg-slate-800 px-2.5 py-2 rounded-md transition">
+        <i class="fa-solid fa-wand-magic-sparkles w-4 text-center text-ffcyan-400"></i> <span class="flex-1">Abilities</span> <span id="ability-count" class="font-mono text-[10px] text-ffcyan-400">0</span>
+      </button>
+      <button type="button" onclick="closeSettingsMenu(); openMechanicsModal()" class="w-full flex items-center gap-2 text-left text-xs text-slate-200 hover:bg-slate-800 px-2.5 py-2 rounded-md transition">
+        <i class="fa-solid fa-burst w-4 text-center text-amber-400"></i> <span class="flex-1">Mechanics</span> <span id="mechanic-count" class="font-mono text-[10px] text-amber-400">0</span>
+      </button>
+    </div>
   </div>
 </header>
 
@@ -100,9 +102,10 @@
 
     <div id="review-pull-header" class="p-3 border-b border-slate-800 bg-slate-900/50">
       <div class="flex justify-between items-center">
-        <span class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-          <i class="fa-solid fa-list-check text-ffpurple-400"></i> Pull History
-        </span>
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400 shrink-0">Pulls</span>
+          <div id="active-log-title" class="text-xs text-slate-400 truncate min-w-0">No report loaded</div>
+        </div>
         <div class="flex items-center gap-1.5">
           <div id="pull-filter-wrapper" class="relative">
             <button id="pull-filter-toggle" type="button" onclick="togglePullFilterMenu()" class="text-[11px] text-slate-300 hover:text-white px-2 py-1 rounded border border-slate-700 hover:bg-slate-800" aria-expanded="false" aria-controls="pull-filter-menu" title="Sort and filter" aria-label="Sort and filter"><i class="fa-solid fa-filter" aria-hidden="true"></i></button>
@@ -521,8 +524,6 @@ const DEFAULT_MECHANIC_RECAST_IGNORE_SECONDS = 5;
 let report = null;        // { code, title, zoneName, startTime, endTime, fights: [], actors: [] }
 let povs = [];             // [{ id, player, job, color, segments:[{id,videoId,label,startAbsMs}] }]
 let deathsCache = {};      // fightId -> [{time, player, ability}]
-let reportDeathsByPlayer = null;
-let reportDeathsPromise = null;
 let timelineEventsCache = {}; // fightId -> { buffs: [], damage: [], healing: [], casts: [] }
 let trackedAbilityNames = [];
 let trackedAbilityClasses = {};
@@ -607,10 +608,11 @@ window.addEventListener('DOMContentLoaded', async () => {
   });
   document.addEventListener('keydown', handlePlanningHistoryShortcut);
   document.addEventListener('keydown', event => {
-    if (event.key === 'Escape') { closePlanningCastImportMenu(); closePullFilterMenu(); }
+    if (event.key === 'Escape') { closePlanningCastImportMenu(); closePullFilterMenu(); closeSettingsMenu(); }
   });
   document.addEventListener('click', event => {
     if (!event.target.closest('#pull-filter-wrapper')) closePullFilterMenu();
+    if (!event.target.closest('#settings-menu-wrapper')) closeSettingsMenu();
   });
   initializeScenarioHelper();
   if (new URLSearchParams(window.location.search).get('helper') === 'use') {
@@ -1481,6 +1483,18 @@ async function fflogsQuery(query, variables) {
    SETTINGS MODAL
    ========================================================================= */
 function openSettingsModal() { document.getElementById('settings-modal').classList.remove('hidden'); }
+function toggleSettingsMenu() {
+  const menu = document.getElementById('settings-menu');
+  const opening = menu.classList.contains('hidden');
+  menu.classList.toggle('hidden', !opening);
+  document.getElementById('settings-fab').setAttribute('aria-expanded', String(opening));
+}
+function closeSettingsMenu() {
+  const menu = document.getElementById('settings-menu');
+  if (!menu) return;
+  menu.classList.add('hidden');
+  document.getElementById('settings-fab').setAttribute('aria-expanded', 'false');
+}
 function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
 
 /* =========================================================================
@@ -1568,8 +1582,6 @@ async function loadReport(code, { refresh = false } = {}) {
       abilityNames: new Map(((r.masterData && r.masterData.abilities) || []).map(ability => [Number(ability.gameID), ability.name]))
     };
     deathsCache = {};
-    reportDeathsByPlayer = null;
-    reportDeathsPromise = null;
     timelineEventsCache = {};
     deathDetailCache = {};
     if (!refresh) {
@@ -2063,42 +2075,6 @@ async function loadDeathsForFight(fightId) {
   renderTimeline();
 }
 
-async function loadReportDeathsByPlayer() {
-  if (reportDeathsByPlayer) return reportDeathsByPlayer;
-  if (reportDeathsPromise) return reportDeathsPromise;
-  if (!report) return new Map();
-  const reportSnapshot = report;
-  const request = (async () => {
-    const fightIDs = reportSnapshot.fights.map(fight => fight.id);
-    const data = await fflogsQuery(DEATHS_QUERY, { code: reportSnapshot.code, fightIDs });
-    const events = (data.reportData.report.events && data.reportData.report.events.data) || [];
-    const actorMap = new Map(reportSnapshot.actors.map(actor => [String(actor.id), actor.name]));
-    const byPlayer = new Map();
-    events.forEach(event => {
-      const fight = reportSnapshot.fights.find(item => event.timestamp >= item.startTime && event.timestamp <= item.endTime);
-      if (!fight || event.targetID == null) return;
-      const targetKey = String(event.targetID);
-      if (!byPlayer.has(targetKey)) byPlayer.set(targetKey, []);
-      byPlayer.get(targetKey).push({
-        fightId: fight.id,
-        phase: Number.isFinite(Number(event.phase)) ? Number(event.phase) : null,
-        timeMs: event.timestamp - fight.startTime,
-        targetID: event.targetID,
-        player: actorMap.get(targetKey) || 'Unknown',
-        ability: event.killingAbilityGameID ? (reportSnapshot.abilityNames.get(Number(event.killingAbilityGameID)) || `Ability #${event.killingAbilityGameID}`) : 'Unknown cause'
-      });
-    });
-    if (report === reportSnapshot) reportDeathsByPlayer = byPlayer;
-    return byPlayer;
-  })();
-  reportDeathsPromise = request;
-  try {
-    return await request;
-  } finally {
-    if (reportDeathsPromise === request) reportDeathsPromise = null;
-  }
-}
-
 function renderDeathRecap(fightId) {
   const container = document.getElementById('deaths-list-container');
   const deaths = deathsCache[fightId] || [];
@@ -2407,7 +2383,7 @@ function renderDeathDetail(result, death, fight) {
     return `<button class="fx-toggle ${on ? 'bg-emerald-950/50 text-emerald-300 border-emerald-700/40' : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-600'} border rounded px-1.5 py-0.5 text-[10px]" data-name="${escapeHTML(name)}" title="${on ? 'Counted as mitigation — click to un-mark' : 'Click to count this as mitigation'}">${escapeHTML(name)}${kind === 'debuff' ? ' <span class="opacity-60">(boss)</span>' : ''}</button>`;
   };
 
-  let html = `<div class="grid grid-cols-1 lg:grid-cols-[minmax(11rem,0.7fr)_minmax(18rem,1.15fr)_minmax(12rem,0.9fr)] items-start gap-3">
+  let html = `<div class="grid grid-cols-1 lg:grid-cols-[minmax(12rem,0.8fr)_minmax(18rem,1.6fr)] items-start gap-3">
   <div class="bg-slate-950 border border-slate-800 rounded-lg p-3">
     <div class="flex items-start justify-between gap-3">
       <div>
@@ -2469,11 +2445,6 @@ function renderDeathDetail(result, death, fight) {
     <details class="mt-1"><summary class="text-[10px] text-slate-600 cursor-pointer hover:text-slate-400 select-none">Debug info</summary>
       <div class="text-[10px] text-slate-500 font-mono mt-1 break-words">damage events: ${(result.damage || []).length} · heals: ${(result.heals || []).length} · buff events across targets: ${(result.buffs || []).length} · enemy debuff events: ${(result.debuffs || []).length} · resource events: ${(result.resources || []).length}<br>damage event fields: ${escapeHTML(Object.keys((result.damage || [])[0] || {}).join(', ') || 'none')}<br>resource event fields: ${escapeHTML(Object.keys((result.resources || [])[0] || {}).join(', ') || 'none')}</div></details>
   </div>
-  <div class="bg-slate-950 border border-slate-800 rounded-lg p-3 min-w-0">
-    <div class="text-[10px] uppercase text-slate-500 font-bold mb-1">Deaths across report</div>
-    <div class="text-[10px] text-slate-600 mb-2">${escapeHTML(death.player)} · pull progress</div>
-    <div id="death-heatmap-container" class="text-[11px] text-slate-500 italic">Loading report deaths...</div>
-  </div>
   </div>`;
 
   body.innerHTML = html;
@@ -2484,78 +2455,6 @@ function renderDeathDetail(result, death, fight) {
   body.querySelectorAll('.fx-toggle').forEach(btn => {
     btn.addEventListener('click', () => toggleCustomMitigation(btn.getAttribute('data-name')));
   });
-  renderDeathHeatmap(death, fight);
-}
-
-async function renderDeathHeatmap(death, selectedFight) {
-  const container = document.getElementById('death-heatmap-container');
-  if (!container) return;
-  const selectionKey = `${selectedFight.id}_${death.targetID}_${death.timeMs}`;
-  container.innerHTML = '<div class="text-slate-500 italic py-3">Loading report deaths...</div>';
-  try {
-    const deathsByPlayer = await loadReportDeathsByPlayer();
-    if (selectedDeathKey !== selectionKey) return;
-    const playerDeaths = deathsByPlayer.get(String(death.targetID)) || [];
-    if (!playerDeaths.length) {
-      container.innerHTML = '<div class="text-slate-500 italic py-3">No deaths for this player in the report.</div>';
-      return;
-    }
-    const encounterFights = report.fights.filter(pull => Number(pull.encounterID) === Number(selectedFight.encounterID));
-    const encounterFightIds = new Set(encounterFights.map(pull => String(pull.id)));
-    const encounterDeaths = playerDeaths.filter(item => encounterFightIds.has(String(item.fightId)));
-    if (!encounterDeaths.length) {
-      container.innerHTML = '<div class="text-slate-500 italic py-3">No deaths for this player in this encounter.</div>';
-      return;
-    }
-    const phaseGroup = (report.phases || []).find(group => Number(group.encounterID) === Number(selectedFight.encounterID));
-    const phaseDefinitions = phaseGroup && Array.isArray(phaseGroup.phases) ? phaseGroup.phases : [];
-    const phaseRows = phaseDefinitions.map(phase => ({ phase, deaths: [] }));
-    const unclassifiedRow = { phase: null, deaths: [] };
-    const pullsById = new Map(report.fights.map((pull, index) => [String(pull.id), { pull, index }]));
-    const phaseForDeath = (item, pull) => {
-      if (item.phase != null && Number.isFinite(Number(item.phase))) {
-        const phaseNumber = Number(item.phase);
-        const eventPhase = phaseDefinitions.find(phase => Number(phase.id) === phaseNumber)
-          || (Number.isInteger(phaseNumber) && phaseNumber >= 0 ? phaseDefinitions[phaseNumber] : null);
-        if (eventPhase) return eventPhase;
-      }
-      const furthestPhaseId = getFightReachedPhaseId(pull);
-      return phaseDefinitions.find(phase => Number(phase.id) === furthestPhaseId) || null;
-    };
-    encounterDeaths.forEach(item => {
-      const entry = pullsById.get(String(item.fightId));
-      const phase = entry && phaseForDeath(item, entry.pull);
-      const row = phaseRows.find(candidate => candidate.phase === phase);
-      (row || unclassifiedRow).deaths.push(item);
-    });
-    if (unclassifiedRow.deaths.length || !phaseRows.length) phaseRows.push(unclassifiedRow);
-    const furthestTimeMs = Math.max(...encounterFights.map(pull => pull.endTime - pull.startTime));
-    const rowsHtml = phaseRows.map(row => {
-      const deathPoints = row.deaths.map(item => {
-        const entry = pullsById.get(String(item.fightId));
-        if (!entry) return '';
-        const { pull, index } = entry;
-        const fightTimeMs = Math.max(0, Math.min(furthestTimeMs, item.timeMs));
-        const position = fightTimeMs / furthestTimeMs * 100;
-        const title = `Pull ${index + 1} · ${pull.name} · ${formatSecondsToMMSS(item.timeMs / 1000)} · ${item.ability}`;
-        return `<span class="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 h-3 w-3 rounded-full border-2 border-slate-950 bg-rose-400 ring-1 ring-rose-300 cursor-help" style="left:${position}%" title="${escapeHTML(title)}" aria-label="${escapeHTML(title)}"></span>`;
-      }).join('');
-      const phaseLabel = row.phase ? formatPhaseLabel(row.phase.id, row.phase.name) : phaseDefinitions.length ? 'Unclassified' : selectedFight.name || 'Encounter';
-      return `<div class="grid grid-cols-[minmax(0,5rem)_minmax(0,1fr)_2rem] gap-2 items-center py-1">
-        <span class="truncate text-[9px] text-slate-400" title="${escapeHTML(phaseLabel)}">${escapeHTML(phaseLabel)}</span>
-        <div class="relative h-5"><div class="absolute inset-x-0 top-1/2 h-px bg-slate-700"></div>${deathPoints}</div>
-        <span class="text-right text-[9px] font-mono ${row.deaths.length ? 'text-rose-300' : 'text-slate-600'}">${row.deaths.length}</span>
-      </div>`;
-    }).join('');
-    container.innerHTML = `<div class="max-h-80 overflow-y-auto px-1">
-      <div class="grid grid-cols-[minmax(0,5rem)_minmax(0,1fr)_2rem] gap-2 items-center text-[8px] text-slate-600 uppercase pb-1">
-        <span>${phaseDefinitions.length ? 'Phase' : 'Encounter'}</span><span class="flex justify-between"><span>00:00</span><span>${formatSecondsToMMSS(furthestTimeMs / 1000)}</span></span><span class="text-right">Deaths</span>
-      </div>
-      ${rowsHtml}
-    </div>`;
-  } catch (e) {
-    if (selectedDeathKey === selectionKey) container.innerHTML = `<div class="text-rose-400 italic py-3">Could not load report deaths: ${escapeHTML(e.message)}</div>`;
-  }
 }
 
 function renderTimeline() {
