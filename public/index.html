@@ -404,13 +404,13 @@
     <div class="p-4 space-y-3 text-xs">
 
       <div class="border-t border-slate-800 pt-3 mt-1">
-        <h3 class="font-bold text-sm flex items-center gap-2 mb-1.5"><i class="fa-solid fa-share-nodes text-ffcyan-400"></i> Shared setup for everyone</h3>
-        <p class="text-slate-400 leading-relaxed">Tracked abilities, mechanic categories, planned cooldown placements, POVs and Helper scenarios live in each browser until shared. Hit Save and they're live for everyone opening the site — no repo upload needed.</p>
-        <label class="flex items-center gap-1.5 mt-2 text-slate-400 cursor-pointer select-none"><input type="checkbox" id="share-include-reports" checked> Include POVs for every log</label>
+        <h3 class="font-bold text-sm flex items-center gap-2 mb-1.5"><i class="fa-solid fa-floppy-disk text-ffcyan-400"></i> Backup</h3>
+        <p class="text-slate-400 leading-relaxed">Everything you set up — tracked abilities, mechanic categories, planned cooldown placements and Helper scenarios — is saved only in this browser. Nothing is shared with anyone else. Backups and the base config never include specific logs or POVs — share those with a link instead (?report=CODE&amp;channel=YOUTUBE_URL). Download a backup to keep a copy or move to another browser, then import it there. To change the starter template new visitors get, replace <code>public/vod-review-config.json</code> in the repo with a downloaded backup.</p>
+        <input id="import-setup-file" type="file" accept="application/json,.json" class="hidden" onchange="importSetupBackup(this)">
         <div class="flex justify-end gap-2 mt-2">
-          <button id="reload-shared-setup-button" onclick="reloadLocalStorageFromServerConfig()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded border border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed" title="Replace shared setup values in this browser with the server config"><i class="fa-solid fa-rotate"></i> Reload from server</button>
-          <button onclick="exportSharedSetup()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded border border-slate-700" title="Download a backup copy of the current setup"><i class="fa-solid fa-file-arrow-down"></i> Download backup</button>
-          <button onclick="saveSharedSetup()" class="bg-ffpurple-600 hover:bg-ffpurple-500 text-white font-medium px-3 py-1.5 rounded"><i class="fa-solid fa-cloud-arrow-up"></i> Save for everyone</button>
+          <button id="reload-base-config-button" onclick="reloadFromBaseConfig()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded border border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed" title="Replace matching values in this browser with the site's base config"><i class="fa-solid fa-rotate"></i> Reload base config</button>
+          <button onclick="document.getElementById('import-setup-file').click()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded border border-slate-700" title="Restore a setup from a backup file; matching values in this browser are replaced"><i class="fa-solid fa-file-arrow-up"></i> Import backup</button>
+          <button onclick="exportSharedSetup()" class="bg-ffpurple-600 hover:bg-ffpurple-500 text-white font-medium px-3 py-1.5 rounded" title="Download a backup copy of the current setup"><i class="fa-solid fa-file-arrow-down"></i> Download backup</button>
         </div>
       </div>
     </div>
@@ -636,8 +636,9 @@ let pollTimer = null;
    INIT
    ========================================================================= */
 window.addEventListener('DOMContentLoaded', async () => {
-  await applySharedConfig();
-  startSharedConfigWatcher();
+  // Earlier versions synced setup through a shared server; drop their leftover keys.
+  ['fflogs_vod_config_applied', 'fflogs_vod_save_password'].forEach(key => localStorage.removeItem(key));
+  await applyBaseTemplate();
   loadDefaultTrackedAbilities();
   loadPOVsForCurrentContext();
   try { mechanicCategories = JSON.parse(localStorage.getItem('fflogs_vod_mechanic_categories')) || {}; } catch (e) { mechanicCategories = {}; }
@@ -685,6 +686,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     setScenarioHelperMode('use');
   }
   updatePlanningHistoryControls();
+  await loadSharedLinkFromUrl();
 });
 
 
@@ -749,82 +751,52 @@ function toggleReviewTimeline() {
 }
 
 /* =========================================================================
-   SHARED SETUP (config file next to index.html)
+   LOCAL SETUP BACKUP (export / import) + BASE TEMPLATE
    ========================================================================= */
-const SHARED_CONFIG_URL = 'vod-review-config.json';
-const SHARED_CONFIG_API_URL = '/api/config';
+const BASE_TEMPLATE_URL = 'vod-review-config.json';
+const BASE_TEMPLATE_APPLIED_KEY = 'fflogs_vod_template_applied';
 const ENCOUNTER_MECHANICS_KEY = 'fflogs_vod_encounter_mechanics';
-const SAVE_PASSWORD_KEY = 'fflogs_vod_save_password';
 const REVIEW_PULLS_COLLAPSED_KEY = 'fflogs_vod_review_pulls_collapsed';
 const REVIEW_TIMELINE_COLLAPSED_KEY = 'fflogs_vod_review_timeline_collapsed';
 const SHARED_SCENARIO_HELPER_KEY = 'ff_scenario_helper_v1';
-const CONFIG_EXCLUDE = new Set(['fflogs_vod_auth', 'fflogs_vod_config_applied', 'fflogs_vod_bottom_panel_h', REVIEW_PULLS_COLLAPSED_KEY, REVIEW_TIMELINE_COLLAPSED_KEY, SAVE_PASSWORD_KEY]);
-
-function startSharedConfigWatcher() {
-  window.setInterval(checkForSharedConfigUpdate, 15000);
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') checkForSharedConfigUpdate();
-  });
+const CONFIG_EXCLUDE = new Set(['fflogs_vod_auth', 'fflogs_vod_bottom_panel_h', BASE_TEMPLATE_APPLIED_KEY, REVIEW_PULLS_COLLAPSED_KEY, REVIEW_TIMELINE_COLLAPSED_KEY]);
+// Anything tied to one specific log (POVs, notes, per-log overrides) is never part of the template or a backup.
+function isConfigExcluded(key) {
+  return CONFIG_EXCLUDE.has(key) || /^fflogs_vod_notes_/.test(key) || /^fflogs_vod_.+_[A-Za-z0-9]{16}$/.test(key);
 }
 
-let sharedConfigCheckPending = false;
-
-async function checkForSharedConfigUpdate() {
-  if (sharedConfigCheckPending) return;
-  sharedConfigCheckPending = true;
+// Read-only starter data shipped with the site (public/vod-review-config.json).
+// It only fills in what this browser doesn't have yet, so it never overwrites
+// anyone's own changes and nothing is ever written back to the server.
+async function applyBaseTemplate(replaceLocal = false) {
   try {
-    const appliedStamp = localStorage.getItem('fflogs_vod_config_applied') || '';
-    const headers = appliedStamp ? { 'If-None-Match': `"${appliedStamp}"` } : {};
-    const res = await fetch(SHARED_CONFIG_API_URL, { cache: 'no-store', headers });
-    if (res.status === 304 || !res.ok) return;
+    const res = await fetch(BASE_TEMPLATE_URL, { cache: 'no-cache' });
+    if (!res.ok) return false;
     const cfg = await res.json();
-    const remoteTime = Date.parse(String(cfg && cfg.updatedAt || ''));
-    const appliedTime = Date.parse(appliedStamp);
-    if (!Number.isFinite(remoteTime) || Number.isFinite(appliedTime) && remoteTime <= appliedTime) return;
-    if (await applySharedConfig(cfg)) {
-      refreshSharedConfigState();
-      showToast('Shared setup updated.', 'success');
-    }
-  } catch (e) { /* live updates are best-effort */ }
-  finally { sharedConfigCheckPending = false; }
-}
-
-async function applySharedConfig(config = null, replaceLocal = false) {
-  try {
-    let cfg = config;
-    if (!cfg) {
-      const res = await fetch(SHARED_CONFIG_API_URL, { cache: 'no-store' });
-      if (!res.ok) return false;
-      cfg = await res.json();
-    }
     if (!cfg || typeof cfg !== 'object' || !cfg.storage || typeof cfg.storage !== 'object') return false;
     const stamp = String(cfg.updatedAt || '');
-    const alreadyApplied = stamp && localStorage.getItem('fflogs_vod_config_applied') === stamp;
-    if (alreadyApplied && !replaceLocal) return false;
+    if (!replaceLocal && stamp && localStorage.getItem(BASE_TEMPLATE_APPLIED_KEY) === stamp) return false;
     Object.entries(cfg.storage).forEach(([key, value]) => {
       if (key === SHARED_SCENARIO_HELPER_KEY) {
-        if (value && typeof value === 'object' && Array.isArray(value.scenarios)) {
+        if ((replaceLocal || localStorage.getItem(key) === null) && value && typeof value === 'object' && Array.isArray(value.scenarios)) {
           localStorage.setItem(key, JSON.stringify(value));
         }
         return;
       }
-      if (!key.startsWith('fflogs_vod_') || CONFIG_EXCLUDE.has(key)) return;
-      if (!replaceLocal && !stamp && localStorage.getItem(key) !== null) return; // no version stamp: only fill gaps
-      if (!replaceLocal && key === ENCOUNTER_MECHANICS_KEY) {
-        let local = {};
-        try { local = JSON.parse(localStorage.getItem(key)) || {}; } catch (e) {}
-        value = mergeEncounterMechanicDatasets(local, value);
-      }
-      if (!replaceLocal && key === 'fflogs_vod_settings') {
-        let local = {};
-        try { local = JSON.parse(localStorage.getItem(key)) || {}; } catch (e) {}
-        value = { ...local, ...value };
+      if (!key.startsWith('fflogs_vod_') || isConfigExcluded(key)) return;
+      const existing = localStorage.getItem(key);
+      if (existing !== null && !replaceLocal) {
+        let local;
+        try { local = JSON.parse(existing); } catch (e) { return; }
+        if (key === ENCOUNTER_MECHANICS_KEY) value = mergeEncounterMechanicDatasets(local, value);
+        else if (key === 'fflogs_vod_settings') value = { ...value, ...local };
+        else return;
       }
       localStorage.setItem(key, JSON.stringify(value));
     });
-    if (stamp) localStorage.setItem('fflogs_vod_config_applied', stamp);
+    if (stamp) localStorage.setItem(BASE_TEMPLATE_APPLIED_KEY, stamp);
     return true;
-  } catch (e) { return false; /* no shared config published - that's fine */ }
+  } catch (e) { return false; /* no template published - that's fine */ }
 }
 
 function refreshSharedConfigState() {
@@ -988,12 +960,11 @@ function replaceObservedEncounterMechanics(fight, enemyCasts) {
   return mechanics;
 }
 
-function collectSharedSetupStorage(includeReports) {
+function collectSharedSetupStorage() {
   const storage = {};
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (!key || !key.startsWith('fflogs_vod_') || CONFIG_EXCLUDE.has(key)) continue;
-    if (/^fflogs_vod_notes_/.test(key) || (!includeReports && /^fflogs_vod_povs_/.test(key))) continue;
+    if (!key || !key.startsWith('fflogs_vod_') || isConfigExcluded(key)) continue;
     try { storage[key] = JSON.parse(localStorage.getItem(key)); } catch (e) {}
   }
   const scenarioHelper = localStorage.getItem(SHARED_SCENARIO_HELPER_KEY);
@@ -1003,62 +974,56 @@ function collectSharedSetupStorage(includeReports) {
   return storage;
 }
 
-async function reloadLocalStorageFromServerConfig() {
-  if (!window.confirm('Replace this browser\'s shared setup values with those from the server config? Local-only values not included on the server will be kept.')) return;
-  const button = document.getElementById('reload-shared-setup-button');
+async function reloadFromBaseConfig() {
+  if (!window.confirm('Reload from the base config? Values in this browser that exist in the base config will be replaced. Anything not in the base config is kept.')) return;
+  const button = document.getElementById('reload-base-config-button');
   if (button) button.disabled = true;
   try {
-    const res = await fetch(SHARED_CONFIG_API_URL, { cache: 'no-store' });
-    if (!res.ok) throw new Error(`Could not load server config (${res.status}).`);
-    const config = await res.json();
-    if (!await applySharedConfig(config, true)) throw new Error('The server config is empty or invalid.');
+    if (!await applyBaseTemplate(true)) throw new Error('The base config could not be loaded.');
     refreshSharedConfigState();
-    showToast('Local setup reloaded from server config.', 'success');
+    showToast('Reloaded from base config.', 'success');
   } catch (e) {
-    showToast('Could not reload server config: ' + (e && e.message || e), 'error');
+    showToast('Could not reload base config: ' + (e && e.message || e), 'error');
   } finally {
     if (button) button.disabled = false;
   }
 }
 
-async function saveSharedSetup() {
-  const includeReports = document.getElementById('share-include-reports').checked;
-  const storage = collectSharedSetupStorage(includeReports);
-  let password = localStorage.getItem(SAVE_PASSWORD_KEY) || '';
-  if (!password) {
-    password = window.prompt('Enter the save password for this site:') || '';
-    if (!password) return;
-  }
+async function importSetupBackup(input) {
+  const file = input && input.files && input.files[0];
+  if (input) input.value = '';
+  if (!file) return;
   try {
-    const res = await fetch(SHARED_CONFIG_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Save-Password': password },
-      body: JSON.stringify({ storage })
+    const config = JSON.parse(await file.text());
+    if (!config || typeof config !== 'object' || !config.storage || typeof config.storage !== 'object') throw new Error('This file is not a setup backup.');
+    if (!window.confirm('Import this backup? Matching values in this browser will be replaced.')) return;
+    let count = 0;
+    Object.entries(config.storage).forEach(([key, value]) => {
+      if (key === SHARED_SCENARIO_HELPER_KEY) {
+        if (value && typeof value === 'object' && Array.isArray(value.scenarios)) { localStorage.setItem(key, JSON.stringify(value)); count++; }
+        return;
+      }
+      if (!key.startsWith('fflogs_vod_') || isConfigExcluded(key)) return;
+      localStorage.setItem(key, JSON.stringify(value));
+      count++;
     });
-    const data = await res.json();
-    if (!res.ok) {
-      if (res.status === 401) localStorage.removeItem(SAVE_PASSWORD_KEY);
-      throw new Error(data.error || `Save failed (${res.status}).`);
-    }
-    localStorage.setItem(SAVE_PASSWORD_KEY, password);
-    localStorage.setItem('fflogs_vod_config_applied', data.updatedAt);
-    showToast('Saved — other open pages will update automatically.', 'success');
+    refreshSharedConfigState();
+    showToast(`Imported ${count} setting${count === 1 ? '' : 's'} from backup.`, 'success');
   } catch (e) {
-    showToast('Could not save shared setup: ' + (e && e.message || e), 'error');
+    showToast('Could not import backup: ' + (e && e.message || e), 'error');
   }
 }
 
 function exportSharedSetup() {
-  const includeReports = document.getElementById('share-include-reports').checked;
-  const storage = collectSharedSetupStorage(includeReports);
+  const storage = collectSharedSetupStorage();
   const payload = { version: 1, updatedAt: new Date().toISOString(), storage };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = SHARED_CONFIG_URL;
+  a.download = BASE_TEMPLATE_URL;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-  showToast('Downloaded ' + SHARED_CONFIG_URL + ' — upload it next to index.html in your repo.', 'success');
+  showToast('Downloaded ' + BASE_TEMPLATE_URL + '.', 'success');
 }
 
 function onYouTubeIframeAPIReady() {
@@ -1793,11 +1758,16 @@ function closeSettingsModal() { document.getElementById('settings-modal').classL
 /* =========================================================================
    YOUTUBE AUTO-SYNC (live broadcast start time)
    ========================================================================= */
-async function fetchYouTubeLiveStart(videoId) {
+async function fetchYouTubeInfo(videoId) {
   const res = await fetch('/api/youtube?videoId=' + encodeURIComponent(videoId));
   let data;
   try { data = await res.json(); } catch (e) { throw new Error('Backend not set up yet (see README.md).'); }
   if (!res.ok || data.error) throw new Error(data.error || 'YouTube lookup failed.');
+  return data;
+}
+
+async function fetchYouTubeLiveStart(videoId) {
+  const data = await fetchYouTubeInfo(videoId);
   if (!data.actualStartTime) {
     throw new Error('No live-broadcast start time on this video — it may have been uploaded/edited rather than streamed live. Use manual calibration below instead.');
   }
@@ -1909,6 +1879,58 @@ async function loadReport(code, { refresh = false } = {}) {
     console.error(e);
     showToast('Failed to load report: ' + e.message, 'error');
   }
+}
+
+// Opens a shared link: ?report=<code>&channel=<youtube url>&channel=<youtube url>...
+// Loads the report, then adds each YouTube video as a POV segment. A video is
+// attached to a report player when that player's name appears in the video's
+// title or channel name; otherwise it becomes its own POV named after the channel.
+async function loadSharedLinkFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const code = extractReportCode(params.get('report') || '');
+  if (!code) return;
+  const videoIds = [...new Set(params.getAll('channel').map(extractYouTubeId).filter(Boolean))];
+  const input = document.getElementById('input-fflogs-url');
+  if (input) input.value = code;
+  await loadReport(code);
+  if (!report || report.code !== code || !videoIds.length) return;
+
+  const infos = await Promise.all(videoIds.map(id => fetchYouTubeInfo(id).catch(() => ({}))));
+  const knownVideoIds = new Set(povs.flatMap(pov => pov.segments.map(seg => seg.videoId)));
+  let firstPov = null;
+  let added = 0;
+  videoIds.forEach((videoId, index) => {
+    if (knownVideoIds.has(videoId)) return;
+    const info = infos[index] || {};
+    const haystack = `${info.title || ''} ${info.channelTitle || ''}`.toLocaleLowerCase();
+    let pov = povs.find(p => {
+      const name = String(p.player || '').trim().toLocaleLowerCase();
+      return name && haystack.includes(name);
+    });
+    if (!pov) {
+      pov = { id: uid('pov'), player: info.channelTitle || `VOD ${index + 1}`, job: '', segments: [] };
+      povs.push(pov);
+    }
+    const seg = { id: uid('seg'), videoId, label: 'Segment ' + (pov.segments.length + 1), startAbsMs: null };
+    if (info.actualStartTime) {
+      seg.startAbsMs = Date.parse(info.actualStartTime) + DEFAULT_AUTO_SYNC_NUDGE_SECONDS * 1000;
+      seg.autoSynced = true;
+      seg.syncNudgeSeconds = DEFAULT_AUTO_SYNC_NUDGE_SECONDS;
+    }
+    pov.segments.push(seg);
+    if (!firstPov) firstPov = pov;
+    added++;
+  });
+  if (!added) return;
+  persistPOVs();
+  const active = getActivePOV();
+  if (firstPov && (!active || !active.segments.length)) activePovId = firstPov.id;
+  renderPOVTabs();
+  renderAbilityCount();
+  renderTimeline();
+  renderPOVModalBody();
+  if (activeFightId) jumpToCurrentPullStart();
+  showToast(`Added ${added} video${added === 1 ? '' : 's'} from the link.`, 'success');
 }
 
 function getReportPlayers() {
@@ -4056,8 +4078,7 @@ function renderCombatTimeline(fight, container, planningMode = false) {
         const markerLeft = Math.max(left, x - 88);
         const color = categoryColor(category);
         const marker = createSvgElement(track, 'g', { class: 'cursor-pointer' });
-        const sourceName = event.sourceName || actorNames.get(String(event.sourceID)) || 'Enemy';
-        marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${event.mechanicName} · ${category} · cast by ${sourceName} at ${formatSecondsToMMSS((event.timestamp - start) / 1000)}`;
+        marker.appendChild(document.createElementNS(svgNS, 'title')).textContent = `${event.mechanicName} - ${category} - cast at ${formatSecondsToMMSS((event.timestamp - start) / 1000)}`;
         createSvgElement(marker, 'rect', { x: markerLeft, y: 2, width: 88, height: 20, rx: 4, fill: color, stroke: '#0f172a', 'stroke-width': 1 });
         createSvgElement(marker, 'text', { x: markerLeft + 44, y: 15, fill: '#0f172a', 'font-size': 8, 'font-weight': 700, 'text-anchor': 'middle', 'pointer-events': 'none' }, event.mechanicName.length > 13 ? `${event.mechanicName.slice(0, 12)}…` : event.mechanicName);
         marker.addEventListener('click', () => jumpToSpecificOffsetMs(event.timestamp - start));

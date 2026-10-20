@@ -6,15 +6,5 @@
   "assets": {
     "directory": "./public",
     "binding": "ASSETS"
-  },
-  // Stores the live "shared setup" (vod-review-config.json contents) so
-  // anyone can save changes in the app and everyone else picks them up.
-  // Create with `npx wrangler kv namespace create VOD_CONFIG`, then put the
-  // printed id below (see README.md).
-  "kv_namespaces": [
-    {
-      "binding": "VOD_CONFIG",
-      "id": "355d43afb1934daa834027ad197aa217"
-    }
-  ]
+  }
 }
