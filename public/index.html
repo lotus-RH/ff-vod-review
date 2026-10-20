@@ -2247,15 +2247,15 @@ function renderPullList() {
     const pullNum = report.fights.indexOf(f) + 1;
     const durSec = Math.round((f.endTime - f.startTime) / 1000);
     const div = document.createElement('button');
-    div.className = 'pull-item w-full text-left bg-slate-950 hover:bg-slate-800/70 border border-slate-800 rounded-lg p-2 transition' + (f.id === activeFightId ? ' active' : '');
+    div.className = 'pull-item w-full text-left bg-slate-950 hover:bg-slate-800/70 border border-slate-800 rounded-lg px-2 py-1.5 transition' + (f.id === activeFightId ? ' active' : '');
     div.onclick = () => selectPull(f.id);
     const statusBadge = f.kill
       ? '<span class="text-[10px] font-bold text-emerald-400 bg-emerald-950/50 px-1.5 py-0.5 rounded border border-emerald-700/40">KILL</span>'
       : '<span class="text-[10px] font-bold text-rose-400 bg-rose-950/50 px-1.5 py-0.5 rounded border border-rose-700/40">WIPE</span>';
     div.innerHTML = `
-      <div class="flex items-center justify-between mb-1">
-        <span class="text-xs font-bold text-slate-200">Pull ${pullNum} <span class="text-slate-500 font-normal">· ${escapeHTML(f.name)}</span></span>
-        <span class="flex items-center gap-1.5 text-[10px] font-mono text-slate-500"><span>Time ${formatSecondsToMMSS(durSec)}</span>${statusBadge}</span>
+      <div class="flex items-center gap-2 min-w-0">
+        <span class="min-w-0 flex items-center gap-1 text-xs font-bold text-slate-200"><span class="shrink-0">Pull ${pullNum}</span><span class="truncate text-slate-500 font-normal">· ${escapeHTML(f.name)}</span></span>
+        <span class="shrink-0 flex items-center gap-1.5 text-[10px] font-mono text-slate-500"><span>${formatSecondsToMMSS(durSec)}</span>${statusBadge}</span>
       </div>`;
     container.appendChild(div);
   });
