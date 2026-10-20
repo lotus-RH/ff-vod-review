@@ -1081,11 +1081,14 @@ function buildShareUrl() {
   url.hash = '';
   url.searchParams.set('report', report.code);
   const seen = new Set();
-  povs.forEach(pov => (pov.segments || []).forEach(seg => {
-    if (!seg.videoId || seen.has(seg.videoId)) return;
-    seen.add(seg.videoId);
-    url.searchParams.append('channel', 'https://www.youtube.com/watch?v=' + seg.videoId);
-  }));
+  povs.forEach(pov => {
+    const isReportPlayer = povNumberForPlayer(pov.player) > 0;
+    (pov.segments || []).forEach(seg => {
+      if (!seg.videoId || seen.has(seg.videoId)) return;
+      seen.add(seg.videoId);
+      url.searchParams.append(isReportPlayer ? pov.player : 'channel', 'https://www.youtube.com/watch?v=' + seg.videoId);
+    });
+  });
   return url.toString();
 }
 
@@ -1921,35 +1924,84 @@ async function loadReport(code, { refresh = false } = {}) {
   }
 }
 
-// Opens a shared link: ?report=<code>&channel=<youtube url>&channel=<youtube url>...
-// Loads the report, then adds each YouTube video as a POV segment. A video is
-// attached to a report player when that player's name appears in the video's
-// title or channel name; otherwise it becomes its own POV named after the channel.
+// POV numbers: report players sorted by role (tanks, healers, melee, ranged, casters) then name.
+// The same list on any machine gives the same numbers, so links can say "pov3" instead of a name.
+function getPOVPlayerOrder() {
+  if (!report) return [];
+  const seen = new Set();
+  return getReportPlayers()
+    .map(actor => ({ name: String(actor.name || '').trim(), job: jobCodeForSubType(actor.subType) }))
+    .filter(p => p.name && !seen.has(p.name.toLocaleLowerCase()) && seen.add(p.name.toLocaleLowerCase()))
+    .sort((a, b) => compareJobsByRole(a.job, b.job) || a.name.localeCompare(b.name))
+    .map(p => p.name);
+}
+function povNumberForPlayer(name) {
+  const key = String(name || '').trim().toLocaleLowerCase();
+  const index = getPOVPlayerOrder().findIndex(n => n.toLocaleLowerCase() === key);
+  return index < 0 ? 0 : index + 1;
+}
+
+// Finds the POV for a report player, creating it (with the player's job) if it doesn't exist yet.
+function getOrCreatePOVForPlayer(name) {
+  const key = String(name || '').trim().toLocaleLowerCase();
+  let pov = povs.find(p => String(p.player || '').trim().toLocaleLowerCase() === key);
+  if (pov) return pov;
+  const actor = getReportPlayers().find(a => String(a.name || '').trim().toLocaleLowerCase() === key);
+  pov = { id: uid('pov'), player: String(name).trim(), job: actor ? jobCodeForSubType(actor.subType) : '', segments: [] };
+  povs.push(pov);
+  return pov;
+}
+
+// Opens a shared link: ?report=<code>&pov<N>=<youtube url>&pov<N>=<youtube url>...
+// pov<N> attaches the video to player number N (see getPOVPlayerOrder; the number is shown on each POV tab).
+// Plain channel=<youtube url> entries are also accepted: those are matched to a report player when the
+// player's name is in the video's title or channel name, otherwise they become their own POV.
 async function loadSharedLinkFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const code = extractReportCode(params.get('report') || '');
   if (!code) return;
-  const videoIds = [...new Set(params.getAll('channel').map(extractYouTubeId).filter(Boolean))];
+  const entries = [];
+  const seenVideos = new Set();
+  params.forEach((value, key) => {
+    const povMatch = key.match(/^pov(\d+)$/i);
+    const videoId = extractYouTubeId(value);
+    if (!videoId || key === 'report' || seenVideos.has(videoId)) return;
+    seenVideos.add(videoId);
+    // Any other key is treated as a player name (e.g. &Lunner%20North=URL); unknown names are dropped below.
+    entries.push({ videoId, number: povMatch ? Number(povMatch[1]) : 0, name: povMatch || key === 'channel' ? '' : key });
+  });
   const input = document.getElementById('input-fflogs-url');
   if (input) input.value = code;
   await loadReport(code);
-  if (!report || report.code !== code || !videoIds.length) return;
+  if (!report || report.code !== code || !entries.length) return;
 
-  const infos = await Promise.all(videoIds.map(id => fetchYouTubeInfo(id).catch(() => ({}))));
+  const order = getPOVPlayerOrder();
+  const infos = await Promise.all(entries.map(entry => fetchYouTubeInfo(entry.videoId).catch(() => ({}))));
   const knownVideoIds = new Set(povs.flatMap(pov => pov.segments.map(seg => seg.videoId)));
   let firstPov = null;
   let added = 0;
-  videoIds.forEach((videoId, index) => {
+  entries.forEach((entry, index) => {
+    const { videoId, number, name } = entry;
     if (knownVideoIds.has(videoId)) return;
     const info = infos[index] || {};
     const haystack = `${info.title || ''} ${info.channelTitle || ''}`.toLocaleLowerCase();
-    let pov = povs.find(p => {
-      const name = String(p.player || '').trim().toLocaleLowerCase();
-      return name && haystack.includes(name);
-    });
-    if (!pov) {
-      pov = { id: uid('pov'), player: info.channelTitle || `VOD ${index + 1}`, job: '', segments: [] };
-      povs.push(pov);
+    let pov = null;
+    if (name) {
+      const playerName = order.find(n => n.toLocaleLowerCase() === name.trim().toLocaleLowerCase());
+      if (!playerName) return;
+      pov = getOrCreatePOVForPlayer(playerName);
+    } else if (number) {
+      if (!order[number - 1]) { showToast(`pov${number} doesn't match a player in this report.`, 'error'); return; }
+      pov = getOrCreatePOVForPlayer(order[number - 1]);
+    } else {
+      pov = povs.find(p => {
+        const name = String(p.player || '').trim().toLocaleLowerCase();
+        return name && haystack.includes(name);
+      });
+      if (!pov) {
+        pov = { id: uid('pov'), player: info.channelTitle || `VOD ${index + 1}`, job: '', segments: [] };
+        povs.push(pov);
+      }
     }
     const seg = { id: uid('seg'), videoId, label: 'Segment ' + (pov.segments.length + 1), startAbsMs: null };
     if (info.actualStartTime) {
