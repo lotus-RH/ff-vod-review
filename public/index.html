@@ -457,15 +457,33 @@
 <div id="mechanics-modal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4">
   <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-3xl max-h-[85vh] flex flex-col shadow-2xl">
     <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
-      <div>
-        <h2 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-burst text-amber-400"></i> Boss Mechanics</h2>
-        <p id="mechanics-pull-label" class="text-[10px] text-slate-500 mt-1">Select a pull to load its boss casts.</p>
-        <p class="text-[10px] text-slate-600 mt-0.5">Give a mechanic a category to move it onto its own timeline lane. Leave blank to keep it in the main Mechanics lane.</p>
-        <datalist id="mechanic-category-options"></datalist>
-      </div>
+      <h2 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-burst text-amber-400"></i> Mechanics Editor</h2>
       <button onclick="closeMechanicsModal()" class="text-slate-500 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
     </div>
-    <div id="mechanics-list-container" class="p-4 overflow-y-auto text-xs space-y-1.5"></div>
+    <div class="px-4 pt-3 shrink-0">
+      <select id="mechanics-encounter-select" onchange="selectMechanicsEncounter(this.value)" aria-label="Encounter"
+        class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100"></select>
+      <p id="mechanics-pull-label" class="text-[10px] text-slate-500 mt-1.5">Select a pull to load its boss casts.</p>
+      <datalist id="mechanic-category-options"></datalist>
+    </div>
+    <div class="px-4 pt-3 shrink-0">
+      <div class="flex items-center justify-between mb-1">
+        <div class="text-[10px] uppercase tracking-wider text-slate-500">Mechanics</div>
+        <div class="flex items-center gap-0.5 rounded-md border border-slate-700 bg-slate-950 p-0.5" role="group" aria-label="Filter mechanics">
+          <button type="button" data-mechanics-filter="all" onclick="setMechanicsVisibilityFilter('all')" class="mechanics-filter-btn text-[10px] px-2 py-0.5 rounded">All</button>
+          <button type="button" data-mechanics-filter="enabled" onclick="setMechanicsVisibilityFilter('enabled')" class="mechanics-filter-btn text-[10px] px-2 py-0.5 rounded">Enabled</button>
+          <button type="button" data-mechanics-filter="disabled" onclick="setMechanicsVisibilityFilter('disabled')" class="mechanics-filter-btn text-[10px] px-2 py-0.5 rounded">Disabled</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-[1.25rem_minmax(0,1fr)_7rem_8rem_8rem] items-center gap-2 px-1 text-[10px] text-slate-500">
+        <span class="text-center" title="Show on timelines"><i class="fa-solid fa-eye"></i></span>
+        <span>Mechanic Name</span>
+        <span>Occurrences</span>
+        <span>Ignore Recasts Within (s)</span>
+        <span>Category</span>
+      </div>
+    </div>
+    <div id="mechanics-list-container" class="px-4 pt-1 pb-4 overflow-y-auto text-xs space-y-1.5"></div>
     <div class="p-3 border-t border-slate-800 flex justify-between shrink-0">
       <button id="reload-mechanics-button" onclick="reloadMechanicsFromActivePull()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded border border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed" title="Replace this encounter's saved cast list with fresh casts from the selected pull; mechanic settings are kept"><i class="fa-solid fa-rotate"></i> Reload from pull</button>
       <button onclick="closeMechanicsModal()" class="text-xs bg-ffpurple-600 hover:bg-ffpurple-500 text-white font-medium px-4 py-1.5 rounded">Done</button>
@@ -543,6 +561,9 @@ let planningPlayheadSeconds = null;
 let timelinePlayheadOffsetMs = 0;
 let hiddenMechanicNames = [];
 let mechanicCategories = {};
+let mechanicOccurrences = {};
+let mechanicsModalEncounterId = '';
+let mechanicsVisibilityFilter = 'all';
 let customMitigationNames = [];
 function getMechanicCategory(name) { return String(mechanicCategories[String(name).toLocaleLowerCase()] || '').trim() || 'Main'; }
 const CATEGORY_COLORS = ['#f472b6', '#a78bfa', '#38bdf8', '#34d399', '#fb923c', '#f87171', '#facc15', '#2dd4bf'];
@@ -579,6 +600,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   loadDefaultTrackedAbilities();
   loadPOVsForCurrentContext();
   try { mechanicCategories = JSON.parse(localStorage.getItem('fflogs_vod_mechanic_categories')) || {}; } catch (e) { mechanicCategories = {}; }
+  try { mechanicOccurrences = JSON.parse(localStorage.getItem('fflogs_vod_mechanic_occurrences')) || {}; } catch (e) { mechanicOccurrences = {}; }
   try { hiddenMechanicNames = JSON.parse(localStorage.getItem('fflogs_vod_hidden_mechanics_default')) || []; } catch (e) { hiddenMechanicNames = []; }
   try { mechanicRecastIgnoreSeconds = JSON.parse(localStorage.getItem('fflogs_vod_mechanic_recast_ignore_default')) || {}; } catch (e) { mechanicRecastIgnoreSeconds = {}; }
   try { customMitigationNames = JSON.parse(localStorage.getItem('fflogs_vod_custom_mitigations')) || []; } catch (e) { customMitigationNames = []; }
@@ -771,6 +793,7 @@ function refreshSharedConfigState() {
   renderScenarioHelper();
   renderScenarioHelperMode();
   mechanicCategories = readStored('fflogs_vod_mechanic_categories', {});
+  mechanicOccurrences = readStored('fflogs_vod_mechanic_occurrences', {});
   customMitigationNames = readStored('fflogs_vod_custom_mitigations', []);
   plannedUsages = readStored('fflogs_vod_planned_usages', {});
   planningZoom = Number(localStorage.getItem('fflogs_vod_planning_zoom')) || 1;
@@ -1249,13 +1272,26 @@ function removeTrackedAbility(index) {
   showToast(`${name} removed from the timeline.`, 'success');
 }
 function openMechanicsModal() {
+  mechanicsModalEncounterId = '';
   renderMechanicsList();
   document.getElementById('mechanics-modal').classList.remove('hidden');
 }
-function closeMechanicsModal() { document.getElementById('mechanics-modal').classList.add('hidden'); }
-function getMechanicRows(fight, includeEncounterHistory = false) {
+function closeMechanicsModal() {
+  document.getElementById('mechanics-modal').classList.add('hidden');
+  mechanicsModalEncounterId = '';
+  renderMechanicsList();
+}
+function selectMechanicsEncounter(encounterId) {
+  mechanicsModalEncounterId = String(encounterId || '');
+  renderMechanicsList();
+}
+function setMechanicsVisibilityFilter(filter) {
+  mechanicsVisibilityFilter = filter;
+  renderMechanicsList();
+}
+function getMechanicRows(fight, includeEncounterHistory = false, encounterIdOverride = null, applyOccurrences = true) {
   const events = fight && timelineEventsCache[fight.id];
-  const encounterId = String(fight ? fight.encounterID || '' : activePlanningEncounterId || '');
+  const encounterId = String(encounterIdOverride != null ? encounterIdOverride : fight ? fight.encounterID || '' : activePlanningEncounterId || '');
   const encounter = includeEncounterHistory && encounterId ? loadEncounterMechanicsDataset()[encounterId] : null;
   if (!events && !encounter) return [];
   const mechanicsByName = new Map();
@@ -1295,10 +1331,24 @@ function getMechanicRows(fight, includeEncounterHistory = false) {
   });
   return [...mechanicsByName.values()]
     .map(({ name, casts }) => {
-      const visibleCasts = filterMechanicRecasts(name, casts);
-      return { name, casts: visibleCasts, firstSeen: visibleCasts.length ? visibleCasts[0].timestamp : 0 };
+      const recastFiltered = filterMechanicRecasts(name, casts);
+      const visibleCasts = applyOccurrences ? filterMechanicOccurrences(name, recastFiltered) : recastFiltered;
+      return { name, casts: visibleCasts, allCasts: recastFiltered, firstSeen: recastFiltered.length ? recastFiltered[0].timestamp : 0 };
     })
     .sort((a, b) => a.firstSeen - b.firstSeen);
+}
+function parseMechanicOccurrences(text) {
+  const wanted = new Set();
+  String(text || '').split(/[,\s]+/).forEach(part => {
+    const range = part.match(/^(\d+)-(\d+)$/);
+    if (range) { for (let i = Number(range[1]); i <= Math.min(Number(range[2]), Number(range[1]) + 500); i++) wanted.add(i); }
+    else if (/^\d+$/.test(part)) wanted.add(Number(part));
+  });
+  return wanted;
+}
+function filterMechanicOccurrences(name, items) {
+  const wanted = parseMechanicOccurrences(mechanicOccurrences[String(name).toLocaleLowerCase()]);
+  return wanted.size ? items.filter((_, index) => wanted.has(index + 1)) : items;
 }
 function filterMechanicRecasts(name, casts) {
   const ignoreSeconds = getMechanicRecastIgnoreSeconds(name);
@@ -1316,21 +1366,52 @@ function getMechanicRecastIgnoreSeconds(name) {
   const seconds = Number(configured);
   return Number.isFinite(seconds) && seconds >= 0 ? seconds : DEFAULT_MECHANIC_RECAST_IGNORE_SECONDS;
 }
+function renderMechanicsEncounterSelect(fight, primaryId, selectedId) {
+  const select = document.getElementById('mechanics-encounter-select');
+  if (!select) return;
+  const dataset = loadEncounterMechanicsDataset();
+  const options = new Map();
+  if (primaryId) options.set(primaryId, `${(dataset[primaryId] && dataset[primaryId].name) || (fight && fight.name) || `Encounter ${primaryId}`}${fight && String(fight.encounterID) === primaryId ? ' (current log)' : ''}`);
+  Object.values(dataset).sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''))).forEach(encounter => {
+    const id = String(encounter.encounterID);
+    if (!options.has(id)) options.set(id, encounter.name || `Encounter ${id}`);
+  });
+  select.replaceChildren();
+  if (!options.size) select.appendChild(new Option('No encounters saved yet', ''));
+  options.forEach((label, id) => select.appendChild(new Option(label, id)));
+  select.value = selectedId;
+}
 function renderMechanicsList() {
   const container = document.getElementById('mechanics-list-container');
   const fight = getActiveFight();
+  const primaryId = String(fight ? fight.encounterID || '' : activePlanningEncounterId || '');
+  const encounterId = mechanicsModalEncounterId || primaryId || (Object.keys(loadEncounterMechanicsDataset())[0] || '');
+  const viewingActiveFight = !!fight && String(fight.encounterID || '') === encounterId;
   const reloadButton = document.getElementById('reload-mechanics-button');
-  if (reloadButton) reloadButton.disabled = !fight || !fight.encounterID;
-  const rows = getMechanicRows(fight, true);
-  const encounterId = String(fight ? fight.encounterID || '' : activePlanningEncounterId || '');
+  if (reloadButton) reloadButton.disabled = !viewingActiveFight;
+  renderMechanicsEncounterSelect(fight, primaryId, encounterId);
+  const allRows = getMechanicRows(viewingActiveFight ? fight : null, true, encounterId, false);
+  document.querySelectorAll('.mechanics-filter-btn').forEach(button => {
+    const active = button.dataset.mechanicsFilter === mechanicsVisibilityFilter;
+    button.className = `mechanics-filter-btn text-[10px] px-2 py-0.5 rounded transition ${active ? 'bg-ffpurple-600 text-white' : 'text-slate-400 hover:text-slate-200'}`;
+    button.setAttribute('aria-pressed', String(active));
+  });
+  const rows = allRows.filter(row => {
+    const enabled = !hiddenMechanicNames.includes(row.name);
+    return mechanicsVisibilityFilter === 'all' || (mechanicsVisibilityFilter === 'enabled') === enabled;
+  });
   const encounter = encounterId ? loadEncounterMechanicsDataset()[encounterId] : null;
   const count = document.getElementById('mechanic-count');
-  if (count) count.textContent = rows.length;
+  if (count) count.textContent = allRows.length;
   const pullLabel = document.getElementById('mechanics-pull-label');
   if (pullLabel) pullLabel.textContent = encounter
-    ? `${encounter.name || 'Encounter'} · ID ${encounterId} · ${rows.length} saved mechanics across observed pulls`
-    : fight ? `${fight.name} · ${rows.length} boss ${rows.length === 1 ? 'cast' : 'casts'}` : 'Load a report pull or enter an observed encounter ID.';
+    ? `${allRows.length} saved ${allRows.length === 1 ? 'mechanic' : 'mechanics'} · give a mechanic a category to move it onto its own timeline lane`
+    : fight ? `${fight.name} · ${allRows.length} boss ${allRows.length === 1 ? 'cast' : 'casts'}` : 'Load a report pull to see its mechanics.';
   container.innerHTML = '';
+  if (!rows.length && allRows.length) {
+    container.innerHTML = `<div class="text-slate-500 italic text-center py-5">No ${mechanicsVisibilityFilter} mechanics.</div>`;
+    return;
+  }
   if (!rows.length) {
     container.innerHTML = encounter || (fight && timelineEventsCache[fight.id])
       ? '<div class="text-slate-500 italic text-center py-5">No boss casts have been saved for this encounter yet.</div>'
@@ -1344,28 +1425,41 @@ function renderMechanicsList() {
       const o = document.createElement('option'); o.value = v; categoryOptions.appendChild(o);
     });
   }
+  const inputClass = 'w-full bg-slate-950 border border-slate-700 rounded-md px-2 py-1.5 text-xs text-slate-100 placeholder:italic placeholder:text-slate-600';
   rows.forEach(row => {
     const item = document.createElement('div');
-    item.className = 'grid grid-cols-[auto_minmax(0,1fr)_auto_9rem_auto_auto] items-center gap-2 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 hover:border-slate-700';
+    item.className = 'grid grid-cols-[1.25rem_minmax(0,1fr)_7rem_8rem_8rem] items-center gap-2 px-1';
     const toggle = document.createElement('input');
     toggle.type = 'checkbox';
     toggle.checked = !hiddenMechanicNames.includes(row.name);
     toggle.className = 'accent-amber-400';
+    toggle.title = 'Show on timelines';
     toggle.addEventListener('change', () => {
       if (toggle.checked) hiddenMechanicNames = hiddenMechanicNames.filter(name => name !== row.name);
       else if (!hiddenMechanicNames.includes(row.name)) hiddenMechanicNames.push(row.name);
       writeJsonWithDefault(hiddenMechanicNamesKey(), 'fflogs_vod_hidden_mechanics_default', hiddenMechanicNames);
       renderTimeline();
     });
-    const name = document.createElement('span');
-    name.className = 'text-slate-200 truncate';
-    name.textContent = row.name;
-    const castCount = document.createElement('span');
-    castCount.className = 'text-[10px] text-slate-500 font-mono';
-    castCount.textContent = `${row.casts.length} ${row.casts.length === 1 ? 'cast' : 'casts'}`;
-    const recastControl = document.createElement('label');
-    recastControl.className = 'flex items-center gap-1 text-[9px] text-slate-500 whitespace-nowrap';
-    recastControl.appendChild(document.createTextNode('Ignore (s)'));
+    const name = document.createElement('input');
+    name.type = 'text';
+    name.readOnly = true;
+    name.value = row.name;
+    name.title = `${row.name} · ${row.allCasts.length} ${row.allCasts.length === 1 ? 'cast' : 'casts'} · first at ${formatSecondsToMMSS((row.firstSeen - (viewingActiveFight ? fight.startTime : 0)) / 1000)}`;
+    name.className = inputClass + ' cursor-default truncate';
+    const occurrencesInput = document.createElement('input');
+    occurrencesInput.type = 'text';
+    occurrencesInput.placeholder = 'all';
+    occurrencesInput.value = mechanicOccurrences[row.name.toLocaleLowerCase()] || '';
+    occurrencesInput.title = `Which casts of ${row.name} to show, e.g. "1, 2" or "1-3". Leave blank for all ${row.allCasts.length}.`;
+    occurrencesInput.className = inputClass;
+    occurrencesInput.addEventListener('change', () => {
+      const key = row.name.toLocaleLowerCase();
+      const value = occurrencesInput.value.trim();
+      if (parseMechanicOccurrences(value).size) mechanicOccurrences[key] = value; else delete mechanicOccurrences[key];
+      occurrencesInput.value = mechanicOccurrences[key] || '';
+      localStorage.setItem('fflogs_vod_mechanic_occurrences', JSON.stringify(mechanicOccurrences));
+      renderTimeline();
+    });
     const recastInput = document.createElement('input');
     recastInput.type = 'number';
     recastInput.min = '0';
@@ -1374,7 +1468,7 @@ function renderMechanicsList() {
     recastInput.value = getMechanicRecastIgnoreSeconds(row.name);
     recastInput.placeholder = String(DEFAULT_MECHANIC_RECAST_IGNORE_SECONDS);
     recastInput.title = `Ignore same-caster ${row.name} recasts within this many seconds`;
-    recastInput.className = 'w-14 bg-slate-900 border border-slate-800 rounded px-1.5 py-1 font-mono text-slate-200';
+    recastInput.className = inputClass;
     recastInput.addEventListener('change', () => {
       const key = row.name.toLocaleLowerCase();
       const seconds = Number(recastInput.value);
@@ -1386,18 +1480,13 @@ function renderMechanicsList() {
       writeJsonWithDefault(mechanicRecastIgnoreKey(), 'fflogs_vod_mechanic_recast_ignore_default', mechanicRecastIgnoreSeconds);
       renderTimeline();
     });
-    recastControl.appendChild(recastInput);
-    const firstSeen = document.createElement('span');
-    firstSeen.className = 'text-[10px] text-amber-400 font-mono';
-    firstSeen.textContent = formatSecondsToMMSS((row.firstSeen - (fight ? fight.startTime : 0)) / 1000);
-    firstSeen.title = 'First recorded appearance';
     const categoryInput = document.createElement('input');
     categoryInput.type = 'text';
     categoryInput.placeholder = 'Category';
     categoryInput.setAttribute('list', 'mechanic-category-options');
     categoryInput.value = getMechanicCategory(row.name);
     categoryInput.title = `Lane for ${row.name} on the timeline`;
-    categoryInput.className = 'w-full bg-slate-900 border border-slate-800 rounded px-1.5 py-1 text-[11px] text-slate-200';
+    categoryInput.className = inputClass;
     categoryInput.addEventListener('change', () => {
       const key = row.name.toLocaleLowerCase();
       const value = categoryInput.value.trim();
@@ -1405,7 +1494,7 @@ function renderMechanicsList() {
       localStorage.setItem('fflogs_vod_mechanic_categories', JSON.stringify(mechanicCategories));
       renderTimeline();
     });
-    item.append(toggle, name, castCount, categoryInput, recastControl, firstSeen);
+    item.append(toggle, name, occurrencesInput, recastInput, categoryInput);
     container.appendChild(item);
   });
 }
@@ -3018,7 +3107,7 @@ function renderCuratedPlanningTimeline(encounter, container) {
     const castOffsets = (mechanic.castOffsets || []).slice().sort((a, b) => a - b).filter((offset, index, offsets) => {
       return ignoreSeconds <= 0 || index === 0 || offset - offsets[index - 1] > ignoreSeconds;
     });
-    return { ...mechanic, castOffsets };
+    return { ...mechanic, castOffsets: filterMechanicOccurrences(mechanic.name, castOffsets) };
   }).sort((a, b) => {
     const aFirst = a.castOffsets.length ? a.castOffsets[0] : Infinity;
     const bFirst = b.castOffsets.length ? b.castOffsets[0] : Infinity;
