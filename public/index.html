@@ -466,21 +466,15 @@
       <p id="mechanics-pull-label" class="text-[10px] text-slate-500 mt-1.5">Select a pull to load its boss casts.</p>
     </div>
     <div class="px-4 pt-3 shrink-0">
-      <div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Categories</div>
-      <div id="mechanic-category-chips" class="flex flex-wrap items-center gap-1.5 mb-2"></div>
-      <form class="flex items-center gap-2" onsubmit="addMechanicCategory(event)">
-        <input id="mechanic-category-new" type="text" placeholder="New category" maxlength="40" autocomplete="off"
-          class="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded-md px-2 py-1.5 text-xs text-slate-100 placeholder:italic placeholder:text-slate-600">
-        <button type="submit" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-md border border-slate-700 transition"><i class="fa-solid fa-plus"></i> Add</button>
-      </form>
-    </div>
-    <div class="px-4 pt-3 shrink-0">
       <div class="flex items-center justify-between mb-1">
         <div class="text-[10px] uppercase tracking-wider text-slate-500">Mechanics</div>
-        <div class="flex items-center gap-0.5 rounded-md border border-slate-700 bg-slate-950 p-0.5" role="group" aria-label="Filter mechanics">
-          <button type="button" data-mechanics-filter="all" onclick="setMechanicsVisibilityFilter('all')" class="mechanics-filter-btn text-[10px] px-2 py-0.5 rounded">All</button>
-          <button type="button" data-mechanics-filter="enabled" onclick="setMechanicsVisibilityFilter('enabled')" class="mechanics-filter-btn text-[10px] px-2 py-0.5 rounded">Enabled</button>
-          <button type="button" data-mechanics-filter="disabled" onclick="setMechanicsVisibilityFilter('disabled')" class="mechanics-filter-btn text-[10px] px-2 py-0.5 rounded">Disabled</button>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="openMechanicCategoriesModal()" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-1 rounded-md border border-slate-700 transition"><i class="fa-solid fa-tags"></i> Manage categories</button>
+          <div class="flex items-center gap-0.5 rounded-md border border-slate-700 bg-slate-950 p-0.5" role="group" aria-label="Filter mechanics">
+            <button type="button" data-mechanics-filter="all" onclick="setMechanicsVisibilityFilter('all')" class="mechanics-filter-btn text-[10px] px-2 py-0.5 rounded">All</button>
+            <button type="button" data-mechanics-filter="enabled" onclick="setMechanicsVisibilityFilter('enabled')" class="mechanics-filter-btn text-[10px] px-2 py-0.5 rounded">Enabled</button>
+            <button type="button" data-mechanics-filter="disabled" onclick="setMechanicsVisibilityFilter('disabled')" class="mechanics-filter-btn text-[10px] px-2 py-0.5 rounded">Disabled</button>
+          </div>
         </div>
       </div>
       <div class="grid grid-cols-[1.25rem_minmax(0,1fr)_7rem_8rem_8rem] items-center gap-2 px-1 text-[10px] text-slate-500">
@@ -495,6 +489,25 @@
     <div class="p-3 border-t border-slate-800 flex justify-between shrink-0">
       <button id="reload-mechanics-button" onclick="reloadMechanicsFromActivePull()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded border border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed" title="Replace this encounter's saved cast list with fresh casts from the selected pull; mechanic settings are kept"><i class="fa-solid fa-rotate"></i> Reload from pull</button>
       <button onclick="closeMechanicsModal()" class="text-xs bg-ffpurple-600 hover:bg-ffpurple-500 text-white font-medium px-4 py-1.5 rounded">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- MECHANIC CATEGORIES MODAL -->
+<div id="mechanic-categories-modal" class="hidden fixed inset-0 z-[60] modal-backdrop flex items-center justify-center p-4">
+  <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-sm max-h-[80vh] flex flex-col shadow-2xl">
+    <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
+      <h2 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-tags text-amber-400"></i> Manage Categories</h2>
+      <button onclick="closeMechanicCategoriesModal()" class="text-slate-500 hover:text-white" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form class="flex items-center gap-2 px-4 pt-3 shrink-0" onsubmit="addMechanicCategory(event)">
+      <input id="mechanic-category-new" type="text" placeholder="New category" maxlength="40" autocomplete="off"
+        class="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded-md px-2 py-1.5 text-xs text-slate-100 placeholder:italic placeholder:text-slate-600">
+      <button type="submit" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-md border border-slate-700 transition"><i class="fa-solid fa-plus"></i> Add</button>
+    </form>
+    <div id="mechanic-category-chips" class="p-4 overflow-y-auto text-xs space-y-1.5"></div>
+    <div class="p-3 border-t border-slate-800 flex justify-end shrink-0">
+      <button onclick="closeMechanicCategoriesModal()" class="text-xs bg-ffpurple-600 hover:bg-ffpurple-500 text-white font-medium px-4 py-1.5 rounded">Done</button>
     </div>
   </div>
 </div>
@@ -569,8 +582,7 @@ let planningPlayheadSeconds = null;
 let timelinePlayheadOffsetMs = 0;
 let hiddenMechanicNames = [];
 let mechanicCategories = {};
-const DEFAULT_MECHANIC_CATEGORIES = ['Raidwide', 'Tankbuster', 'Stack', 'Spread', 'Knockback', 'Tower', 'Debuff', 'Add', 'Enrage'];
-let mechanicCategoryList = [...DEFAULT_MECHANIC_CATEGORIES];
+let mechanicCategoryList = [];
 let mechanicOccurrences = {};
 let mechanicsModalEncounterId = '';
 let mechanicsVisibilityFilter = 'all';
@@ -610,7 +622,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   loadDefaultTrackedAbilities();
   loadPOVsForCurrentContext();
   try { mechanicCategories = JSON.parse(localStorage.getItem('fflogs_vod_mechanic_categories')) || {}; } catch (e) { mechanicCategories = {}; }
-  try { mechanicCategoryList = JSON.parse(localStorage.getItem('fflogs_vod_mechanic_category_list')) || [...DEFAULT_MECHANIC_CATEGORIES]; } catch (e) { mechanicCategoryList = [...DEFAULT_MECHANIC_CATEGORIES]; }
+  try { mechanicCategoryList = JSON.parse(localStorage.getItem('fflogs_vod_mechanic_category_list')) || []; } catch (e) { mechanicCategoryList = []; }
   try { mechanicOccurrences = JSON.parse(localStorage.getItem('fflogs_vod_mechanic_occurrences')) || {}; } catch (e) { mechanicOccurrences = {}; }
   try { hiddenMechanicNames = JSON.parse(localStorage.getItem('fflogs_vod_hidden_mechanics_default')) || []; } catch (e) { hiddenMechanicNames = []; }
   try { mechanicRecastIgnoreSeconds = JSON.parse(localStorage.getItem('fflogs_vod_mechanic_recast_ignore_default')) || {}; } catch (e) { mechanicRecastIgnoreSeconds = {}; }
@@ -641,7 +653,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   });
   document.addEventListener('keydown', handlePlanningHistoryShortcut);
   document.addEventListener('keydown', event => {
-    if (event.key === 'Escape') { closePlanningCastImportMenu(); closePullFilterMenu(); closeSettingsMenu(); }
+    if (event.key === 'Escape') { closePlanningCastImportMenu(); closePullFilterMenu(); closeSettingsMenu(); closeMechanicCategoriesModal(); }
   });
   document.addEventListener('click', event => {
     if (!event.target.closest('#pull-filter-wrapper')) closePullFilterMenu();
@@ -804,7 +816,7 @@ function refreshSharedConfigState() {
   renderScenarioHelper();
   renderScenarioHelperMode();
   mechanicCategories = readStored('fflogs_vod_mechanic_categories', {});
-  mechanicCategoryList = readStored('fflogs_vod_mechanic_category_list', [...DEFAULT_MECHANIC_CATEGORIES]);
+  mechanicCategoryList = readStored('fflogs_vod_mechanic_category_list', []);
   mechanicOccurrences = readStored('fflogs_vod_mechanic_occurrences', {});
   customMitigationNames = readStored('fflogs_vod_custom_mitigations', []);
   plannedUsages = readStored('fflogs_vod_planned_usages', {});
@@ -1301,11 +1313,17 @@ function setMechanicsVisibilityFilter(filter) {
   mechanicsVisibilityFilter = filter;
   renderMechanicsList();
 }
-function getMechanicCategoryChoices() {
-  const seen = new Set(['main']);
-  return [...mechanicCategoryList, ...Object.values(mechanicCategories)]
+function getMechanicCategoryOrder() {
+  const seen = new Set();
+  const order = [...mechanicCategoryList, 'Main', ...Object.values(mechanicCategories)]
     .map(value => String(value).trim())
-    .filter(value => value && !seen.has(value.toLocaleLowerCase()) && seen.add(value.toLocaleLowerCase()));
+    .filter(value => value && !seen.has(value.toLocaleLowerCase()) && seen.add(value.toLocaleLowerCase()))
+    .map(value => value.toLocaleLowerCase() === 'main' ? 'Main' : value);
+  return order;
+}
+function mechanicCategoryRank(category) {
+  const index = getMechanicCategoryOrder().findIndex(value => value.toLocaleLowerCase() === String(category).toLocaleLowerCase());
+  return index < 0 ? Number.MAX_SAFE_INTEGER : index;
 }
 function saveMechanicCategories() {
   localStorage.setItem('fflogs_vod_mechanic_categories', JSON.stringify(mechanicCategories));
@@ -1316,23 +1334,39 @@ function addMechanicCategory(event) {
   const input = document.getElementById('mechanic-category-new');
   const name = input.value.trim();
   if (!name) return;
-  if (name.toLocaleLowerCase() === 'main' || getMechanicCategoryChoices().some(value => value.toLocaleLowerCase() === name.toLocaleLowerCase())) {
+  const order = getMechanicCategoryOrder();
+  if (order.some(value => value.toLocaleLowerCase() === name.toLocaleLowerCase())) {
     showToast(`"${name}" already exists.`, 'error');
     return;
   }
-  mechanicCategoryList = [...getMechanicCategoryChoices(), name];
+  mechanicCategoryList = [...order, name];
   saveMechanicCategories();
   input.value = '';
+  renderMechanicCategoryChips();
   renderMechanicsList();
+  renderTimeline();
+}
+function moveMechanicCategory(name, direction) {
+  const order = getMechanicCategoryOrder();
+  const index = order.indexOf(name);
+  const target = index + direction;
+  if (index < 0 || target < 0 || target >= order.length) return;
+  [order[index], order[target]] = [order[target], order[index]];
+  mechanicCategoryList = order;
+  saveMechanicCategories();
+  renderMechanicCategoryChips();
+  renderMechanicsList();
+  renderTimeline();
 }
 function removeMechanicCategory(name) {
   const key = name.toLocaleLowerCase();
-  mechanicCategoryList = getMechanicCategoryChoices().filter(value => value.toLocaleLowerCase() !== key);
+  mechanicCategoryList = getMechanicCategoryOrder().filter(value => value.toLocaleLowerCase() !== key);
   Object.keys(mechanicCategories).forEach(mechanic => {
     if (String(mechanicCategories[mechanic]).trim().toLocaleLowerCase() === key) delete mechanicCategories[mechanic];
   });
   saveMechanicCategories();
   renderTimeline();
+  renderMechanicCategoryChips();
   renderMechanicsList();
   showToast(`Removed "${name}"; its mechanics moved back to Main.`, 'success');
 }
@@ -1340,25 +1374,41 @@ function renderMechanicCategoryChips() {
   const container = document.getElementById('mechanic-category-chips');
   if (!container) return;
   container.replaceChildren();
-  const main = document.createElement('span');
-  main.className = 'text-[11px] px-2 py-1 rounded-md bg-slate-950 border border-slate-800 text-slate-400';
-  main.textContent = 'Main';
-  main.title = 'Default lane; cannot be removed';
-  container.appendChild(main);
-  getMechanicCategoryChoices().forEach(name => {
-    const chip = document.createElement('span');
-    chip.className = 'inline-flex items-center gap-1.5 text-[11px] pl-2 pr-1 py-1 rounded-md bg-slate-950 border border-slate-700 text-slate-100';
-    chip.append(document.createTextNode(name));
-    const remove = document.createElement('button');
-    remove.type = 'button';
-    remove.className = 'text-slate-500 hover:text-rose-400 px-1';
-    remove.title = `Remove ${name}`;
-    remove.setAttribute('aria-label', `Remove category ${name}`);
-    remove.innerHTML = '<i class="fa-solid fa-xmark"></i>';
-    remove.addEventListener('click', () => removeMechanicCategory(name));
-    chip.appendChild(remove);
-    container.appendChild(chip);
+  const order = getMechanicCategoryOrder();
+  order.forEach((name, index) => {
+    const isMain = name === 'Main';
+    const row = document.createElement('div');
+    row.className = `flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-md bg-slate-950 border ${isMain ? 'border-slate-800 text-slate-400' : 'border-slate-700 text-slate-100'}`;
+    const label = document.createElement('span');
+    label.className = 'flex-1 truncate';
+    label.textContent = name;
+    const makeButton = (icon, title, disabled, onClick, extraClass = 'hover:text-slate-100') => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `text-slate-500 ${extraClass} px-2 py-1 disabled:opacity-25 disabled:cursor-not-allowed disabled:hover:text-slate-500`;
+      button.title = title;
+      button.setAttribute('aria-label', title);
+      button.disabled = disabled;
+      button.innerHTML = `<i class="fa-solid ${icon}"></i>`;
+      button.addEventListener('click', onClick);
+      return button;
+    };
+    row.append(
+      label,
+      makeButton('fa-chevron-up', `Move ${name} up`, index === 0, () => moveMechanicCategory(name, -1)),
+      makeButton('fa-chevron-down', `Move ${name} down`, index === order.length - 1, () => moveMechanicCategory(name, 1))
+    );
+    if (!isMain) row.appendChild(makeButton('fa-trash-can', `Remove ${name}`, false, () => removeMechanicCategory(name), 'hover:text-rose-400'));
+    container.appendChild(row);
   });
+}
+function openMechanicCategoriesModal() {
+  renderMechanicCategoryChips();
+  document.getElementById('mechanic-categories-modal').classList.remove('hidden');
+  document.getElementById('mechanic-category-new').focus();
+}
+function closeMechanicCategoriesModal() {
+  document.getElementById('mechanic-categories-modal').classList.add('hidden');
 }
 function getMechanicRows(fight, includeEncounterHistory = false, encounterIdOverride = null, applyOccurrences = true) {
   const events = fight && timelineEventsCache[fight.id];
@@ -1461,7 +1511,6 @@ function renderMechanicsList() {
   const reloadButton = document.getElementById('reload-mechanics-button');
   if (reloadButton) reloadButton.disabled = !viewingActiveFight;
   renderMechanicsEncounterSelect(fight, primaryId, encounterId);
-  renderMechanicCategoryChips();
   const allRows = getMechanicRows(viewingActiveFight ? fight : null, true, encounterId, false);
   document.querySelectorAll('.mechanics-filter-btn').forEach(button => {
     const active = button.dataset.mechanicsFilter === mechanicsVisibilityFilter;
@@ -1547,7 +1596,7 @@ function renderMechanicsList() {
     });
     const categoryInput = document.createElement('select');
     const currentCategory = getMechanicCategory(row.name);
-    ['Main', ...getMechanicCategoryChoices()].forEach(category => categoryInput.appendChild(new Option(category, category)));
+    getMechanicCategoryOrder().forEach(category => categoryInput.appendChild(new Option(category, category)));
     categoryInput.value = currentCategory;
     categoryInput.title = `Lane for ${row.name} on the timeline`;
     categoryInput.className = inputClass;
@@ -3857,7 +3906,7 @@ function renderCombatTimeline(fight, container, planningMode = false) {
   pinnedTracks.style.width = `${W}px`;
   pinnedTracks.style.background = '#020617';
   const axisSvg = makeSvg(18);
-  const mechanicCategories = planningMode ? [] : [...new Set(mechanicRows.map(row => getMechanicCategory(row.name)))].sort((a, b) => a.localeCompare(b));
+  const mechanicCategories = planningMode ? [] : [...new Set(mechanicRows.map(row => getMechanicCategory(row.name)))].sort((a, b) => mechanicCategoryRank(a) - mechanicCategoryRank(b) || a.localeCompare(b));
   if (!planningMode && !mechanicCategories.length) mechanicCategories.push('Main');
   const mechanicSvgs = mechanicCategories.map(() => makeSvg(pinnedTrackHeight));
   const deathsSvg = makeSvg(pinnedTrackHeight);
