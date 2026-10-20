@@ -2246,22 +2246,21 @@ function renderPullList() {
   fights.forEach((f, idx) => {
     const pullNum = report.fights.indexOf(f) + 1;
     const durSec = Math.round((f.endTime - f.startTime) / 1000);
-    const clockTime = new Date(report.startTime + f.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const reachedPhase = getFightReachedPhase(f);
     const div = document.createElement('button');
     div.className = 'pull-item w-full text-left bg-slate-950 hover:bg-slate-800/70 border border-slate-800 rounded-lg p-2 transition' + (f.id === activeFightId ? ' active' : '');
     div.onclick = () => selectPull(f.id);
     const statusBadge = f.kill
       ? '<span class="text-[10px] font-bold text-emerald-400 bg-emerald-950/50 px-1.5 py-0.5 rounded border border-emerald-700/40">KILL</span>'
-      : `<span class="text-[10px] font-bold text-rose-400 bg-rose-950/50 px-1.5 py-0.5 rounded border border-rose-700/40">${f.fightPercentage != null ? f.fightPercentage.toFixed(1) + '%' : 'WIPE'}</span>`;
+      : '<span class="text-[10px] font-bold text-rose-400 bg-rose-950/50 px-1.5 py-0.5 rounded border border-rose-700/40">WIPE</span>';
     div.innerHTML = `
       <div class="flex items-center justify-between mb-1">
         <span class="text-xs font-bold text-slate-200">Pull ${pullNum} <span class="text-slate-500 font-normal">· ${escapeHTML(f.name)}</span></span>
         ${statusBadge}
       </div>
       <div class="flex items-center justify-between text-[10px] text-slate-500 font-mono">
-        <span><i class="fa-solid fa-clock"></i> ${clockTime}</span>
-        <span class="flex items-center gap-2"><span class="text-ffcyan-400">${reachedPhase ? escapeHTML(reachedPhase) : ''}</span><span>${formatSecondsToMMSS(durSec)}</span></span>
+        <span>Time ${formatSecondsToMMSS(durSec)}</span>
+        <span class="text-ffcyan-400">${reachedPhase ? escapeHTML(reachedPhase) : ''}</span>
       </div>`;
     container.appendChild(div);
   });
