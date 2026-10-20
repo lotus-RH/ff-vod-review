@@ -4,17 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lotus Review</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-  tailwind.config = {
-    darkMode: 'class',
-    theme: { extend: { colors: {
-      slate: { 850: '#111827', 900: '#0f172a', 950: '#080d1a' },
-      ffpurple: { 400: '#a78bfa', 500: '#8b5cf6', 600: '#7c3aed', 900: '#2e1065' },
-      ffcyan: { 400: '#38bdf8', 500: '#06b6d4', 600: '#0891b2' }
-    } } }
-  };
-</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+<link rel="stylesheet" href="tailwind.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -537,7 +530,7 @@
 <!-- TOASTS -->
 <div id="toast-container" class="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 items-end"></div>
 
-<script src="https://www.youtube.com/iframe_api"></script>
+<script src="https://www.youtube.com/iframe_api" async></script>
 <script>
 /* =========================================================================
    CONFIG / CONSTANTS
@@ -641,7 +634,9 @@ let pollTimer = null;
 window.addEventListener('DOMContentLoaded', async () => {
   // Earlier versions synced setup through a shared server; drop their leftover keys.
   ['fflogs_vod_config_applied', 'fflogs_vod_save_password'].forEach(key => localStorage.removeItem(key));
-  await applyBaseTemplate();
+  // Fetch the starter template in the background; the page renders from local data right away
+  // and refreshes once if the template added anything.
+  const baseTemplateApplied = applyBaseTemplate();
   loadDefaultTrackedAbilities();
   loadPOVsForCurrentContext();
   try { mechanicCategories = JSON.parse(localStorage.getItem('fflogs_vod_mechanic_categories')) || {}; } catch (e) { mechanicCategories = {}; }
@@ -689,6 +684,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     setScenarioHelperMode('use');
   }
   updatePlanningHistoryControls();
+  if (await baseTemplateApplied) refreshSharedConfigState();
   await loadSharedLinkFromUrl();
 });
 
@@ -872,8 +868,18 @@ function mergeEncounterMechanicDatasets(existing, incoming) {
   return merged;
 }
 
-function loadEncounterMechanicsDataset() {
-  try { return JSON.parse(localStorage.getItem(ENCOUNTER_MECHANICS_KEY)) || {}; } catch (e) { return {}; }
+// Parsed copy of the dataset, reused until the stored text changes. Treat the result as read-only;
+// pass fresh = true when you need an object you can modify.
+let encounterDatasetCache = { raw: null, value: {} };
+function loadEncounterMechanicsDataset(fresh = false) {
+  const raw = localStorage.getItem(ENCOUNTER_MECHANICS_KEY);
+  if (fresh || raw !== encounterDatasetCache.raw) {
+    let value = {};
+    try { value = JSON.parse(raw) || {}; } catch (e) { value = {}; }
+    if (fresh) return value;
+    encounterDatasetCache = { raw, value };
+  }
+  return encounterDatasetCache.value;
 }
 
 function saveObservedEncounterMechanics(fight, enemyCasts) {
@@ -912,7 +918,7 @@ function saveObservedEncounterMechanics(fight, enemyCasts) {
 function replaceObservedEncounterMechanics(fight, enemyCasts) {
   if (!fight || !fight.encounterID) return [];
   const encounterId = String(fight.encounterID);
-  const dataset = loadEncounterMechanicsDataset();
+  const dataset = loadEncounterMechanicsDataset(true);
   const existingEncounter = dataset[encounterId] || {};
   const grouped = new Map();
   (enemyCasts || []).filter(event => String(event.type).toLowerCase() === 'cast').forEach(event => {
@@ -1080,6 +1086,7 @@ function buildShareUrl() {
   url.search = '';
   url.hash = '';
   if (report) url.searchParams.set('report', report.code);
+  const reportPlayers = new Set(getPOVPlayerOrder().map(n => n.toLocaleLowerCase()));
   const seen = new Set();
   const unmatched = [];
   povs.forEach(pov => {
@@ -1091,7 +1098,7 @@ function buildShareUrl() {
     });
     if (!ids.length) return;
     const name = String(pov.player || '').trim();
-    if (name && (!report || povNumberForPlayer(name) > 0)) url.searchParams.append(name, ids.join(','));
+    if (name && (!report || reportPlayers.has(name.toLocaleLowerCase()))) url.searchParams.append(name, ids.join(','));
     else unmatched.push(...ids);
   });
   if (unmatched.length) url.searchParams.append('channel', unmatched.join(','));
@@ -1930,8 +1937,7 @@ async function loadReport(code, { refresh = false } = {}) {
   }
 }
 
-// POV numbers: report players sorted by role (tanks, healers, melee, ranged, casters) then name.
-// The same list on any machine gives the same numbers, so links can say "pov3" instead of a name.
+// Report players sorted by role (tanks, healers, melee, ranged, casters) then name; used by legacy pov<N> links.
 function getPOVPlayerOrder() {
   if (!report) return [];
   const seen = new Set();
@@ -1940,11 +1946,6 @@ function getPOVPlayerOrder() {
     .filter(p => p.name && !seen.has(p.name.toLocaleLowerCase()) && seen.add(p.name.toLocaleLowerCase()))
     .sort((a, b) => compareJobsByRole(a.job, b.job) || a.name.localeCompare(b.name))
     .map(p => p.name);
-}
-function povNumberForPlayer(name) {
-  const key = String(name || '').trim().toLocaleLowerCase();
-  const index = getPOVPlayerOrder().findIndex(n => n.toLocaleLowerCase() === key);
-  return index < 0 ? 0 : index + 1;
 }
 
 // Finds the POV for a report player, creating it (with the player's job) if it doesn't exist yet.
@@ -2412,9 +2413,7 @@ function doLoadAndSeek(videoId, seconds, segmentId) {
 function ensurePolling() {
   if (pollTimer) return;
   pollTimer = setInterval(() => {
-    if (!ytReady || !ytPlayer || !ytPlayer.getCurrentTime) return;
-    let vSec = 0;
-    try { vSec = ytPlayer.getCurrentTime(); } catch (e) { return; }
+    if (document.hidden || !ytReady || !ytPlayer || !ytPlayer.getCurrentTime) return;
     const fight = getActiveFight();
     if (fight) updateTimelinePlayhead(getTimelinePlaybackOffsetMs(fight));
   }, 500);

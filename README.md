@@ -98,6 +98,19 @@ Network tab. Find the request to `/api/fflogs`:
 Push changes to `public/index.html` in the GitHub repo as before — Cloudflare
 redeploys automatically on every push.
 
+### Editing the styles
+
+The page uses a precompiled stylesheet, `public/tailwind.css`, instead of the
+Tailwind runtime (much faster to load and render). If you add or change Tailwind
+classes in `public/index.html`, regenerate it and commit the result:
+
+```
+npm install
+npm run build:css
+```
+
+Theme colours live in `tailwind.config.js`.
+
 The **Helper** page has separate **Create** and **Use** modes. Create reusable
 scenarios by defining button groups and mapping state combinations to titled
 reminders or callouts; in Use mode, click the buttons to show matching output.
