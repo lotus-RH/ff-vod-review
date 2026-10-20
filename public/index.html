@@ -464,7 +464,15 @@
       <select id="mechanics-encounter-select" onchange="selectMechanicsEncounter(this.value)" aria-label="Encounter"
         class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100"></select>
       <p id="mechanics-pull-label" class="text-[10px] text-slate-500 mt-1.5">Select a pull to load its boss casts.</p>
-      <datalist id="mechanic-category-options"></datalist>
+    </div>
+    <div class="px-4 pt-3 shrink-0">
+      <div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Categories</div>
+      <div id="mechanic-category-chips" class="flex flex-wrap items-center gap-1.5 mb-2"></div>
+      <form class="flex items-center gap-2" onsubmit="addMechanicCategory(event)">
+        <input id="mechanic-category-new" type="text" placeholder="New category" maxlength="40" autocomplete="off"
+          class="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded-md px-2 py-1.5 text-xs text-slate-100 placeholder:italic placeholder:text-slate-600">
+        <button type="submit" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-md border border-slate-700 transition"><i class="fa-solid fa-plus"></i> Add</button>
+      </form>
     </div>
     <div class="px-4 pt-3 shrink-0">
       <div class="flex items-center justify-between mb-1">
@@ -561,6 +569,8 @@ let planningPlayheadSeconds = null;
 let timelinePlayheadOffsetMs = 0;
 let hiddenMechanicNames = [];
 let mechanicCategories = {};
+const DEFAULT_MECHANIC_CATEGORIES = ['Raidwide', 'Tankbuster', 'Stack', 'Spread', 'Knockback', 'Tower', 'Debuff', 'Add', 'Enrage'];
+let mechanicCategoryList = [...DEFAULT_MECHANIC_CATEGORIES];
 let mechanicOccurrences = {};
 let mechanicsModalEncounterId = '';
 let mechanicsVisibilityFilter = 'all';
@@ -600,6 +610,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   loadDefaultTrackedAbilities();
   loadPOVsForCurrentContext();
   try { mechanicCategories = JSON.parse(localStorage.getItem('fflogs_vod_mechanic_categories')) || {}; } catch (e) { mechanicCategories = {}; }
+  try { mechanicCategoryList = JSON.parse(localStorage.getItem('fflogs_vod_mechanic_category_list')) || [...DEFAULT_MECHANIC_CATEGORIES]; } catch (e) { mechanicCategoryList = [...DEFAULT_MECHANIC_CATEGORIES]; }
   try { mechanicOccurrences = JSON.parse(localStorage.getItem('fflogs_vod_mechanic_occurrences')) || {}; } catch (e) { mechanicOccurrences = {}; }
   try { hiddenMechanicNames = JSON.parse(localStorage.getItem('fflogs_vod_hidden_mechanics_default')) || []; } catch (e) { hiddenMechanicNames = []; }
   try { mechanicRecastIgnoreSeconds = JSON.parse(localStorage.getItem('fflogs_vod_mechanic_recast_ignore_default')) || {}; } catch (e) { mechanicRecastIgnoreSeconds = {}; }
@@ -793,6 +804,7 @@ function refreshSharedConfigState() {
   renderScenarioHelper();
   renderScenarioHelperMode();
   mechanicCategories = readStored('fflogs_vod_mechanic_categories', {});
+  mechanicCategoryList = readStored('fflogs_vod_mechanic_category_list', [...DEFAULT_MECHANIC_CATEGORIES]);
   mechanicOccurrences = readStored('fflogs_vod_mechanic_occurrences', {});
   customMitigationNames = readStored('fflogs_vod_custom_mitigations', []);
   plannedUsages = readStored('fflogs_vod_planned_usages', {});
@@ -1289,6 +1301,65 @@ function setMechanicsVisibilityFilter(filter) {
   mechanicsVisibilityFilter = filter;
   renderMechanicsList();
 }
+function getMechanicCategoryChoices() {
+  const seen = new Set(['main']);
+  return [...mechanicCategoryList, ...Object.values(mechanicCategories)]
+    .map(value => String(value).trim())
+    .filter(value => value && !seen.has(value.toLocaleLowerCase()) && seen.add(value.toLocaleLowerCase()));
+}
+function saveMechanicCategories() {
+  localStorage.setItem('fflogs_vod_mechanic_categories', JSON.stringify(mechanicCategories));
+  localStorage.setItem('fflogs_vod_mechanic_category_list', JSON.stringify(mechanicCategoryList));
+}
+function addMechanicCategory(event) {
+  event.preventDefault();
+  const input = document.getElementById('mechanic-category-new');
+  const name = input.value.trim();
+  if (!name) return;
+  if (name.toLocaleLowerCase() === 'main' || getMechanicCategoryChoices().some(value => value.toLocaleLowerCase() === name.toLocaleLowerCase())) {
+    showToast(`"${name}" already exists.`, 'error');
+    return;
+  }
+  mechanicCategoryList = [...getMechanicCategoryChoices(), name];
+  saveMechanicCategories();
+  input.value = '';
+  renderMechanicsList();
+}
+function removeMechanicCategory(name) {
+  const key = name.toLocaleLowerCase();
+  mechanicCategoryList = getMechanicCategoryChoices().filter(value => value.toLocaleLowerCase() !== key);
+  Object.keys(mechanicCategories).forEach(mechanic => {
+    if (String(mechanicCategories[mechanic]).trim().toLocaleLowerCase() === key) delete mechanicCategories[mechanic];
+  });
+  saveMechanicCategories();
+  renderTimeline();
+  renderMechanicsList();
+  showToast(`Removed "${name}"; its mechanics moved back to Main.`, 'success');
+}
+function renderMechanicCategoryChips() {
+  const container = document.getElementById('mechanic-category-chips');
+  if (!container) return;
+  container.replaceChildren();
+  const main = document.createElement('span');
+  main.className = 'text-[11px] px-2 py-1 rounded-md bg-slate-950 border border-slate-800 text-slate-400';
+  main.textContent = 'Main';
+  main.title = 'Default lane; cannot be removed';
+  container.appendChild(main);
+  getMechanicCategoryChoices().forEach(name => {
+    const chip = document.createElement('span');
+    chip.className = 'inline-flex items-center gap-1.5 text-[11px] pl-2 pr-1 py-1 rounded-md bg-slate-950 border border-slate-700 text-slate-100';
+    chip.append(document.createTextNode(name));
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'text-slate-500 hover:text-rose-400 px-1';
+    remove.title = `Remove ${name}`;
+    remove.setAttribute('aria-label', `Remove category ${name}`);
+    remove.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+    remove.addEventListener('click', () => removeMechanicCategory(name));
+    chip.appendChild(remove);
+    container.appendChild(chip);
+  });
+}
 function getMechanicRows(fight, includeEncounterHistory = false, encounterIdOverride = null, applyOccurrences = true) {
   const events = fight && timelineEventsCache[fight.id];
   const encounterId = String(encounterIdOverride != null ? encounterIdOverride : fight ? fight.encounterID || '' : activePlanningEncounterId || '');
@@ -1390,6 +1461,7 @@ function renderMechanicsList() {
   const reloadButton = document.getElementById('reload-mechanics-button');
   if (reloadButton) reloadButton.disabled = !viewingActiveFight;
   renderMechanicsEncounterSelect(fight, primaryId, encounterId);
+  renderMechanicCategoryChips();
   const allRows = getMechanicRows(viewingActiveFight ? fight : null, true, encounterId, false);
   document.querySelectorAll('.mechanics-filter-btn').forEach(button => {
     const active = button.dataset.mechanicsFilter === mechanicsVisibilityFilter;
@@ -1418,14 +1490,7 @@ function renderMechanicsList() {
       : '<div class="text-slate-500 italic text-center py-5">Boss casts load automatically when a pull is selected.</div>';
     return;
   }
-  const categoryOptions = document.getElementById('mechanic-category-options');
-  if (categoryOptions) {
-    categoryOptions.innerHTML = '';
-    [...new Set(Object.values(mechanicCategories).map(v => String(v).trim()).filter(Boolean))].sort().forEach(v => {
-      const o = document.createElement('option'); o.value = v; categoryOptions.appendChild(o);
-    });
-  }
-  const inputClass = 'w-full bg-slate-950 border border-slate-700 rounded-md px-2 py-1.5 text-xs text-slate-100 placeholder:italic placeholder:text-slate-600';
+  const inputClass =  'w-full bg-slate-950 border border-slate-700 rounded-md px-2 py-1.5 text-xs text-slate-100 placeholder:italic placeholder:text-slate-600';
   rows.forEach(row => {
     const item = document.createElement('div');
     item.className = 'grid grid-cols-[1.25rem_minmax(0,1fr)_7rem_8rem_8rem] items-center gap-2 px-1';
@@ -1480,18 +1545,17 @@ function renderMechanicsList() {
       writeJsonWithDefault(mechanicRecastIgnoreKey(), 'fflogs_vod_mechanic_recast_ignore_default', mechanicRecastIgnoreSeconds);
       renderTimeline();
     });
-    const categoryInput = document.createElement('input');
-    categoryInput.type = 'text';
-    categoryInput.placeholder = 'Category';
-    categoryInput.setAttribute('list', 'mechanic-category-options');
-    categoryInput.value = getMechanicCategory(row.name);
+    const categoryInput = document.createElement('select');
+    const currentCategory = getMechanicCategory(row.name);
+    ['Main', ...getMechanicCategoryChoices()].forEach(category => categoryInput.appendChild(new Option(category, category)));
+    categoryInput.value = currentCategory;
     categoryInput.title = `Lane for ${row.name} on the timeline`;
     categoryInput.className = inputClass;
     categoryInput.addEventListener('change', () => {
       const key = row.name.toLocaleLowerCase();
-      const value = categoryInput.value.trim();
-      if (value) mechanicCategories[key] = value; else delete mechanicCategories[key];
-      localStorage.setItem('fflogs_vod_mechanic_categories', JSON.stringify(mechanicCategories));
+      const value = categoryInput.value;
+      if (value && value !== 'Main') mechanicCategories[key] = value; else delete mechanicCategories[key];
+      saveMechanicCategories();
       renderTimeline();
     });
     item.append(toggle, name, occurrencesInput, recastInput, categoryInput);
