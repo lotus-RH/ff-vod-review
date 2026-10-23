@@ -2246,15 +2246,18 @@ function renderPullList() {
   fights.forEach((f, idx) => {
     const pullNum = report.fights.indexOf(f) + 1;
     const durSec = Math.round((f.endTime - f.startTime) / 1000);
-    const div = document.createElement('button');
-    div.className = 'pull-item w-full text-left bg-slate-950 hover:bg-slate-800/70 border border-slate-800 rounded-lg px-2 py-1.5 transition' + (f.id === activeFightId ? ' active' : '');
-    div.onclick = () => selectPull(f.id);
+    const div = document.createElement('div');
+    div.className = 'pull-item w-full flex items-center gap-1.5 bg-slate-950 hover:bg-slate-800/70 border border-slate-800 rounded-lg px-2 py-1.5 transition' + (f.id === activeFightId ? ' active' : '');
     const phaseBadge = `<span class="text-[10px] font-bold text-ffcyan-400 bg-cyan-950/50 px-1.5 py-0.5 rounded border border-cyan-700/40">P${getFightReachedPhaseId(f)}</span>`;
     div.innerHTML = `
-      <div class="flex items-center justify-between gap-2 min-w-0">
+      <button type="button" class="min-w-0 flex-1 text-left">
+        <span class="flex items-center justify-between gap-2 min-w-0">
         <span class="min-w-0 flex-1 flex items-center gap-1 text-xs font-bold text-slate-200"><span class="shrink-0">Pull ${pullNum}</span><span class="truncate text-slate-500 font-normal">· ${escapeHTML(f.name)}</span></span>
         <span class="shrink-0 flex items-center gap-1.5 text-[10px] font-mono text-slate-500"><span>${formatSecondsToMMSS(durSec)}</span>${phaseBadge}</span>
-      </div>`;
+        </span>
+      </button>
+      <a href="https://www.fflogs.com/reports/${encodeURIComponent(report.code)}?fight=${encodeURIComponent(f.id)}" target="_blank" rel="noopener noreferrer" class="shrink-0 text-slate-500 hover:text-ffcyan-300 p-1" title="Open Pull ${pullNum} in FFLogs" aria-label="Open Pull ${pullNum} in FFLogs"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>`;
+    div.querySelector('button').onclick = () => selectPull(f.id);
     container.appendChild(div);
   });
 }
