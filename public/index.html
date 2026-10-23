@@ -398,10 +398,10 @@
     </div>
     <div class="p-4 space-y-3 text-xs">
 
-      <div class="border-t border-slate-800 pt-3 mt-1">
+      <div class="pt-3 mt-1">
         <h3 class="font-bold text-sm flex items-center gap-2 mb-1.5"><i class="fa-solid fa-floppy-disk text-ffcyan-400"></i> Backup</h3>
-        <p class="text-slate-400 leading-relaxed">Everything you set up — tracked abilities, mechanic categories, planned cooldown placements and Helper scenarios — is saved only in this browser. Nothing is shared with anyone else. Backups and the base config never include specific logs or POVs — share those with a link instead (?report=CODE&amp;channel=YOUTUBE_URL). Download a backup to keep a copy or move to another browser, then import it there. To change the starter template new visitors get, replace <code>public/vod-review-config.json</code> in the repo with a downloaded backup.</p>
-        <input id="import-setup-file" type="file" accept="application/json,.json" class="hidden" onchange="importSetupBackup(this)">
+          <p class="text-slate-400 leading-relaxed">Everything you set up — abilities, mechanics, planning timelines and helper scenarios — is saved only in this browser and is importable/exportable via the buttons below. To share the setup of POVs/Logs use the share link button (unfortunately it can be long). The base-config will be maintained when I can be bothered to :3.</p>
+          <input id="import-setup-file" type="file" accept="application/json,.json" class="hidden" onchange="importSetupBackup(this)">
         <div class="flex justify-end gap-2 mt-2">
           <button id="reload-base-config-button" onclick="reloadFromBaseConfig()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded border border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed" title="Replace matching values in this browser with the site's base config"><i class="fa-solid fa-rotate"></i> Reload base config</button>
           <button onclick="document.getElementById('import-setup-file').click()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded border border-slate-700" title="Restore a setup from a backup file; matching values in this browser are replaced"><i class="fa-solid fa-file-arrow-up"></i> Import backup</button>
